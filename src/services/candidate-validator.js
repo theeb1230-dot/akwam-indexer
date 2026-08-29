@@ -1,4 +1,6 @@
-const axios = require("axios");
+const {
+  safeGet
+} = require("./safe-media-request");
 const {
   classifyFailure
 } = require("./failure-classifier");
@@ -100,9 +102,6 @@ async function validateCandidate(
   candidate,
   options = {}
 ) {
-  const request =
-    options.request || axios;
-
   const timeoutMs =
     Number(
       options.timeoutMs || 8000
@@ -133,10 +132,8 @@ async function validateCandidate(
       candidate.type ===
         "external_player";
 
-    const response =
-      await request.get(url, {
+    const requestConfig = {
         timeout: timeoutMs,
-        maxRedirects: 5,
         responseType:
           isEmbed
             ? "text"
@@ -167,7 +164,19 @@ async function validateCandidate(
             status < 400
           );
         }
-      });
+      };
+
+    const response =
+      options.request
+        ? await options.request.get(
+            url,
+            requestConfig
+          )
+        : await safeGet(
+            url,
+            requestConfig,
+            { maxRedirects: 5 }
+          );
 
     const contentType =
       String(
