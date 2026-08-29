@@ -141,3 +141,15 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+
+# Theeb runtime data
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/episodes/
+data/watch/
+data/*.json
+
+# Local development backups
+*.bak-*

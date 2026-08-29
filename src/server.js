@@ -1,4 +1,5 @@
 const express = require("express");
+const { version: VERSION } = require("../package.json");
 
 const providers = require("./providers");
 const jobs = require("./services/job-manager");
@@ -207,7 +208,7 @@ app.get(
         "Theeb Engine",
 
       version:
-        "0.9.0",
+        VERSION,
 
       status:
         "online",
@@ -609,7 +610,7 @@ app.listen(
   () => {
     console.log("");
     console.log(
-      "🐺 THEEB ENGINE v0.10.0"
+      `🐺 THEEB ENGINE v${VERSION}`
     );
     console.log(
       `🚀 http://localhost:${PORT}`

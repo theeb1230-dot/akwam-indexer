@@ -1,23 +1,33 @@
 {
   "name": "akwam-indexer",
   "version": "1.0.0",
-  "description": "Backend indexer and media catalog experiment",
-  "main": "index.js",
+  "description": "Theeb Engine multi-provider media indexer and resolver",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/theeb1230-dot/akwam-indexer.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "theeb",
+    "indexer",
+    "media",
+    "multi-provider"
+  ],
+  "author": "Arab_Theeb",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/theeb1230-dot/akwam-indexer/issues"
   },
   "homepage": "https://github.com/theeb1230-dot/akwam-indexer#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "axios": "^1.20.0",
     "better-sqlite3": "^13.0.3",
