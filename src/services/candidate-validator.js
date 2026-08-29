@@ -23,6 +23,79 @@ function targetUrl(candidate) {
   );
 }
 
+async function verifyMediaBytes(data) {
+  if (
+    Buffer.isBuffer(data) ||
+    data instanceof Uint8Array
+  ) {
+    if (data.length === 0) {
+      throw new Error(
+        "INVALID_MEDIA empty response"
+      );
+    }
+
+    return data.length;
+  }
+
+  if (
+    !data ||
+    typeof data.on !== "function"
+  ) {
+    throw new Error(
+      "INVALID_MEDIA missing response body"
+    );
+  }
+
+  return new Promise(
+    (resolve, reject) => {
+      let settled = false;
+
+      const finish = value => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        data.destroy?.();
+        resolve(value);
+      };
+
+      data.once("data", chunk => {
+        const size =
+          Buffer.byteLength(chunk);
+
+        if (size > 0) {
+          finish(size);
+        }
+      });
+
+      data.once("end", () => {
+        if (!settled) {
+          reject(
+            new Error(
+              "INVALID_MEDIA empty response"
+            )
+          );
+        }
+      });
+
+      data.once("error", error => {
+        if (!settled) {
+          reject(error);
+        }
+      });
+    }
+  );
+}
+
+function diagnostic(error) {
+  return String(
+    error?.message || "Unknown error"
+  )
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .slice(0, 180);
+}
+
 async function validateCandidate(
   candidate,
   options = {}
@@ -48,6 +121,7 @@ async function validateCandidate(
         candidate.type === "embed"
           ? "EMBED_UNAVAILABLE"
           : "INVALID_MEDIA",
+      detail: "Candidate has no target URL",
       latency_ms: 0,
       validation_scope: "none"
     };
@@ -66,7 +140,7 @@ async function validateCandidate(
         responseType:
           isEmbed
             ? "text"
-            : "arraybuffer",
+            : "stream",
         headers:
           isEmbed
             ? {
@@ -86,7 +160,7 @@ async function validateCandidate(
         maxContentLength:
           isEmbed
             ? 512 * 1024
-            : 64 * 1024,
+            : Infinity,
         validateStatus(status) {
           return (
             status >= 200 &&
@@ -114,7 +188,9 @@ async function validateCandidate(
     ) {
       const error =
         new Error(
-          "INVALID_MEDIA content-type"
+          `INVALID_MEDIA content-type: ${
+            contentType || "missing"
+          }`
         );
 
       error.status =
@@ -122,6 +198,13 @@ async function validateCandidate(
 
       throw error;
     }
+
+    const sampledBytes =
+      isEmbed
+        ? null
+        : await verifyMediaBytes(
+            response.data
+          );
 
     return {
       status: "healthy",
@@ -131,6 +214,8 @@ async function validateCandidate(
         Date.now() - started,
       content_type:
         contentType || null,
+      sampled_bytes:
+        sampledBytes,
       validation_scope:
         isEmbed
           ? "embed_page_reachable"
@@ -144,10 +229,16 @@ async function validateCandidate(
           error,
           candidate
         ),
+      detail:
+        diagnostic(error),
       http_status:
         error.response?.status ||
         error.status ||
         null,
+      content_type:
+        error.response?.headers?.[
+          "content-type"
+        ] || null,
       latency_ms:
         Date.now() - started,
       validation_scope:
@@ -160,5 +251,6 @@ async function validateCandidate(
 
 module.exports = {
   targetUrl,
+  verifyMediaBytes,
   validateCandidate
 };
