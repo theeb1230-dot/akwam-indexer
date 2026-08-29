@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "live:test": "node scripts/live-playback-validation.js"
   },
   "repository": {
     "type": "git",

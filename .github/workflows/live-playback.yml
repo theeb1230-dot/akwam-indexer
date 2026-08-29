@@ -1,0 +1,31 @@
+name: Live Playback Validation
+
+on:
+  push:
+    branches:
+      - "phase-2/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lucky-live-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Lucky E1 E2 E3 E5 E7
+        run: npm run live:test

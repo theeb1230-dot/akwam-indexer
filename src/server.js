@@ -14,6 +14,7 @@ const searchRouter = require("./routes/search");
 const resolveRouter = require("./routes/resolve");
 const episodeResolveRouter = require("./routes/episode-resolve");
 const canonicalRouter = require("./routes/canonical");
+const playbackRouter = require("./routes/playback");
 
 const app = express();
 
@@ -566,6 +567,11 @@ app.get(
 app.use(
   "/api/canonical",
   canonicalRouter
+);
+
+app.use(
+  "/api/playback",
+  playbackRouter
 );
 
 app.use(

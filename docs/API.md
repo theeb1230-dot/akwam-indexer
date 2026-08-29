@@ -58,3 +58,10 @@
 - `GET /api/canonical/episodes/:id/playback`
 
 يقوم Series Resolver بمزامنة الأعمال والحلقات مع قاعدة Canonical، ويقوم Episode Resolver بحفظ معرفات مرشحي التشغيل وترتيب Fallback دون تخزين روابط Direct المؤقتة.
+
+
+## Live Playback Execution
+
+`GET /api/playback/execute?q=Lucky&group_key=series:lucky&season=1&episode=1`
+
+ينفذ الخطة فعلًا بالترتيب الديناميكي، ويتجاوز Circuit Open، ويطبق Retry Policy ويسجل كل محاولة. التحقق من Direct يعني قراءة Media bytes عبر Range. التحقق من Embed يعني وصول صفحة التضمين فقط؛ نجاح تشغيل الفيديو داخل WebView يحتاج لاحقًا Telemetry من تطبيق ذيب.
