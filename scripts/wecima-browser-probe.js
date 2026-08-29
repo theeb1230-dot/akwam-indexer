@@ -8,6 +8,12 @@ const {
   "../src/services/episode-resolver"
 );
 
+const {
+  recordVerification
+} = require(
+  "../src/services/playback-verification-store"
+);
+
 function delay(ms) {
   return new Promise(
     resolve =>
@@ -489,6 +495,17 @@ async function main() {
         candidate.embed_url
       );
 
+    const result =
+      await probe(
+        candidate.embed_url
+      );
+
+    const stored =
+      recordVerification(
+        candidate,
+        result
+      );
+
     results.push({
       provider:
         candidate.provider,
@@ -496,10 +513,17 @@ async function main() {
         candidate.server,
       hostname:
         parsed.hostname,
-      result:
-        await probe(
-          candidate.embed_url
-        )
+      result,
+      stored_health: {
+        health_state:
+          stored.health_state,
+        checked_at:
+          stored.checked_at,
+        fresh:
+          stored.fresh,
+        age_seconds:
+          stored.age_seconds
+      }
     });
 
     if (
