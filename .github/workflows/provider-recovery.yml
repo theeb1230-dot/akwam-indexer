@@ -33,10 +33,15 @@ jobs:
       - name: Diagnose Akwam TLS
         run: node scripts/akwam-tls-diagnostic.js
 
-      - name: Verify WeCima E1 in Chromium
+      - name: Verify WeCima E1-E7 in Chromium
         id: browser_probe
         continue-on-error: true
-        run: node scripts/wecima-browser-probe.js
+        run: |
+          failed=0
+          for episode in 1 2 3 4 5 6 7; do
+            EPISODE="$episode" node scripts/wecima-browser-probe.js || failed=1
+          done
+          exit "$failed"
 
       - name: Trace Lucky playback resolution
         run: npm run live:test
