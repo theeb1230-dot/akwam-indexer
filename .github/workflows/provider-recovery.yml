@@ -33,5 +33,16 @@ jobs:
       - name: Diagnose Akwam TLS
         run: node scripts/akwam-tls-diagnostic.js
 
+      - name: Verify WeCima E1 in Chromium
+        id: browser_probe
+        continue-on-error: true
+        run: node scripts/wecima-browser-probe.js
+
       - name: Trace Lucky playback resolution
         run: npm run live:test
+
+      - name: Require browser verification
+        if: steps.browser_probe.outcome != 'success'
+        run: |
+          echo "WeCima browser playback was not verified."
+          exit 1
