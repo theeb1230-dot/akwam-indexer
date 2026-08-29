@@ -1,0 +1,785 @@
+const providers = require("../providers");
+
+const DEFAULT_TIMEOUT = 15000;
+const MIN_PUBLIC_SCORE = 35;
+
+/*
+ * ------------------------------------------------------------
+ * NORMALIZATION
+ * ------------------------------------------------------------
+ */
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+
+    /*
+     * إزالة التشكيل العربي.
+     */
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+
+    /*
+     * توحيد بعض الحروف العربية.
+     */
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/ة/g, "ه")
+
+    /*
+     * إزالة الرموز.
+     */
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+
+    /*
+     * مسافات نظيفة.
+     */
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeQuery(value) {
+  return normalizeText(value);
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * TITLE CLEANING
+ *
+ * نحذف كلمات الموسم والحلقة عند حساب هوية العمل.
+ * ------------------------------------------------------------
+ */
+
+function baseTitle(value) {
+  return normalizeText(value)
+
+    .replace(
+      /\bseason\s*\d+\b/gi,
+      " "
+    )
+
+    .replace(
+      /\bs\d+\b/gi,
+      " "
+    )
+
+    .replace(
+      /الموسم\s+(الاول|الاولى|الثاني|الثانيه|الثالث|الثالثه|الرابع|الرابعه|الخامس|الخامسه|السادس|السادسه|السابع|السابعه|الثامن|الثامنه|التاسع|التاسعه|العاشر|\d+)/g,
+      " "
+    )
+
+    .replace(
+      /الحلقه\s*\d+/g,
+      " "
+    )
+
+    /*
+     * كلمات وصفية لا تدخل في هوية العمل.
+     */
+    .replace(
+      /\b(مسلسل|فيلم|برنامج|series|movie|show)\b/gi,
+      " "
+    )
+
+    .replace(
+      /\b(مترجم|مترجمه|مدبلج|مدبلجه|كامل|كامله|hd|fullhd|webdl|webrip)\b/gi,
+      " "
+    )
+
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * TOKENS
+ * ------------------------------------------------------------
+ */
+
+function tokens(value) {
+  return new Set(
+    normalizeText(value)
+      .split(" ")
+      .map(item => item.trim())
+      .filter(item => item.length > 1)
+  );
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * MATCH SCORE
+ *
+ * 100 = مطابق جدًا
+ * 0   = لا يوجد دليل كافٍ
+ * ------------------------------------------------------------
+ */
+
+function calculateMatchScore(
+  query,
+  title
+) {
+  const q =
+    normalizeText(query);
+
+  const t =
+    normalizeText(title);
+
+  if (!q || !t) {
+    return 0;
+  }
+
+  if (q === t) {
+    return 100;
+  }
+
+  const qb =
+    baseTitle(q);
+
+  const tb =
+    baseTitle(t);
+
+  if (
+    qb &&
+    tb &&
+    qb === tb
+  ) {
+    return 98;
+  }
+
+  const qTokensArray =
+    Array.from(
+      tokens(qb || q)
+    );
+
+  const tTokensArray =
+    Array.from(
+      tokens(tb || t)
+    );
+
+  if (
+    qTokensArray.length === 0 ||
+    tTokensArray.length === 0
+  ) {
+    return 0;
+  }
+
+  const qTokenSet =
+    new Set(qTokensArray);
+
+  const tTokenSet =
+    new Set(tTokensArray);
+
+  let common = 0;
+
+  for (const token of qTokenSet) {
+    if (tTokenSet.has(token)) {
+      common++;
+    }
+  }
+
+  const recall =
+    common /
+    qTokenSet.size;
+
+  const precision =
+    common /
+    tTokenSet.size;
+
+  /*
+   * حالة مهمة:
+   *
+   * query: Lucky
+   * title: Lucky Hank
+   * title: Lucky Strike
+   *
+   * وجود كلمة لاتينية إضافية يعني غالباً
+   * عملاً مختلفاً، فلا نعطيه Strong.
+   *
+   * لكن:
+   *
+   * query: Summertime
+   * title: فصل الصيف Summertime
+   *
+   * الكلمات العربية الإضافية قد تكون ترجمة
+   * لنفس الاسم، فنسمح بدرجة قوية.
+   */
+  const queryIsSingleLatin =
+    qTokensArray.length === 1 &&
+    /^[a-z0-9]+$/i.test(
+      qTokensArray[0]
+    );
+
+  if (
+    queryIsSingleLatin &&
+    tTokenSet.has(
+      qTokensArray[0]
+    )
+  ) {
+    const extraTokens =
+      tTokensArray.filter(
+        token =>
+          !qTokenSet.has(token)
+      );
+
+    const extraLatin =
+      extraTokens.filter(
+        token =>
+          /^[a-z0-9]+$/i.test(token)
+      );
+
+    if (extraLatin.length > 0) {
+      return 45;
+    }
+
+    /*
+     * لا توجد كلمات لاتينية إضافية.
+     * قد تكون الإضافات ترجمة عربية للاسم.
+     */
+    return 95;
+  }
+
+  /*
+   * لو العنوان الأساسي يحتوي الاستعلام
+   * ولكن معه كلمات فعلية إضافية،
+   * لا نعطيه 95 تلقائياً.
+   */
+  if (
+    qb &&
+    tb &&
+    tb.includes(qb) &&
+    recall === 1
+  ) {
+    const extraCount =
+      Math.max(
+        0,
+        tTokenSet.size -
+        qTokenSet.size
+      );
+
+    if (extraCount === 0) {
+      return 98;
+    }
+
+    return Math.max(
+      55,
+      90 - extraCount * 10
+    );
+  }
+
+  const score =
+    recall * 70 +
+    precision * 30;
+
+  return Math.round(score);
+}
+
+/*
+ * ------------------------------------------------------------
+ * CLASSIFICATION
+ * ------------------------------------------------------------
+ */
+
+function classifyScore(score) {
+  if (score >= 90) {
+    return "strong";
+  }
+
+  if (score >= 65) {
+    return "good";
+  }
+
+  if (score >= 35) {
+    return "possible";
+  }
+
+  return "weak";
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * TIMEOUT
+ * ------------------------------------------------------------
+ */
+
+function withTimeout(
+  promise,
+  ms
+) {
+  let timer;
+
+  const timeout =
+    new Promise(
+      (_, reject) => {
+        timer =
+          setTimeout(() => {
+            reject(
+              new Error(
+                "SEARCH_TIMEOUT"
+              )
+            );
+          }, ms);
+      }
+    );
+
+  return Promise.race([
+    promise,
+    timeout
+  ]).finally(() => {
+    clearTimeout(timer);
+  });
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * SEARCH ONE PROVIDER
+ * ------------------------------------------------------------
+ */
+
+async function searchProvider(
+  name,
+  provider,
+  query
+) {
+  const startedAt =
+    Date.now();
+
+  try {
+    const raw =
+      await withTimeout(
+        provider.search(query),
+        DEFAULT_TIMEOUT
+      );
+
+    const items =
+      Array.isArray(raw)
+        ? raw
+        : [];
+
+    const ranked =
+      items
+        .map(item => {
+          /*
+           * بعض المصادر مثل Q-Ask قد تعرض
+           * عنواناً عربياً، بينما slug يحتفظ
+           * بالاسم الأصلي الإنجليزي/التركي.
+           *
+           * لذلك نحسب أفضل تطابق من:
+           * - title
+           * - provider_series_id
+           * - source_url
+           */
+          const scores = [
+            calculateMatchScore(
+              query,
+              item.title
+            ),
+
+            calculateMatchScore(
+              query,
+              item.provider_series_id
+            ),
+
+            calculateMatchScore(
+              query,
+              item.source_url
+            )
+          ];
+
+          const matchScore =
+            Math.max(
+              ...scores
+            );
+
+          return {
+            ...item,
+
+            match_score:
+              matchScore,
+
+            match_level:
+              classifyScore(
+                matchScore
+              )
+          };
+        })
+
+        .sort(
+          (a, b) =>
+            b.match_score -
+            a.match_score
+        );
+
+    return {
+      provider: name,
+
+      ok: true,
+
+      duration_ms:
+        Date.now() -
+        startedAt,
+
+      raw_count:
+        items.length,
+
+      count:
+        ranked.length,
+
+      items:
+        ranked
+    };
+  } catch (error) {
+    return {
+      provider: name,
+
+      ok: false,
+
+      duration_ms:
+        Date.now() -
+        startedAt,
+
+      raw_count: 0,
+      count: 0,
+
+      items: [],
+
+      error:
+        error.message
+    };
+  }
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * BASIC DEDUPLICATION
+ *
+ * نفس provider + provider_series_id
+ * لا يظهر مرتين.
+ * ------------------------------------------------------------
+ */
+
+function deduplicate(items) {
+  const seen =
+    new Set();
+
+  const output = [];
+
+  for (const item of items) {
+    const key =
+      `${item.provider}:${item.provider_series_id}`;
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    output.push(item);
+  }
+
+  return output;
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * GROUPING
+ *
+ * تجميع النتائج المتشابهة تحت عمل واحد مبدئيًا.
+ *
+ * هذا ليس دمجًا نهائيًا في قاعدة البيانات.
+ * فقط View Model للبحث.
+ * ------------------------------------------------------------
+ */
+
+function buildGroupKey(title) {
+  const base =
+    baseTitle(title);
+
+  return base ||
+    normalizeText(title);
+}
+
+function groupResults(items, query) {
+  const groups =
+    new Map();
+
+  const queryKey =
+    buildGroupKey(query);
+
+  for (const item of items) {
+    /*
+     * إذا النتيجة Strong بالنسبة لنفس بحث المستخدم،
+     * نستخدم استعلام البحث نفسه كمفتاح Canonical مبدئي.
+     *
+     * مثال:
+     * Summertime
+     * مسلسل فصل الصيف Summertime مترجم
+     *
+     * كلاهما يصبحان داخل نفس المجموعة.
+     */
+    const contentType =
+      item.type === "movie"
+        ? "movie"
+        : "series";
+
+    const titleKey =
+      (
+        item.match_score >= 90 &&
+        queryKey
+      )
+        ? queryKey
+        : buildGroupKey(
+            item.title
+          );
+
+    /*
+     * نوع المحتوى جزء من الهوية.
+     *
+     * movie:lucky
+     * series:lucky
+     *
+     * لا يمكن أن يندمجا.
+     */
+    const key =
+      `${contentType}:${titleKey}`;
+
+    if (!key) {
+      continue;
+    }
+
+    if (!groups.has(key)) {
+      groups.set(
+        key,
+        {
+          group_key:
+            key,
+
+          canonical_key:
+            titleKey,
+
+          content_type:
+            contentType,
+
+          title:
+            item.title,
+
+          best_match_score:
+            item.match_score || 0,
+
+          best_match_level:
+            item.match_level || "weak",
+
+          providers: [],
+
+          source_count: 0
+        }
+      );
+    }
+
+    const group =
+      groups.get(key);
+
+    group.providers.push(
+      item
+    );
+
+    group.source_count =
+      group.providers.length;
+
+    if (
+      (item.match_score || 0) >
+      group.best_match_score
+    ) {
+      group.best_match_score =
+        item.match_score || 0;
+
+      group.best_match_level =
+        item.match_level || "weak";
+
+      group.title =
+        item.title;
+    }
+  }
+
+  return Array.from(
+    groups.values()
+  ).sort(
+    (a, b) =>
+      b.best_match_score -
+      a.best_match_score
+  );
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * SEARCH ALL
+ * ------------------------------------------------------------
+ */
+
+async function searchAll(query) {
+  const originalQuery =
+    String(query || "")
+      .trim();
+
+  const q =
+    normalizeQuery(
+      originalQuery
+    );
+
+  if (!q) {
+    throw new Error(
+      "SEARCH_QUERY_REQUIRED"
+    );
+  }
+
+  const searchable =
+    providers.searchable();
+
+  if (
+    searchable.length === 0
+  ) {
+    return {
+      query:
+        originalQuery,
+
+      normalized_query:
+        q,
+
+      searched_providers: 0,
+      successful_providers: 0,
+      failed_providers: 0,
+
+      raw_count: 0,
+      count: 0,
+
+      provider_results: [],
+      results: []
+    };
+  }
+
+  /*
+   * جميع Providers القابلة للبحث
+   * تعمل بالتوازي.
+   */
+  const settled =
+    await Promise.all(
+      searchable.map(
+        ({
+          name,
+          provider
+        }) =>
+          searchProvider(
+            name,
+            provider,
+            originalQuery
+          )
+      )
+    );
+
+  /*
+   * نجمع كل النتائج.
+   */
+  const rawResults =
+    settled.flatMap(
+      result =>
+        result.items.map(
+          item => ({
+            ...item,
+
+            search_provider:
+              result.provider
+          })
+        )
+    );
+
+  /*
+   * Dedup ثم ترتيب حسب الثقة.
+   */
+  const ranked =
+    deduplicate(
+      rawResults
+    ).sort(
+      (a, b) =>
+        b.match_score -
+        a.match_score
+    );
+
+  /*
+   * النتائج العامة التي يشاهدها المستخدم.
+   *
+   * weak لا نحذفها نهائيًا:
+   * تبقى في provider_results للتشخيص.
+   */
+  const publicResults =
+    ranked.filter(
+      item =>
+        item.match_score >=
+        MIN_PUBLIC_SCORE
+    );
+
+  const groups =
+    groupResults(
+      publicResults,
+      originalQuery
+    );
+
+  return {
+    query:
+      originalQuery,
+
+    normalized_query:
+      q,
+
+    searched_providers:
+      settled.length,
+
+    successful_providers:
+      settled.filter(
+        item => item.ok
+      ).length,
+
+    failed_providers:
+      settled.filter(
+        item => !item.ok
+      ).length,
+
+    raw_count:
+      ranked.length,
+
+    count:
+      publicResults.length,
+
+    group_count:
+      groups.length,
+
+    provider_results:
+      settled,
+
+    results:
+      publicResults,
+
+    groups
+  };
+}
+
+
+/*
+ * ------------------------------------------------------------
+ * EXPORTS
+ * ------------------------------------------------------------
+ */
+
+module.exports = {
+  searchAll,
+  calculateMatchScore,
+  normalizeText,
+  baseTitle,
+  groupResults
+};

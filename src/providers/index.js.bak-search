@@ -1,0 +1,189 @@
+const akwam = require("./akwam");
+const arabseed = require("./arabseed");
+const wecima = require("./wecima");
+const shahid4u = require("./shahid4u");
+const lodynet = require("./lodynet");
+const qask = require("./qask");
+const cimaleek = require("./cimaleek");
+const laaroza = require("./laaroza");
+
+class ProviderRegistry {
+  constructor() {
+    this.providers = new Map();
+  }
+
+  normalizeName(name) {
+    return String(name || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  validate(name, provider) {
+    const key = this.normalizeName(name);
+
+    if (!key) {
+      throw new Error("Provider name is required");
+    }
+
+    if (!provider) {
+      throw new Error(
+        `Provider instance is required: ${key}`
+      );
+    }
+
+    const requiredMethods = [
+      "getSeries",
+      "getEpisode"
+    ];
+
+    const missingMethods =
+      requiredMethods.filter(
+        method =>
+          typeof provider[method] !==
+          "function"
+      );
+
+    if (missingMethods.length > 0) {
+      throw new Error(
+        `Invalid provider "${key}": missing ${missingMethods.join(", ")}`
+      );
+    }
+
+    return key;
+  }
+
+  register(name, provider) {
+    const key =
+      this.validate(name, provider);
+
+    if (this.providers.has(key)) {
+      throw new Error(
+        `Provider already registered: ${key}`
+      );
+    }
+
+    this.providers.set(
+      key,
+      provider
+    );
+
+    return provider;
+  }
+
+  get(name) {
+    const key =
+      this.normalizeName(name);
+
+    const provider =
+      this.providers.get(key);
+
+    if (!provider) {
+      throw new Error(
+        `Unknown provider: ${name}`
+      );
+    }
+
+    return provider;
+  }
+
+  has(name) {
+    return this.providers.has(
+      this.normalizeName(name)
+    );
+  }
+
+  list() {
+    return Array.from(
+      this.providers.keys()
+    );
+  }
+
+  entries() {
+    return Array.from(
+      this.providers.entries()
+    ).map(([name, provider]) => ({
+      name,
+      provider
+    }));
+  }
+
+  describe(name) {
+    const key =
+      this.normalizeName(name);
+
+    const provider =
+      this.get(key);
+
+    return {
+      name: key,
+
+      display_name:
+        provider.name || key,
+
+      capabilities: {
+        series:
+          typeof provider.getSeries ===
+          "function",
+
+        episode:
+          typeof provider.getEpisode ===
+          "function",
+
+        watch:
+          typeof provider.getWatchInfo ===
+          "function"
+      }
+    };
+  }
+
+  describeAll() {
+    return this.list().map(
+      name => this.describe(name)
+    );
+  }
+}
+
+const registry =
+  new ProviderRegistry();
+
+registry.register(
+  "akwam",
+  akwam
+);
+
+registry.register(
+  "arabseed",
+  arabseed
+);
+
+registry.register(
+  "wecima",
+  wecima
+);
+
+registry.register(
+  "shahid4u",
+  shahid4u
+);
+
+registry.register(
+  "lodynet",
+  lodynet
+);
+
+registry.register(
+  "qask",
+  qask
+);
+
+registry.register(
+  "cimaleek",
+  cimaleek
+);
+
+registry.register(
+  "laaroza",
+  laaroza
+);
+
+module.exports = registry;

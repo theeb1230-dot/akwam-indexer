@@ -1,0 +1,27 @@
+{
+  "name": "akwam-indexer",
+  "version": "1.0.0",
+  "description": "Backend indexer and media catalog experiment",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theeb1230-dot/akwam-indexer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/theeb1230-dot/akwam-indexer/issues"
+  },
+  "homepage": "https://github.com/theeb1230-dot/akwam-indexer#readme",
+  "dependencies": {
+    "axios": "^1.20.0",
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "express": "^5.2.1"
+  }
+}

@@ -1,0 +1,711 @@
+const db = require("./database");
+
+/*
+ * ============================================================
+ * THEEB / QASHT CANONICAL DATABASE
+ * ============================================================
+ *
+ * المرحلة الانتقالية:
+ *
+ * الجداول القديمة:
+ *   series
+ *   episodes
+ *   watch_options
+ *
+ * تبقى موجودة حتى ننقل الـImporter والـAPI عليها تدريجيًا.
+ *
+ * الجداول الجديدة:
+ *
+ * canonical_series
+ *   └── provider_series
+ *
+ * canonical_episodes
+ *   └── provider_episodes
+ *       └── playback_options
+ *
+ * legacy_series_map / legacy_episode_map
+ * تستخدم فقط لربط البيانات القديمة بالجديدة أثناء الهجرة.
+ * ============================================================
+ */
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS series (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL,
+  provider_series_id TEXT NOT NULL,
+  title TEXT,
+  description TEXT,
+  image TEXT,
+  language TEXT,
+  quality TEXT,
+  country TEXT,
+  year TEXT,
+  source_url TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(provider, provider_series_id)
+);
+
+CREATE TABLE IF NOT EXISTS episodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  series_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  provider_episode_id TEXT NOT NULL,
+  episode_number INTEGER,
+  title TEXT,
+  description TEXT,
+  image TEXT,
+  source_url TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(provider, provider_episode_id),
+
+  FOREIGN KEY(series_id)
+    REFERENCES series(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS watch_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  episode_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  watch_id TEXT NOT NULL,
+  quality TEXT,
+  page_url TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(provider, watch_id),
+
+  FOREIGN KEY(episode_id)
+    REFERENCES episodes(id)
+    ON DELETE CASCADE
+);
+
+
+/* ============================================================
+ * CANONICAL SERIES
+ * العمل الحقيقي داخل قاشط.
+ * لا يرتبط بأي Provider محدد.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS canonical_series (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  title TEXT NOT NULL,
+  original_title TEXT,
+
+  description TEXT,
+  image TEXT,
+
+  content_type TEXT NOT NULL DEFAULT 'series',
+
+  language TEXT,
+  country TEXT,
+  year TEXT,
+
+  status TEXT NOT NULL DEFAULT 'ready',
+
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+/* ============================================================
+ * PROVIDER SERIES
+ * يمثل وجود نفس العمل لدى مصدر معيّن.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS provider_series (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  canonical_series_id INTEGER NOT NULL,
+
+  provider TEXT NOT NULL,
+  provider_series_id TEXT NOT NULL,
+
+  provider_title TEXT,
+
+  source_url TEXT,
+
+  quality TEXT,
+
+  confidence REAL NOT NULL DEFAULT 1.0,
+
+  is_primary INTEGER NOT NULL DEFAULT 0,
+
+  metadata_json TEXT,
+
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(provider, provider_series_id),
+
+  FOREIGN KEY(canonical_series_id)
+    REFERENCES canonical_series(id)
+    ON DELETE CASCADE
+);
+
+
+/* ============================================================
+ * CANONICAL EPISODES
+ * الحلقة نفسها بصرف النظر عن المصدر.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS canonical_episodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  canonical_series_id INTEGER NOT NULL,
+
+  season_number INTEGER NOT NULL DEFAULT 1,
+  episode_number INTEGER,
+
+  title TEXT,
+  description TEXT,
+  image TEXT,
+
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(
+    canonical_series_id,
+    season_number,
+    episode_number
+  ),
+
+  FOREIGN KEY(canonical_series_id)
+    REFERENCES canonical_series(id)
+    ON DELETE CASCADE
+);
+
+
+/* ============================================================
+ * PROVIDER EPISODES
+ * نسخة الحلقة لدى كل Provider.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS provider_episodes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  canonical_episode_id INTEGER NOT NULL,
+  provider_series_id INTEGER,
+
+  provider TEXT NOT NULL,
+  provider_episode_id TEXT NOT NULL,
+
+  source_url TEXT,
+
+  confidence REAL NOT NULL DEFAULT 1.0,
+
+  metadata_json TEXT,
+
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(provider, provider_episode_id),
+
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE,
+
+  FOREIGN KEY(provider_series_id)
+    REFERENCES provider_series(id)
+    ON DELETE SET NULL
+);
+
+
+/* ============================================================
+ * PLAYBACK OPTIONS
+ *
+ * لا نخزن direct_url الدائم هنا لأن الرابط قد يكون مؤقتًا.
+ *
+ * watch_id + provider يسمحان لـResolver باستخراج رابط جديد
+ * لحظة اختيار المستخدم:
+ *
+ *   مشاهدة
+ * أو
+ *   تحميل
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS playback_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  provider_episode_id INTEGER NOT NULL,
+
+  provider TEXT NOT NULL,
+  watch_id TEXT NOT NULL,
+
+  quality TEXT,
+
+  page_url TEXT,
+
+  media_type TEXT,
+
+  can_watch INTEGER NOT NULL DEFAULT 1,
+  can_download INTEGER NOT NULL DEFAULT 1,
+
+  priority INTEGER NOT NULL DEFAULT 100,
+
+  status TEXT NOT NULL DEFAULT 'active',
+
+  last_success_at TEXT,
+  last_failure_at TEXT,
+
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(provider, watch_id),
+
+  FOREIGN KEY(provider_episode_id)
+    REFERENCES provider_episodes(id)
+    ON DELETE CASCADE
+);
+
+
+/* ============================================================
+ * MIGRATION MAPS
+ *
+ * تحفظ العلاقة مع الجداول القديمة.
+ * هذا يجعل الترحيل idempotent:
+ * تشغيل schema.js أكثر من مرة لن يكرر المحتوى.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS legacy_series_map (
+  legacy_series_id INTEGER PRIMARY KEY,
+  canonical_series_id INTEGER NOT NULL,
+
+  FOREIGN KEY(legacy_series_id)
+    REFERENCES series(id)
+    ON DELETE CASCADE,
+
+  FOREIGN KEY(canonical_series_id)
+    REFERENCES canonical_series(id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS legacy_episode_map (
+  legacy_episode_id INTEGER PRIMARY KEY,
+  canonical_episode_id INTEGER NOT NULL,
+
+  FOREIGN KEY(legacy_episode_id)
+    REFERENCES episodes(id)
+    ON DELETE CASCADE,
+
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE
+);
+
+
+/* ============================================================
+ * INDEXES
+ * ============================================================
+ */
+
+CREATE INDEX IF NOT EXISTS idx_series_provider
+ON series(provider, provider_series_id);
+
+CREATE INDEX IF NOT EXISTS idx_episodes_series
+ON episodes(series_id);
+
+CREATE INDEX IF NOT EXISTS idx_episodes_provider
+ON episodes(provider, provider_episode_id);
+
+CREATE INDEX IF NOT EXISTS idx_watch_episode
+ON watch_options(episode_id);
+
+
+CREATE INDEX IF NOT EXISTS idx_canonical_series_title
+ON canonical_series(title);
+
+CREATE INDEX IF NOT EXISTS idx_canonical_series_status
+ON canonical_series(status);
+
+CREATE INDEX IF NOT EXISTS idx_provider_series_canonical
+ON provider_series(canonical_series_id);
+
+CREATE INDEX IF NOT EXISTS idx_provider_series_provider
+ON provider_series(provider, provider_series_id);
+
+CREATE INDEX IF NOT EXISTS idx_canonical_episode_series
+ON canonical_episodes(canonical_series_id);
+
+CREATE INDEX IF NOT EXISTS idx_canonical_episode_number
+ON canonical_episodes(
+  canonical_series_id,
+  season_number,
+  episode_number
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_episode_canonical
+ON provider_episodes(canonical_episode_id);
+
+CREATE INDEX IF NOT EXISTS idx_provider_episode_provider
+ON provider_episodes(provider, provider_episode_id);
+
+CREATE INDEX IF NOT EXISTS idx_playback_provider_episode
+ON playback_options(provider_episode_id);
+
+CREATE INDEX IF NOT EXISTS idx_playback_provider
+ON playback_options(provider, watch_id);
+
+CREATE INDEX IF NOT EXISTS idx_playback_status
+ON playback_options(status);
+`);
+
+
+/*
+ * ============================================================
+ * LEGACY -> CANONICAL MIGRATION
+ *
+ * مهم:
+ * لا نحاول الآن دمج مسلسلين متشابهين بالاسم تلقائيًا.
+ *
+ * كل مسلسل قديم يحصل مؤقتًا على Canonical مستقل.
+ *
+ * لاحقًا Search Matcher هو المسؤول عن معرفة أن:
+ *
+ * Akwam: وادي الذئاب
+ * Qask:  وادي الذئاب الكمين
+ *
+ * قد يكونان نفس العمل أو لا.
+ *
+ * لا نريد تخمينات خطرة أثناء migration.
+ * ============================================================
+ */
+
+const migrateLegacy = db.transaction(() => {
+  const legacySeries = db.prepare(`
+    SELECT *
+    FROM series
+    ORDER BY id
+  `).all();
+
+  const getSeriesMap = db.prepare(`
+    SELECT canonical_series_id
+    FROM legacy_series_map
+    WHERE legacy_series_id = ?
+  `);
+
+  const insertCanonicalSeries = db.prepare(`
+    INSERT INTO canonical_series (
+      title,
+      description,
+      image,
+      language,
+      country,
+      year,
+      status
+    )
+    VALUES (?, ?, ?, ?, ?, ?, 'ready')
+  `);
+
+  const insertSeriesMap = db.prepare(`
+    INSERT OR IGNORE INTO legacy_series_map (
+      legacy_series_id,
+      canonical_series_id
+    )
+    VALUES (?, ?)
+  `);
+
+  const insertProviderSeries = db.prepare(`
+    INSERT OR IGNORE INTO provider_series (
+      canonical_series_id,
+      provider,
+      provider_series_id,
+      provider_title,
+      source_url,
+      quality,
+      confidence,
+      is_primary
+    )
+    VALUES (?, ?, ?, ?, ?, ?, 1.0, 1)
+  `);
+
+  for (const item of legacySeries) {
+    let map = getSeriesMap.get(item.id);
+
+    let canonicalSeriesId;
+
+    if (map) {
+      canonicalSeriesId = map.canonical_series_id;
+    } else {
+      const result = insertCanonicalSeries.run(
+        item.title || `Untitled ${item.id}`,
+        item.description || null,
+        item.image || null,
+        item.language || null,
+        item.country || null,
+        item.year || null
+      );
+
+      canonicalSeriesId =
+        Number(result.lastInsertRowid);
+
+      insertSeriesMap.run(
+        item.id,
+        canonicalSeriesId
+      );
+    }
+
+    insertProviderSeries.run(
+      canonicalSeriesId,
+      item.provider,
+      item.provider_series_id,
+      item.title || null,
+      item.source_url || null,
+      item.quality || null
+    );
+  }
+
+
+  const legacyEpisodes = db.prepare(`
+    SELECT
+      e.*,
+      s.provider_series_id
+    FROM episodes e
+
+    JOIN series s
+      ON s.id = e.series_id
+
+    ORDER BY e.id
+  `).all();
+
+  const getEpisodeMap = db.prepare(`
+    SELECT canonical_episode_id
+    FROM legacy_episode_map
+    WHERE legacy_episode_id = ?
+  `);
+
+  const getCanonicalSeriesFromLegacy = db.prepare(`
+    SELECT canonical_series_id
+    FROM legacy_series_map
+    WHERE legacy_series_id = ?
+  `);
+
+  const getProviderSeries = db.prepare(`
+    SELECT id
+    FROM provider_series
+    WHERE provider = ?
+      AND provider_series_id = ?
+  `);
+
+  const insertCanonicalEpisode = db.prepare(`
+    INSERT INTO canonical_episodes (
+      canonical_series_id,
+      season_number,
+      episode_number,
+      title,
+      description,
+      image
+    )
+    VALUES (?, 1, ?, ?, ?, ?)
+  `);
+
+  const insertEpisodeMap = db.prepare(`
+    INSERT OR IGNORE INTO legacy_episode_map (
+      legacy_episode_id,
+      canonical_episode_id
+    )
+    VALUES (?, ?)
+  `);
+
+  const insertProviderEpisode = db.prepare(`
+    INSERT OR IGNORE INTO provider_episodes (
+      canonical_episode_id,
+      provider_series_id,
+      provider,
+      provider_episode_id,
+      source_url,
+      confidence
+    )
+    VALUES (?, ?, ?, ?, ?, 1.0)
+  `);
+
+  for (const episode of legacyEpisodes) {
+    let episodeMap =
+      getEpisodeMap.get(episode.id);
+
+    let canonicalEpisodeId;
+
+    if (episodeMap) {
+      canonicalEpisodeId =
+        episodeMap.canonical_episode_id;
+    } else {
+      const seriesMap =
+        getCanonicalSeriesFromLegacy.get(
+          episode.series_id
+        );
+
+      if (!seriesMap) {
+        continue;
+      }
+
+      const result =
+        insertCanonicalEpisode.run(
+          seriesMap.canonical_series_id,
+          episode.episode_number ?? null,
+          episode.title || null,
+          episode.description || null,
+          episode.image || null
+        );
+
+      canonicalEpisodeId =
+        Number(result.lastInsertRowid);
+
+      insertEpisodeMap.run(
+        episode.id,
+        canonicalEpisodeId
+      );
+    }
+
+    const providerSeries =
+      getProviderSeries.get(
+        episode.provider,
+        episode.provider_series_id
+      );
+
+    insertProviderEpisode.run(
+      canonicalEpisodeId,
+      providerSeries
+        ? providerSeries.id
+        : null,
+      episode.provider,
+      episode.provider_episode_id,
+      episode.source_url || null
+    );
+  }
+
+
+  /*
+   * نقل خيارات التشغيل القديمة.
+   */
+
+  const legacyWatch = db.prepare(`
+    SELECT
+      w.*,
+      e.provider_episode_id
+    FROM watch_options w
+
+    JOIN episodes e
+      ON e.id = w.episode_id
+
+    ORDER BY w.id
+  `).all();
+
+  const getProviderEpisode = db.prepare(`
+    SELECT id
+    FROM provider_episodes
+    WHERE provider = ?
+      AND provider_episode_id = ?
+  `);
+
+  const insertPlayback = db.prepare(`
+    INSERT OR IGNORE INTO playback_options (
+      provider_episode_id,
+      provider,
+      watch_id,
+      quality,
+      page_url,
+      media_type,
+      can_watch,
+      can_download,
+      priority,
+      status
+    )
+    VALUES (
+      ?,
+      ?,
+      ?,
+      ?,
+      ?,
+      NULL,
+      1,
+      1,
+      100,
+      'active'
+    )
+  `);
+
+  for (const watch of legacyWatch) {
+    const providerEpisode =
+      getProviderEpisode.get(
+        watch.provider,
+        watch.provider_episode_id
+      );
+
+    if (!providerEpisode) {
+      continue;
+    }
+
+    insertPlayback.run(
+      providerEpisode.id,
+      watch.provider,
+      watch.watch_id,
+      watch.quality || null,
+      watch.page_url || null
+    );
+  }
+});
+
+migrateLegacy();
+
+
+/*
+ * ============================================================
+ * SUMMARY
+ * ============================================================
+ */
+
+const stats = {
+  legacy_series:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM series"
+    ).get().count,
+
+  canonical_series:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM canonical_series"
+    ).get().count,
+
+  provider_series:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM provider_series"
+    ).get().count,
+
+  legacy_episodes:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM episodes"
+    ).get().count,
+
+  canonical_episodes:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM canonical_episodes"
+    ).get().count,
+
+  provider_episodes:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM provider_episodes"
+    ).get().count,
+
+  legacy_watch_options:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM watch_options"
+    ).get().count,
+
+  playback_options:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM playback_options"
+    ).get().count
+};
+
+console.log("✅ Database schema ready");
+console.log("🐺 Canonical database ready");
+console.log(stats);
+
+module.exports = db;

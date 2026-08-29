@@ -1,0 +1,682 @@
+const axios = require("axios");
+const cheerio = require("cheerio");
+
+class QAskProvider {
+  constructor() {
+    this.id = "qask";
+    this.name = "Q-Ask";
+    this.baseUrl = "https://far.q-ask.video";
+
+    this.http = axios.create({
+      timeout: 20000,
+      maxRedirects: 5,
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "ar,en;q=0.8"
+      }
+    });
+  }
+
+  cleanText(value) {
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  normalizeUrl(value) {
+    if (!value) return null;
+
+    const raw = String(value).trim();
+
+    if (!raw) return null;
+
+    if (
+      raw.startsWith("data:") ||
+      raw.startsWith("javascript:")
+    ) {
+      return null;
+    }
+
+    try {
+      return new URL(raw, this.baseUrl).href;
+    } catch {
+      return null;
+    }
+  }
+
+  normalizeCompareText(value) {
+    return this.cleanText(value)
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim();
+  }
+
+  slugTokens(slug) {
+    return String(slug || "")
+      .toLowerCase()
+      .split("-")
+      .map(x => x.trim())
+      .filter(x => x.length >= 3);
+  }
+
+  extractEpisodeNumber(url) {
+    try {
+      const pathname =
+        new URL(url, this.baseUrl).pathname;
+
+      const match =
+        pathname.match(/-e(\d+)\/?$/i);
+
+      return match
+        ? Number(match[1])
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  extractSeriesSlug(url) {
+    try {
+      const pathname =
+        new URL(url, this.baseUrl).pathname;
+
+      const match =
+        pathname.match(
+          /\/video-(.+?)-e\d+\/?$/i
+        );
+
+      return match
+        ? match[1]
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async fetchPage(url) {
+    const response =
+      await this.http.get(url);
+
+    if (response.status !== 200) {
+      throw new Error(
+        `Q-Ask returned HTTP ${response.status}`
+      );
+    }
+
+    return {
+      html: response.data,
+
+      finalUrl:
+        response.request?.res?.responseUrl ||
+        url
+    };
+  }
+
+  getImageCandidate($img) {
+    const attributes = [
+      "data-src",
+      "data-lazy-src",
+      "data-original",
+      "data-srcset",
+      "src"
+    ];
+
+    for (const attribute of attributes) {
+      let value =
+        $img.attr(attribute);
+
+      if (!value) continue;
+
+      value =
+        String(value)
+          .split(",")[0]
+          .trim()
+          .split(/\s+/)[0];
+
+      const url =
+        this.normalizeUrl(value);
+
+      if (url) {
+        return url;
+      }
+    }
+
+    return null;
+  }
+
+  scoreImageCandidate(
+    url,
+    alt,
+    seriesSlug
+  ) {
+    if (!url) {
+      return -1000;
+    }
+
+    const combined =
+      this.normalizeCompareText(
+        `${url} ${alt || ""}`
+      );
+
+    const tokens =
+      this.slugTokens(seriesSlug);
+
+    let score = 0;
+
+    for (const token of tokens) {
+      const normalizedToken =
+        this.normalizeCompareText(token);
+
+      if (
+        normalizedToken &&
+        combined.includes(normalizedToken)
+      ) {
+        score += 10;
+      }
+    }
+
+    const lowerUrl =
+      url.toLowerCase();
+
+    if (
+      lowerUrl.includes(
+        String(seriesSlug || "")
+          .toLowerCase()
+      )
+    ) {
+      score += 100;
+    }
+
+    if (
+      /wp-content\/uploads/i.test(url)
+    ) {
+      score += 5;
+    }
+
+    if (
+      /560x315|300x169|150x150/i.test(url)
+    ) {
+      score -= 2;
+    }
+
+    return score;
+  }
+
+  extractImage(
+    $,
+    pageUrl,
+    seriesSlug
+  ) {
+    const candidates = [];
+
+    const metaCandidates = [
+      $('meta[property="og:image"]')
+        .attr("content"),
+
+      $('meta[name="twitter:image"]')
+        .attr("content")
+    ];
+
+    for (const candidate of metaCandidates) {
+      const url =
+        this.normalizeUrl(candidate);
+
+      if (!url) continue;
+
+      candidates.push({
+        url,
+        alt: "",
+        score:
+          this.scoreImageCandidate(
+            url,
+            "",
+            seriesSlug
+          )
+      });
+    }
+
+    $("img").each((_, element) => {
+      const $img =
+        $(element);
+
+      const url =
+        this.getImageCandidate($img);
+
+      if (!url) return;
+
+      const alt =
+        this.cleanText(
+          $img.attr("alt")
+        );
+
+      candidates.push({
+        url,
+        alt,
+        score:
+          this.scoreImageCandidate(
+            url,
+            alt,
+            seriesSlug
+          )
+      });
+    });
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    candidates.sort(
+      (a, b) =>
+        b.score - a.score
+    );
+
+    return candidates[0].url;
+  }
+
+  extractDescription($) {
+    const candidates = [
+      $('meta[property="og:description"]')
+        .attr("content"),
+
+      $('meta[name="description"]')
+        .attr("content"),
+
+      $(".entry-content p")
+        .first()
+        .text(),
+
+      $("article p")
+        .first()
+        .text()
+    ];
+
+    for (const candidate of candidates) {
+      const text =
+        this.cleanText(candidate);
+
+      if (text) {
+        return text;
+      }
+    }
+
+    return null;
+  }
+
+  extractRawTitle($) {
+    return (
+      this.cleanText(
+        $('meta[property="og:title"]')
+          .attr("content")
+      ) ||
+      this.cleanText(
+        $("h1").first().text()
+      ) ||
+      this.cleanText(
+        $("title").text()
+      )
+    );
+  }
+
+  extractSeriesTitle(
+    $,
+    seriesSlug
+  ) {
+    const rawTitle =
+      this.extractRawTitle($);
+
+    if (rawTitle) {
+      let title = rawTitle;
+
+      title = title.replace(
+        /\s*(?:الحلقة|حلقة)\s*(?:رقم\s*)?\d+.*$/i,
+        ""
+      );
+
+      title = title.replace(
+        /\s*[-|–]\s*(?:مشاهدة|مترجم|مدبلج).*$/i,
+        ""
+      );
+
+      title =
+        this.cleanText(title);
+
+      if (title) {
+        return title;
+      }
+    }
+
+    return String(seriesSlug || "")
+      .split("-")
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  extractEpisodeLinks(
+    $,
+    pageUrl,
+    seriesSlug
+  ) {
+    const episodes =
+      new Map();
+
+    $("a[href]").each(
+      (_, element) => {
+        const href =
+          $(element).attr("href");
+
+        if (!href) {
+          return;
+        }
+
+        const url =
+          this.normalizeUrl(href);
+
+        if (!url) {
+          return;
+        }
+
+        const slug =
+          this.extractSeriesSlug(url);
+
+        if (
+          !slug ||
+          slug !== seriesSlug
+        ) {
+          return;
+        }
+
+        const number =
+          this.extractEpisodeNumber(url);
+
+        if (
+          !Number.isInteger(number) ||
+          number < 1
+        ) {
+          return;
+        }
+
+        if (!episodes.has(number)) {
+          episodes.set(
+            number,
+            {
+              id: url,
+              number,
+
+              title:
+                this.cleanText(
+                  $(element).text()
+                ) ||
+                `الحلقة ${number}`,
+
+              source_url: url
+            }
+          );
+        }
+      }
+    );
+
+    const currentEpisode =
+      this.extractEpisodeNumber(
+        pageUrl
+      );
+
+    if (
+      Number.isInteger(currentEpisode) &&
+      !episodes.has(currentEpisode)
+    ) {
+      episodes.set(
+        currentEpisode,
+        {
+          id: pageUrl,
+          number: currentEpisode,
+          title:
+            `الحلقة ${currentEpisode}`,
+          source_url:
+            pageUrl
+        }
+      );
+    }
+
+    return [
+      ...episodes.values()
+    ].sort(
+      (a, b) =>
+        a.number - b.number
+    );
+  }
+
+  async getSeries(seriesId) {
+    const inputUrl =
+      this.normalizeUrl(seriesId);
+
+    if (!inputUrl) {
+      throw new Error(
+        "Q-Ask requires a valid episode URL"
+      );
+    }
+
+    const seriesSlug =
+      this.extractSeriesSlug(
+        inputUrl
+      );
+
+    if (!seriesSlug) {
+      throw new Error(
+        "Could not determine Q-Ask series slug"
+      );
+    }
+
+    const {
+      html,
+      finalUrl
+    } =
+      await this.fetchPage(
+        inputUrl
+      );
+
+    const $ =
+      cheerio.load(html);
+
+    const episodes =
+      this.extractEpisodeLinks(
+        $,
+        finalUrl,
+        seriesSlug
+      );
+
+    if (!episodes.length) {
+      throw new Error(
+        "No Q-Ask episodes discovered"
+      );
+    }
+
+    const image =
+      this.extractImage(
+        $,
+        finalUrl,
+        seriesSlug
+      );
+
+    return {
+      provider:
+        this.id,
+
+      source_url:
+        finalUrl,
+
+      series: {
+        id:
+          seriesSlug,
+
+        title:
+          this.extractSeriesTitle(
+            $,
+            seriesSlug
+          ),
+
+        description:
+          this.extractDescription($),
+
+        image,
+
+        language:
+          null,
+
+        quality:
+          null,
+
+        country:
+          null,
+
+        year:
+          null
+      },
+
+      episodes
+    };
+  }
+
+  async getEpisode(episodeId) {
+    const inputUrl =
+      this.normalizeUrl(
+        episodeId
+      );
+
+    if (!inputUrl) {
+      throw new Error(
+        "Invalid Q-Ask episode URL"
+      );
+    }
+
+    const episodeNumber =
+      this.extractEpisodeNumber(
+        inputUrl
+      );
+
+    if (
+      !Number.isInteger(
+        episodeNumber
+      )
+    ) {
+      throw new Error(
+        "Could not determine Q-Ask episode number"
+      );
+    }
+
+    const seriesSlug =
+      this.extractSeriesSlug(
+        inputUrl
+      );
+
+    if (!seriesSlug) {
+      throw new Error(
+        "Could not determine Q-Ask series slug"
+      );
+    }
+
+    const {
+      html,
+      finalUrl
+    } =
+      await this.fetchPage(
+        inputUrl
+      );
+
+    const $ =
+      cheerio.load(html);
+
+    const rawTitle =
+      this.extractRawTitle($);
+
+    const title =
+      rawTitle ||
+      `الحلقة ${episodeNumber}`;
+
+    const image =
+      this.extractImage(
+        $,
+        finalUrl,
+        seriesSlug
+      );
+
+    return {
+      provider:
+        this.id,
+
+      source_url:
+        finalUrl,
+
+      episode: {
+        id:
+          inputUrl,
+
+        number:
+          episodeNumber,
+
+        title,
+
+        description:
+          this.extractDescription($),
+
+        image
+      },
+
+      qualities:
+        [],
+
+      watch_options:
+        []
+    };
+  }
+
+  async getWatchInfo(
+    watchId,
+    episodeId
+  ) {
+    const url =
+      this.normalizeUrl(
+        episodeId ||
+        watchId
+      );
+
+    if (!url) {
+      throw new Error(
+        "Invalid Q-Ask watch URL"
+      );
+    }
+
+    const {
+      html,
+      finalUrl
+    } =
+      await this.fetchPage(url);
+
+    const $ =
+      cheerio.load(html);
+
+    return {
+      provider:
+        this.id,
+
+      source_url:
+        finalUrl,
+
+      player: {
+        iframe_count:
+          $("iframe[src]").length,
+
+        video_count:
+          $("video").length,
+
+        source_count:
+          $("video source").length
+      },
+
+      qualities:
+        []
+    };
+  }
+}
+
+module.exports =
+  new QAskProvider();

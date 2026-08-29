@@ -1,0 +1,79 @@
+{
+  "source": "akwam",
+  "source_url": "https://akwam.ss/watch/111112/60515",
+  "scraped_at": "2026-08-28T03:15:43.138Z",
+  "watch": {
+    "id": "111112",
+    "episode_id": "60515",
+    "title": "مشاهدة مسلسل الذئب الوحيد الموسم الأول - الحلقة 13 الحلقة الثالثة عشر | اكوام",
+    "h1": "مشاهدة مسلسل الذئب الوحيد الموسم الأول"
+  },
+  "diagnostics": {
+    "iframe_count": 0,
+    "video_count": 1,
+    "source_count": 2,
+    "player_script_count": 2
+  },
+  "iframes": [],
+  "videos": [
+    {
+      "index": 0,
+      "src": null,
+      "poster": null,
+      "attributes": {
+        "controls": "",
+        "crossorigin": "",
+        "autoplay": "",
+        "id": "player"
+      },
+      "sources": [
+        {
+          "src": "https://s302d5.downet.net/download/1787973342/6a90fd5e96b54/Theeb.Wa7eed.S01-E13.720p.WEB-DL.AKWAM.mp4",
+          "type": "video/mp4"
+        },
+        {
+          "src": "https://s301d1.downet.net/download/1787973342/6a90fd5e45563/Theeb.Wa7eed.S01-E13.480p.WEB-DL.AKWAM.mp4",
+          "type": "video/mp4"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "index": 0,
+      "src": "https://s302d5.downet.net/download/1787973342/6a90fd5e96b54/Theeb.Wa7eed.S01-E13.720p.WEB-DL.AKWAM.mp4",
+      "type": "video/mp4"
+    },
+    {
+      "index": 1,
+      "src": "https://s301d1.downet.net/download/1787973342/6a90fd5e45563/Theeb.Wa7eed.S01-E13.480p.WEB-DL.AKWAM.mp4",
+      "type": "video/mp4"
+    }
+  ],
+  "player_scripts": [
+    {
+      "index": 16,
+      "src": "https://akwam.ss/style/assets/js/plugins/plyr/plyr.polyfilled.min.js",
+      "inline": false,
+      "preview": null
+    },
+    {
+      "index": 17,
+      "src": null,
+      "inline": true,
+      "preview": "player = new Plyr('#player');"
+    }
+  ],
+  "player_elements": [
+    {
+      "tag": "i",
+      "id": null,
+      "class": "icon-video-camera"
+    },
+    {
+      "tag": "video",
+      "id": "player",
+      "class": null
+    }
+  ]
+}
