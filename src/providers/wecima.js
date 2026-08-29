@@ -4,7 +4,7 @@ const cheerio = require("cheerio");
 class WeCimaProvider {
   constructor() {
     this.name = "wecima";
-    this.baseUrl = "https://mywecima.surf";
+    this.baseUrl = "https://mywecima.beauty";
   }
 
   clean(value) {
@@ -158,7 +158,7 @@ class WeCimaProvider {
         new Map(
           episodes.map(
             episode => [
-              `${episode.number}:${episode.id}`,
+              episode.number,
               episode
             ]
           )
@@ -252,7 +252,18 @@ class WeCimaProvider {
 
       qualities: [],
 
-      watch_options: []
+      watch_options: [
+        {
+          watch_id:
+            id,
+
+          page_url:
+            `https://mywecima.beauty/play.php?vid=${encodeURIComponent(id)}`,
+
+          type:
+            "embed"
+        }
+      ]
     };
   }
 

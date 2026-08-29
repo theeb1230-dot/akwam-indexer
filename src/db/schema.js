@@ -117,6 +117,15 @@ CREATE TABLE IF NOT EXISTS canonical_series (
  * ============================================================
  */
 
+CREATE TABLE IF NOT EXISTS canonical_keys (
+  canonical_key TEXT PRIMARY KEY,
+  canonical_series_id INTEGER NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(canonical_series_id)
+    REFERENCES canonical_series(id)
+    ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS provider_series (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -275,6 +284,29 @@ CREATE TABLE IF NOT EXISTS playback_options (
  * ============================================================
  */
 
+CREATE TABLE IF NOT EXISTS playback_candidates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  canonical_episode_id INTEGER NOT NULL,
+  provider_episode_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  watch_id TEXT NOT NULL,
+  server TEXT NOT NULL DEFAULT '',
+  playback_type TEXT NOT NULL,
+  quality TEXT,
+  priority INTEGER NOT NULL DEFAULT 100,
+  status TEXT NOT NULL DEFAULT 'active',
+  locator_json TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(canonical_episode_id, provider, watch_id, server),
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE,
+  FOREIGN KEY(provider_episode_id)
+    REFERENCES provider_episodes(id)
+    ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS legacy_series_map (
   legacy_series_id INTEGER PRIMARY KEY,
   canonical_series_id INTEGER NOT NULL,
@@ -356,6 +388,9 @@ ON playback_options(provider, watch_id);
 
 CREATE INDEX IF NOT EXISTS idx_playback_status
 ON playback_options(status);
+
+CREATE INDEX IF NOT EXISTS idx_playback_candidates_episode
+ON playback_candidates(canonical_episode_id, status, priority);
 `);
 
 
@@ -701,6 +736,11 @@ const stats = {
   playback_options:
     db.prepare(
       "SELECT COUNT(*) AS count FROM playback_options"
+    ).get().count,
+
+  playback_candidates:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM playback_candidates"
     ).get().count
 };
 
