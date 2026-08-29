@@ -252,7 +252,18 @@ class WeCimaProvider {
 
       qualities: [],
 
-      watch_options: []
+      watch_options: [
+        {
+          watch_id:
+            id,
+
+          page_url:
+            `https://mywecima.beauty/play.php?vid=${encodeURIComponent(id)}`,
+
+          type:
+            "embed"
+        }
+      ]
     };
   }
 
