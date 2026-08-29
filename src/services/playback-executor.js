@@ -13,6 +13,45 @@ const {
 const health =
   require("./playback-health");
 
+function resolutionSummary(resolved) {
+  return {
+    canonical_key:
+      resolved.canonical_key,
+    group_key:
+      resolved.group_key,
+    matched_sources:
+      resolved.matched_sources,
+    resolved_sources:
+      resolved.resolved_sources,
+    playable_sources:
+      resolved.playable_sources,
+    failed_sources:
+      resolved.failed_sources,
+    playback_option_count:
+      resolved.playback_option_count,
+    providers:
+      (resolved.sources || []).map(
+        source => ({
+          provider:
+            source.provider,
+          status:
+            source.status ||
+            (source.ok
+              ? "resolved"
+              : "failed"),
+          watch_option_count:
+            source.watch_option_count ||
+            0,
+          playable_option_count:
+            source.playable_option_count ||
+            0,
+          error:
+            source.error || null
+        })
+      )
+  };
+}
+
 async function executePlayback(
   params,
   options = {}
@@ -32,6 +71,9 @@ async function executePlayback(
     health.ranked(
       resolved.playback_plan || []
     );
+
+  const resolution =
+    resolutionSummary(resolved);
 
   const attempts = [];
 
@@ -115,6 +157,7 @@ async function executePlayback(
             resolved.season,
           episode:
             resolved.episode,
+          resolution,
           selected_source:
             candidate,
           attempts_count:
@@ -145,6 +188,7 @@ async function executePlayback(
       resolved.season,
     episode:
       resolved.episode,
+    resolution,
     selected_source: null,
     attempts_count:
       attempts.length,
@@ -153,5 +197,6 @@ async function executePlayback(
 }
 
 module.exports = {
+  resolutionSummary,
   executePlayback
 };
