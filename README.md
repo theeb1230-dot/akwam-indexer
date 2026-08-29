@@ -22,7 +22,7 @@ Akwam، ArabSeed، WeCima، Shahid4u، LodyNet، Qask، CimaLeek، وLaaroza.
 
 ## المتطلبات
 
-- Node.js 20 أو أحدث.
+- Node.js 22 أو أحدث.
 - npm.
 - اتصال بالمصادر المصرح باستخدامها.
 
