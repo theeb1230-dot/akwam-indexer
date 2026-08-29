@@ -410,6 +410,7 @@ class WeCimaProvider {
     ];
 
     const servers = [];
+    const observedServers = [];
 
     const rawServerCount =
       $("li[data-embed]").length;
@@ -485,6 +486,21 @@ class WeCimaProvider {
 
         const rank =
           priority.indexOf(key);
+
+        observedServers.push({
+          name,
+          normalized_key: key,
+          accepted: rank !== -1,
+          embed_hostname: (() => {
+            try {
+              return new URL(
+                embedUrl
+              ).hostname;
+            } catch {
+              return null;
+            }
+          })()
+        });
 
         /*
          * نستبعد السيرفرات التي ثبت أنها غير مناسبة.
@@ -584,7 +600,9 @@ class WeCimaProvider {
           accepted_servers:
             servers.map(
               item => item.server
-            )
+            ),
+          observed_servers:
+            observedServers
         }
       ],
 
