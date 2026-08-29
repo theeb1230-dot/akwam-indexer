@@ -46,7 +46,14 @@ function resolutionSummary(resolved) {
             source.playable_option_count ||
             0,
           error:
-            source.error || null
+            source.error || null,
+          resolution_trace:
+            (source.watch_options || [])
+              .flatMap(
+                option =>
+                  option.resolution_trace ||
+                  []
+              )
         })
       )
   };
