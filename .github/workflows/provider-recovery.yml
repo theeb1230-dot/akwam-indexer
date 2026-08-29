@@ -1,0 +1,37 @@
+name: Phase 3 Provider Recovery
+
+on:
+  push:
+    branches:
+      - "phase-3/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Diagnose Akwam TLS
+        run: node scripts/akwam-tls-diagnostic.js
+
+      - name: Trace Lucky playback resolution
+        run: npm run live:test
