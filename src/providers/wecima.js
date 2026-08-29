@@ -406,7 +406,13 @@ class WeCimaProvider {
       "mp4plus",
       "anafast",
       "vidspeed",
-      "mixdrop"
+      "mixdrop",
+      "vidara",
+      "vibuxer",
+      "dhtpre",
+      "bysesukior",
+      "uqload",
+      "dsvplay"
     ];
 
     const servers = [];
@@ -484,8 +490,15 @@ class WeCimaProvider {
               ""
             );
 
+        const serverKey =
+          key === "mxdrop"
+            ? "mixdrop"
+            : key;
+
         const rank =
-          priority.indexOf(key);
+          priority.indexOf(
+            serverKey
+          );
 
         observedServers.push({
           name,
@@ -516,7 +529,7 @@ class WeCimaProvider {
           name,
 
           server:
-            key,
+            serverKey,
 
           type:
             "embed",
