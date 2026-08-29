@@ -332,6 +332,26 @@ ON playback_health(provider, server);
 CREATE INDEX IF NOT EXISTS idx_playback_health_circuit
 ON playback_health(circuit_open_until);
 
+CREATE TABLE IF NOT EXISTS playback_verification (
+  candidate_key TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,
+  server TEXT,
+  embed_status TEXT,
+  playback_status TEXT,
+  health_state TEXT NOT NULL DEFAULT 'UNKNOWN',
+  video_element_discovered INTEGER NOT NULL DEFAULT 0,
+  loadedmetadata INTEGER NOT NULL DEFAULT 0,
+  canplay INTEGER NOT NULL DEFAULT 0,
+  playing INTEGER NOT NULL DEFAULT 0,
+  max_current_time REAL NOT NULL DEFAULT 0,
+  latency_ms INTEGER NOT NULL DEFAULT 0,
+  checked_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_verification_health
+ON playback_verification(health_state, checked_at);
+
 CREATE TABLE IF NOT EXISTS legacy_series_map (
   legacy_series_id INTEGER PRIMARY KEY,
   canonical_series_id INTEGER NOT NULL,
