@@ -21,6 +21,18 @@ function getHealth(candidate) {
   `).get(candidateKey(candidate)) || null;
 }
 
+function getPlaybackVerification(
+  candidate
+) {
+  return db.prepare(`
+    SELECT *
+    FROM playback_verification
+    WHERE candidate_key = ?
+  `).get(
+    candidateKey(candidate)
+  ) || null;
+}
+
 function circuitOpen(candidate, now = Date.now()) {
   const health =
     getHealth(candidate);
@@ -200,6 +212,23 @@ function scoreCandidate(candidate) {
   const health =
     getHealth(candidate);
 
+  const verification =
+    getPlaybackVerification(
+      candidate
+    );
+
+  const verificationScore =
+    verification?.health_state ===
+      "PLAYBACK_VERIFIED"
+      ? 45
+      : verification?.health_state ===
+          "REACHABLE"
+        ? 5
+        : verification?.health_state ===
+            "DEGRADED"
+          ? -20
+          : 0;
+
   const typeScore = {
     direct_mp4: 35,
     hls: 30,
@@ -224,7 +253,8 @@ function scoreCandidate(candidate) {
     return (
       50 +
       typeScore +
-      qualityScore -
+      qualityScore +
+      verificationScore -
       Number(
         candidate.fallback_order ||
         100
@@ -254,6 +284,7 @@ function scoreCandidate(candidate) {
   return (
     typeScore +
     qualityScore +
+    verificationScore +
     successRate * 50 -
     latencyPenalty -
     Number(
@@ -267,6 +298,10 @@ function ranked(candidates) {
   return [...candidates]
     .map(candidate => ({
       ...candidate,
+      playback_verification:
+        getPlaybackVerification(
+          candidate
+        ),
       health_score:
         Math.round(
           scoreCandidate(candidate) *
@@ -283,6 +318,7 @@ function ranked(candidates) {
 module.exports = {
   candidateKey,
   getHealth,
+  getPlaybackVerification,
   circuitOpen,
   recordResult,
   scoreCandidate,
