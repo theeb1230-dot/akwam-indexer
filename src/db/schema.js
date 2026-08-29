@@ -307,6 +307,31 @@ CREATE TABLE IF NOT EXISTS playback_candidates (
     ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS playback_health (
+  candidate_key TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,
+  server TEXT,
+  playback_type TEXT NOT NULL,
+  quality TEXT,
+  success_count INTEGER NOT NULL DEFAULT 0,
+  failure_count INTEGER NOT NULL DEFAULT 0,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  avg_latency_ms INTEGER NOT NULL DEFAULT 0,
+  last_status TEXT,
+  last_failure_reason TEXT,
+  last_success_at TEXT,
+  last_failure_at TEXT,
+  circuit_open_until TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_health_provider
+ON playback_health(provider, server);
+
+CREATE INDEX IF NOT EXISTS idx_playback_health_circuit
+ON playback_health(circuit_open_until);
+
 CREATE TABLE IF NOT EXISTS legacy_series_map (
   legacy_series_id INTEGER PRIMARY KEY,
   canonical_series_id INTEGER NOT NULL,
