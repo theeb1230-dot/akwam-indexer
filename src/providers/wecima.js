@@ -411,6 +411,9 @@ class WeCimaProvider {
 
     const servers = [];
 
+    const rawServerCount =
+      $("li[data-embed]").length;
+
     $("li[data-embed]").each(
       (_, element) => {
         const node =
@@ -549,6 +552,41 @@ class WeCimaProvider {
         servers.length
           ? ["embed"]
           : [],
+
+      resolution_trace: [
+        {
+          stage: "provider_episode_mapping",
+          status: "ok",
+          episode_id: id
+        },
+        {
+          stage: "play_page",
+          status: "ok",
+          url: playUrl
+        },
+        {
+          stage: "watch_options",
+          status:
+            rawServerCount > 0
+              ? "found"
+              : "empty",
+          raw_count:
+            rawServerCount,
+          accepted_count:
+            servers.length
+        },
+        {
+          stage: "candidate_normalization",
+          status:
+            servers.length > 0
+              ? "ok"
+              : "empty",
+          accepted_servers:
+            servers.map(
+              item => item.server
+            )
+        }
+      ],
 
       watch_options:
         servers,
