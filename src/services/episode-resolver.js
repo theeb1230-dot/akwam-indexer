@@ -6,6 +6,11 @@ const {
 } =
   require("./series-resolver");
 
+const {
+  saveResolvedEpisode
+} =
+  require("./canonical-store");
+
 function clean(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -99,7 +104,7 @@ function buildPlaybackPlan(sources) {
     external_player: 4
   };
 
-  return sources
+  const ranked = sources
     .flatMap(source =>
       (source.watch_options || [])
         .flatMap(option =>
@@ -134,6 +139,20 @@ function buildPlaybackPlan(sources) {
         Number(b.priority || 999)
       );
     });
+
+  return ranked.map(
+    (option, index) => ({
+      ...option,
+      fallback_order: index + 1,
+      fallback_on: [
+        "PROVIDER_TIMEOUT",
+        "PLAYBACK_UNAVAILABLE",
+        "GEO_BLOCKED",
+        "SERVER_DOWN",
+        "SOURCE_EXPIRED"
+      ]
+    })
+  );
 }
 
 async function inspectWatchOption({
@@ -371,13 +390,8 @@ async function resolveSource(
     const playableOptions =
       resolvedWatchOptions.filter(
         option =>
-          option.play_url ||
-          (
-            Array.isArray(
-              option.sources
-            ) &&
-            option.sources.length > 0
-          )
+          Array.isArray(option.sources) &&
+          option.sources.length > 0
       );
 
     return {
@@ -518,9 +532,12 @@ async function resolveEpisode({
       )
     );
 
-  return {
+  const resolved = {
     query:
       series.query,
+
+    canonical_key:
+      series.canonical_key,
 
     group_key:
       series.group_key,
@@ -563,6 +580,18 @@ async function resolveEpisode({
     sources:
       resolvedSources
   };
+
+  try {
+    resolved.canonical =
+      saveResolvedEpisode(resolved);
+  } catch (error) {
+    resolved.canonical = {
+      persisted: false,
+      error: error.message
+    };
+  }
+
+  return resolved;
 }
 
 module.exports = {

@@ -13,6 +13,7 @@ const clientHandoffRouter = require("./routes/client-handoff");
 const searchRouter = require("./routes/search");
 const resolveRouter = require("./routes/resolve");
 const episodeResolveRouter = require("./routes/episode-resolve");
+const canonicalRouter = require("./routes/canonical");
 
 const app = express();
 
@@ -561,6 +562,11 @@ app.get(
  * LIBRARY
  * =========================================================
  */
+
+app.use(
+  "/api/canonical",
+  canonicalRouter
+);
 
 app.use(
   "/api/library",

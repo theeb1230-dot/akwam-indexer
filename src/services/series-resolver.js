@@ -6,6 +6,11 @@ const {
 } =
   require("./search-orchestrator");
 
+const {
+  saveResolvedSeries
+} =
+  require("./canonical-store");
+
 function clean(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -212,6 +217,10 @@ async function resolveProvider(
         result?.source_url ||
         searchItem.source_url ||
         null,
+
+      provider_series_id:
+        searchItem.provider_series_id ||
+        input,
 
       series:
         result?.series ||
@@ -469,7 +478,7 @@ async function resolveSeries({
       group.title
     );
 
-  return {
+  const resolved = {
     query:
       search.query,
 
@@ -533,14 +542,37 @@ async function resolveSeries({
             item.source_url ??
             null,
 
+          provider_series_id:
+            item.provider_series_id ??
+            null,
+
+          title:
+            item.series?.title ??
+            null,
+
           error:
             item.error ??
             null
         })
       )
   };
+
+  try {
+    resolved.canonical =
+      saveResolvedSeries(resolved);
+  } catch (error) {
+    resolved.canonical = {
+      persisted: false,
+      error: error.message
+    };
+  }
+
+  return resolved;
 }
 
 module.exports = {
-  resolveSeries
+  resolveSeries,
+  mergeEpisodes,
+  extractEpisodeNumber,
+  extractSeasonNumber
 };

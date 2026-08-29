@@ -120,3 +120,31 @@ test("playback plan ranks direct media before ordered embeds", () => {
     ]
   );
 });
+
+
+test("fallback plan exposes stable retry order", () => {
+  const plan = buildPlaybackPlan([{
+    provider: "wecima",
+    episode: { id: "e1" },
+    watch_options: [{
+      watch_id: "e1",
+      sources: [
+        normalizePlaybackSource({
+          type: "embed", server: "mp4plus", priority: 2,
+          embed_url: "https://example.test/2"
+        }),
+        normalizePlaybackSource({
+          type: "embed", server: "mp4", priority: 1,
+          embed_url: "https://example.test/1"
+        })
+      ]
+    }]
+  }]);
+
+  assert.deepEqual(
+    plan.map(item => item.fallback_order),
+    [1, 2]
+  );
+  assert.equal(plan[0].server, "mp4");
+  assert.equal(plan[0].fallback_on.includes("GEO_BLOCKED"), true);
+});

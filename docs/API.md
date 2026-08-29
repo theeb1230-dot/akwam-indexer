@@ -49,3 +49,12 @@
 | `409` | توجد مهمة استيراد مماثلة قيد التنفيذ |
 | `500` | فشل المصدر أو المعالجة الداخلية |
 | `501` | المصدر لا يدعم قدرة المشاهدة |
+
+
+## Canonical API
+
+- `GET /api/canonical/series`
+- `GET /api/canonical/series/:id/episodes`
+- `GET /api/canonical/episodes/:id/playback`
+
+يقوم Series Resolver بمزامنة الأعمال والحلقات مع قاعدة Canonical، ويقوم Episode Resolver بحفظ معرفات مرشحي التشغيل وترتيب Fallback دون تخزين روابط Direct المؤقتة.

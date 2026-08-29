@@ -2,7 +2,13 @@ const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
 
-const dataDir = path.join(process.cwd(), "data");
+const configuredPath = process.env.DATABASE_PATH
+  ? path.resolve(process.env.DATABASE_PATH)
+  : null;
+
+const dataDir = configuredPath
+  ? path.dirname(configuredPath)
+  : path.join(process.cwd(), "data");
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, {
@@ -10,7 +16,7 @@ if (!fs.existsSync(dataDir)) {
   });
 }
 
-const dbPath = path.join(
+const dbPath = configuredPath || path.join(
   dataDir,
   "theeb.sqlite"
 );
