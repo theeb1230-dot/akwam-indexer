@@ -12,6 +12,14 @@ async function main() {
     season: 1,
     generated_at:
       new Date().toISOString(),
+    validation_contract: {
+      direct:
+        "media_bytes_verified",
+      embed:
+        "embed_page_reachable",
+      note:
+        "Embed reachability is not proof of in-player media startup."
+    },
     episodes: []
   };
 
@@ -32,6 +40,14 @@ async function main() {
         episode,
         status:
           result.status,
+        canonical_mapping: {
+          canonical_key:
+            result.canonical_key,
+          season: 1,
+          episode
+        },
+        resolution:
+          result.resolution,
         selected_source:
           result.selected_source
             ? {
@@ -69,8 +85,19 @@ async function main() {
                 attempt.status,
               reason:
                 attempt.reason || null,
+              detail:
+                attempt.detail || null,
+              http_status:
+                attempt.http_status ||
+                null,
+              content_type:
+                attempt.content_type ||
+                null,
+              sampled_bytes:
+                attempt.sampled_bytes ||
+                null,
               latency_ms:
-                attempt.latency_ms ||
+                attempt.latency_ms ??
                 null,
               validation_scope:
                 attempt
@@ -92,6 +119,41 @@ async function main() {
       });
     }
   }
+
+  report.summary = {
+    requested:
+      report.episodes.length,
+    ready:
+      report.episodes.filter(
+        item =>
+          item.status === "ready"
+      ).length,
+    unavailable:
+      report.episodes.filter(
+        item =>
+          item.status ===
+          "unavailable"
+      ).length,
+    errors:
+      report.episodes.filter(
+        item =>
+          item.status === "error"
+      ).length,
+    media_bytes_verified:
+      report.episodes.filter(
+        item =>
+          item.selected_source
+            ?.validation_scope ===
+          "media_bytes_verified"
+      ).length,
+    embed_pages_reachable:
+      report.episodes.filter(
+        item =>
+          item.selected_source
+            ?.validation_scope ===
+          "embed_page_reachable"
+      ).length
+  };
 
   console.log(
     "THEEB_LIVE_REPORT_START"
