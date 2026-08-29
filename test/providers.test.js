@@ -40,3 +40,83 @@ test("provider names are normalized", () => {
   assert.equal(providers.has(" AKWAM "), true);
   assert.equal(providers.get("WeCiMa"), providers.get("wecima"));
 });
+
+
+const {
+  normalizePlaybackSource,
+  buildPlaybackPlan
+} = require("../src/services/episode-resolver");
+
+test("playback sources distinguish direct media from embeds", () => {
+  assert.equal(
+    normalizePlaybackSource({
+      type: "video/mp4",
+      direct_url: "https://media.example/video.mp4"
+    }).type,
+    "direct_mp4"
+  );
+
+  const embed =
+    normalizePlaybackSource({
+      type: "embed",
+      embed_url: "https://player.example/embed/1"
+    });
+
+  assert.equal(embed.type, "embed");
+  assert.equal(
+    embed.client_url,
+    "https://player.example/embed/1"
+  );
+});
+
+test("playback plan ranks direct media before ordered embeds", () => {
+  const plan = buildPlaybackPlan([
+    {
+      provider: "wecima",
+      episode: { id: "w1" },
+      watch_options: [{
+        watch_id: "w1",
+        sources: [
+          normalizePlaybackSource({
+            type: "embed",
+            server: "mp4plus",
+            priority: 2,
+            embed_url: "https://embed.example/2"
+          }),
+          normalizePlaybackSource({
+            type: "embed",
+            server: "mp4",
+            priority: 1,
+            embed_url: "https://embed.example/1"
+          })
+        ]
+      }]
+    },
+    {
+      provider: "akwam",
+      episode: { id: "a1" },
+      watch_options: [{
+        watch_id: "a-watch",
+        play_url: "/play/akwam/a-watch/a1",
+        sources: [
+          normalizePlaybackSource({
+            type: "video/mp4",
+            quality: "1080p",
+            direct_url: "https://media.example/a1.mp4"
+          })
+        ]
+      }]
+    }
+  ]);
+
+  assert.deepEqual(
+    plan.map(item =>
+      `${item.provider}:${item.type}:${item.server || ""}`
+    ),
+    [
+      "akwam:direct_mp4:",
+      "wecima:embed:mp4",
+      "wecima:embed:mp4plus"
+    ]
+  );
+});
