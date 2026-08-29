@@ -48,6 +48,94 @@ function buildPlayUrl(
   );
 }
 
+function normalizePlaybackSource(source = {}) {
+  const directUrl =
+    source.direct_url || null;
+
+  const embedUrl =
+    source.embed_url ||
+    (
+      source.type === "embed"
+        ? source.url || null
+        : null
+    );
+
+  const rawType =
+    clean(source.type)
+      .toLowerCase();
+
+  let type =
+    rawType === "embed" || embedUrl
+      ? "embed"
+      : rawType.includes("mpegurl") ||
+          /\.m3u8(?:$|\?)/i.test(directUrl || "")
+        ? "hls"
+        : rawType.includes("mp4") ||
+            /\.mp4(?:$|\?)/i.test(directUrl || "")
+          ? "direct_mp4"
+          : directUrl
+            ? "direct"
+            : "external_player";
+
+  return {
+    ...source,
+    type,
+    direct_url:
+      directUrl,
+    embed_url:
+      embedUrl,
+    client_url:
+      directUrl || embedUrl ||
+      source.url || null
+  };
+}
+
+function buildPlaybackPlan(sources) {
+  const typeRank = {
+    direct_mp4: 0,
+    hls: 1,
+    direct: 2,
+    embed: 3,
+    external_player: 4
+  };
+
+  return sources
+    .flatMap(source =>
+      (source.watch_options || [])
+        .flatMap(option =>
+          (option.sources || []).map(item => ({
+            provider:
+              source.provider,
+            episode_id:
+              source.episode?.id || null,
+            watch_id:
+              option.watch_id || null,
+            quality:
+              item.quality ||
+              option.quality ||
+              null,
+            play_url:
+              option.play_url || null,
+            ...item
+          }))
+        )
+    )
+    .sort((a, b) => {
+      const typeDifference =
+        (typeRank[a.type] ?? 99) -
+        (typeRank[b.type] ?? 99);
+
+      if (typeDifference !== 0) {
+        return typeDifference;
+      }
+
+      return (
+        Number(a.priority || 999) -
+        Number(b.priority || 999)
+      );
+    });
+}
+
 async function inspectWatchOption({
   providerName,
   provider,
@@ -92,10 +180,25 @@ async function inspectWatchOption({
         episodeId
       );
 
-    const sources =
+    const rawSources =
       Array.isArray(info?.sources)
         ? info.sources
-        : [];
+        : Array.isArray(info?.watch_options)
+          ? info.watch_options
+          : [];
+
+    const sources =
+      rawSources.map(
+        normalizePlaybackSource
+      );
+
+    const hasDirectSource =
+      sources.some(
+        source =>
+          source.type === "direct_mp4" ||
+          source.type === "hls" ||
+          source.type === "direct"
+      );
 
     return {
       watch_id:
@@ -109,11 +212,20 @@ async function inspectWatchOption({
         null,
 
       play_url:
-        buildPlayUrl(
-          providerName,
-          watchId,
-          episodeId,
-          quality
+        hasDirectSource
+          ? buildPlayUrl(
+              providerName,
+              watchId,
+              episodeId,
+              quality
+            )
+          : null,
+
+      playback_types:
+        unique(
+          sources.map(
+            source => source.type
+          )
         ),
 
       player:
@@ -398,6 +510,14 @@ async function resolveEpisode({
       )
     );
 
+  const playbackPlan =
+    buildPlaybackPlan(
+      resolvedSources.filter(
+        item =>
+          item.status === "playable"
+      )
+    );
+
   return {
     query:
       series.query,
@@ -434,11 +554,19 @@ async function resolveEpisode({
         item => !item.ok
       ).length,
 
+    playback_option_count:
+      playbackPlan.length,
+
+    playback_plan:
+      playbackPlan,
+
     sources:
       resolvedSources
   };
 }
 
 module.exports = {
-  resolveEpisode
+  resolveEpisode,
+  normalizePlaybackSource,
+  buildPlaybackPlan
 };
