@@ -120,3 +120,37 @@ test("embed validation is explicitly reachability only", async () => {
     "embed_page_reachable"
   );
 });
+
+
+test("blocks private playback destinations", () => {
+  const {
+    privateAddress
+  } = require("../src/services/safe-media-request");
+
+  assert.equal(
+    privateAddress("127.0.0.1"),
+    true
+  );
+
+  assert.equal(
+    privateAddress("10.1.2.3"),
+    true
+  );
+
+  assert.equal(
+    privateAddress("::1"),
+    true
+  );
+
+  assert.equal(
+    privateAddress(
+      "::ffff:192.168.1.20"
+    ),
+    true
+  );
+
+  assert.equal(
+    privateAddress("1.1.1.1"),
+    false
+  );
+});
