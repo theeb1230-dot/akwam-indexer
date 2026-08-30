@@ -74,12 +74,14 @@ function cdpClient(url) {
       ) {
         const {
           resolve,
-          reject
+          reject,
+          timer
         } = pending.get(
           message.id
         );
 
         pending.delete(message.id);
+        clearTimeout(timer);
 
         if (message.error) {
           reject(
@@ -112,17 +114,28 @@ function cdpClient(url) {
 
   function send(
     method,
-    params = {}
+    params = {},
+    timeoutMs = 10000
   ) {
     return new Promise(
       (resolve, reject) => {
         const id = nextId++;
 
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          reject(
+            new Error(
+              `CDP_COMMAND_TIMEOUT: ${method}`
+            )
+          );
+        }, timeoutMs);
+
         pending.set(
           id,
           {
             resolve,
-            reject
+            reject,
+            timer
           }
         );
 
@@ -169,6 +182,11 @@ function cdpClient(url) {
     send,
     on,
     close() {
+      for (const { reject, timer } of pending.values()) {
+        clearTimeout(timer);
+        reject(new Error("CDP_CONNECTION_CLOSED"));
+      }
+      pending.clear();
       socket.close();
     }
   };
@@ -559,13 +577,20 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(
-    JSON.stringify({
-      error:
-        error.message
-    })
-  );
+if (require.main === module) {
+  main().catch(error => {
+    console.error(
+      JSON.stringify({
+        error:
+          error.message
+      })
+    );
 
-  process.exitCode = 1;
-});
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  cdpClient,
+  probe
+};

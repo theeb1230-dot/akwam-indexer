@@ -1,8 +1,6 @@
 name: Phase 3 Provider Recovery
 
 on:
-  push:
-    branches: ["phase-3/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
