@@ -2,52 +2,68 @@ name: Phase 3 Provider Recovery
 
 on:
   push:
-    branches:
-      - "phase-3/**"
+    branches: ["phase-3/**"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  provider-diagnostics:
+  unit-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - run: npm ci
+      - run: npm test
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Diagnose Akwam TLS
+  akwam-tls-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Diagnose Akwam TLS without bypassing media validation
         run: node scripts/akwam-tls-diagnostic.js
 
-      - name: Verify WeCima E1-E7 in Chromium
-        id: browser_probe
-        continue-on-error: true
-        run: |
-          failed=0
-          for episode in 1 2 3 4 5 6 7; do
-            EPISODE="$episode" node scripts/wecima-browser-probe.js || failed=1
-          done
-          exit "$failed"
+  wecima-browser-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        episode: [1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify Lucky episode in Chromium
+        env:
+          EPISODE: ${{ matrix.episode }}
+        run: node scripts/wecima-browser-probe.js
 
+  resolver-trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Trace Lucky playback resolution
         run: npm run live:test
-
-      - name: Require browser verification
-        if: steps.browser_probe.outcome != 'success'
-        run: |
-          echo "WeCima browser playback was not verified."
-          exit 1

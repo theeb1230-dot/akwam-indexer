@@ -86,6 +86,7 @@ src/
 
 ## المستندات
 
+- [الوثيقة الأم الحاكمة للمشروع](docs/THEEB_ENGINE_MASTER_SPEC_AR.md)
 - [المعمارية](docs/ARCHITECTURE.md)
 - [توثيق API](docs/API.md)
 - [حالة المصادر](docs/PROVIDERS.md)

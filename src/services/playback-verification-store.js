@@ -72,19 +72,31 @@ function recordVerification(
   candidate,
   result
 ) {
+  const playbackVerified =
+    result.playback_status ===
+      "verified" &&
+    result.video_element_discovered ===
+      true &&
+    result.loadedmetadata === true &&
+    result.canplay === true &&
+    result.playing === true &&
+    Number(
+      result.max_current_time || 0
+    ) > 2;
+
   const healthState =
-    result.health ||
-    (
-      result.playback_status ===
-        "verified"
-        ? HEALTH_STATE
-            .PLAYBACK_VERIFIED
-        : result.embed_status ===
-            "reachable"
-          ? HEALTH_STATE.REACHABLE
+    playbackVerified
+      ? HEALTH_STATE.PLAYBACK_VERIFIED
+      : result.embed_status ===
+          "reachable"
+        ? result.video_element_discovered
+          ? HEALTH_STATE.DEGRADED
+          : HEALTH_STATE.REACHABLE
+        : result.health ===
+            HEALTH_STATE.BLOCKED
+          ? HEALTH_STATE.BLOCKED
           : HEALTH_STATE
-              .TEMPORARILY_FAILED
-    );
+              .TEMPORARILY_FAILED;
 
   db.prepare(`
     INSERT INTO playback_verification (
@@ -139,8 +151,9 @@ function recordVerification(
     embed_status:
       result.embed_status || null,
     playback_status:
-      result.playback_status ||
-      "unverified",
+      playbackVerified
+        ? "verified"
+        : "unverified",
     health_state:
       healthState,
     video_element_discovered:
