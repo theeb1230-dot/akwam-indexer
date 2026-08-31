@@ -9,7 +9,7 @@
     "start:refresh-worker": "THEEB_ROLE=refresh-worker node src/entrypoint.js",
     "start:health-worker": "THEEB_ROLE=health-worker node src/entrypoint.js",
     "dev": "node --watch src/entrypoint.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "live:test": "node scripts/live-playback-validation.js",
     "db:migrate:postgres": "node scripts/migrate-postgres.js",
     "db:transfer:postgres": "node scripts/transfer-sqlite-to-postgres.js"
@@ -18,22 +18,13 @@
     "type": "git",
     "url": "git+https://github.com/theeb1230-dot/akwam-indexer.git"
   },
-  "keywords": [
-    "theeb",
-    "indexer",
-    "media",
-    "multi-provider"
-  ],
+  "keywords": ["theeb", "indexer", "media", "multi-provider"],
   "author": "Arab_Theeb",
   "license": "ISC",
   "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/theeb1230-dot/akwam-indexer/issues"
-  },
+  "bugs": {"url": "https://github.com/theeb1230-dot/akwam-indexer/issues"},
   "homepage": "https://github.com/theeb1230-dot/akwam-indexer#readme",
-  "engines": {
-    "node": ">=22"
-  },
+  "engines": {"node": ">=22"},
   "dependencies": {
     "axios": "^1.20.0",
     "better-sqlite3": "^13.0.3",
