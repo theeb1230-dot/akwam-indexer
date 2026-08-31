@@ -24,6 +24,11 @@ function start(env = process.env) {
         "./workers/refresh-worker"
       ).startRefreshWorker();
 
+    case RUNTIME_ROLES.HEALTH_WORKER:
+      return require(
+        "./workers/health-worker"
+      ).startHealthWorker();
+
     default:
       throw new Error(
         `UNREACHABLE_RUNTIME_ROLE: ${role}`

@@ -68,3 +68,18 @@ test("only the lease owner may heartbeat or requeue", () => {
   assert.equal(jobs.requeue(created.id, "owner"), true);
   assert.equal(jobs.get(created.id).status, "queued");
 });
+
+test("active dedupe keys produce one job", () => {
+  const first = jobs.enqueueUnique({
+    type: "health-check",
+    dedupe_key: "health:fixture:1"
+  });
+  const second = jobs.enqueueUnique({
+    type: "health-check",
+    dedupe_key: "health:fixture:1"
+  });
+
+  assert.equal(first.created, true);
+  assert.equal(second.created, false);
+  assert.equal(second.job.id, first.job.id);
+});

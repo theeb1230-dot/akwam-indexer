@@ -366,6 +366,7 @@ CREATE TABLE IF NOT EXISTS runtime_jobs (
   result_json TEXT,
   errors_json TEXT NOT NULL DEFAULT '[]',
   payload_json TEXT NOT NULL DEFAULT '{}',
+  dedupe_key TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
   max_attempts INTEGER NOT NULL DEFAULT 3,
   worker_id TEXT,
@@ -382,6 +383,27 @@ ON runtime_jobs(status, available_at, lease_expires_at, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_runtime_jobs_target
 ON runtime_jobs(type, provider, provider_series_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_runtime_jobs_active_dedupe
+ON runtime_jobs(dedupe_key)
+WHERE dedupe_key IS NOT NULL
+  AND status IN ('queued', 'running');
+
+CREATE TABLE IF NOT EXISTS episode_health_schedule (
+  canonical_episode_id INTEGER PRIMARY KEY,
+  last_status TEXT,
+  last_checked_at TEXT,
+  next_check_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_job_id TEXT,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_episode_health_due
+ON episode_health_schedule(next_check_at);
 
 CREATE TABLE IF NOT EXISTS legacy_series_map (
   legacy_series_id INTEGER PRIMARY KEY,

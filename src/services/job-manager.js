@@ -32,6 +32,7 @@ function hydrate(row) {
     result: json(row.result_json, null),
     errors: json(row.errors_json, []),
     payload: json(row.payload_json, {}),
+    dedupe_key: row.dedupe_key,
     attempts: row.attempts,
     max_attempts: row.max_attempts,
     worker_id: row.worker_id,
@@ -58,8 +59,8 @@ class JobManager {
     db.prepare(`
       INSERT INTO runtime_jobs (
         id, type, provider, provider_series_id,
-        payload_json, max_attempts, available_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        payload_json, dedupe_key, max_attempts, available_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       data.type || "import",
@@ -68,11 +69,56 @@ class JobManager {
         ? String(data.provider_series_id)
         : null,
       encode(data.payload, {}),
+      data.dedupe_key || null,
       Number(data.max_attempts || 3),
       data.available_at || new Date().toISOString()
     );
 
     return this.get(id);
+  }
+
+  enqueueUnique(data = {}) {
+    if (!data.dedupe_key) {
+      return {
+        created: true,
+        job: this.create(data)
+      };
+    }
+
+    const existing = db.prepare(`
+      SELECT * FROM runtime_jobs
+      WHERE dedupe_key = ?
+        AND status IN ('queued', 'running')
+      LIMIT 1
+    `).get(data.dedupe_key);
+
+    if (existing) {
+      return {
+        created: false,
+        job: hydrate(existing)
+      };
+    }
+
+    try {
+      return {
+        created: true,
+        job: this.create(data)
+      };
+    } catch (error) {
+      if (error.code !== "SQLITE_CONSTRAINT_UNIQUE") {
+        throw error;
+      }
+
+      return {
+        created: false,
+        job: hydrate(db.prepare(`
+          SELECT * FROM runtime_jobs
+          WHERE dedupe_key = ?
+            AND status IN ('queued', 'running')
+          LIMIT 1
+        `).get(data.dedupe_key))
+      };
+    }
   }
 
   get(id) {

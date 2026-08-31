@@ -51,11 +51,11 @@ test("API role is implemented now", () => {
   );
 });
 
-test("worker roles cannot pretend to be ready before PR 4", () => {
+test("unimplemented worker roles fail closed", () => {
   assert.throws(
     () =>
       assertImplementedRole(
-        RUNTIME_ROLES.HEALTH_WORKER
+        RUNTIME_ROLES.PLAYBACK_WORKER
       ),
     error =>
       error.code ===
@@ -69,5 +69,14 @@ test("refresh worker is implemented with durable jobs", () => {
       RUNTIME_ROLES.REFRESH_WORKER
     ),
     RUNTIME_ROLES.REFRESH_WORKER
+  );
+});
+
+test("health worker is implemented with TTL scheduling", () => {
+  assert.equal(
+    assertImplementedRole(
+      RUNTIME_ROLES.HEALTH_WORKER
+    ),
+    RUNTIME_ROLES.HEALTH_WORKER
   );
 });
