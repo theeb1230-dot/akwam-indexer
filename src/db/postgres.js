@@ -4,12 +4,13 @@ let pool;
 
 function sslConfiguration(env = process.env) {
   const mode = String(env.PGSSLMODE || "require").toLowerCase();
-  if (mode === "disable") return false;
+  if (!["require", "verify-ca", "verify-full"].includes(mode)) {
+    const error = new Error("POSTGRES_TLS_VERIFICATION_REQUIRED");
+    error.code = "POSTGRES_TLS_VERIFICATION_REQUIRED";
+    throw error;
+  }
 
-  return {
-    rejectUnauthorized:
-      mode !== "no-verify"
-  };
+  return { rejectUnauthorized: true };
 }
 
 function getPool(env = process.env) {

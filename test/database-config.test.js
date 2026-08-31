@@ -32,10 +32,15 @@ test("PostgreSQL TLS verifies certificates by default", () => {
   assert.deepEqual(sslConfiguration({}), {
     rejectUnauthorized: true
   });
-  assert.equal(
-    sslConfiguration({ PGSSLMODE: "disable" }),
-    false
-  );
+});
+
+test("PostgreSQL rejects insecure TLS modes", () => {
+  for (const PGSSLMODE of ["disable", "no-verify", "allow", "prefer"]) {
+    assert.throws(
+      () => sslConfiguration({ PGSSLMODE }),
+      error => error.code === "POSTGRES_TLS_VERIFICATION_REQUIRED"
+    );
+  }
 });
 
 test("initial PostgreSQL migration preserves storage invariants", () => {
