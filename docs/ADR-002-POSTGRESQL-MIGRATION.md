@@ -28,3 +28,7 @@ Setting `DATABASE_URL` before that gate fails closed instead of silently writing
 5. Run API and workers against the same staging PostgreSQL database.
 6. Verify lease recovery with two worker instances.
 7. Switch production only after backup and acceptance report.
+
+## Data transfer
+
+`npm run db:transfer:postgres` copies only canonical/runtime production tables into an empty PostgreSQL schema, preserves identifiers, resets sequences, verifies row counts, and emits a SHA-256 checksum manifest. It aborts and rolls the transaction back if any destination table is non-empty; merge/upsert behavior is intentionally excluded from the production cutover path.
