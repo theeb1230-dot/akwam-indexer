@@ -29,3 +29,17 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build --target api --tag theeb-engine:ci .
+
+      - name: Build worker image
+        run: docker build --target worker --tag theeb-worker:ci .

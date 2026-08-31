@@ -19,6 +19,16 @@ function start(env = process.env) {
         "./server"
       );
 
+    case RUNTIME_ROLES.REFRESH_WORKER:
+      return require(
+        "./workers/refresh-worker"
+      ).startRefreshWorker();
+
+    case RUNTIME_ROLES.HEALTH_WORKER:
+      return require(
+        "./workers/health-worker"
+      ).startHealthWorker();
+
     default:
       throw new Error(
         `UNREACHABLE_RUNTIME_ROLE: ${role}`
@@ -27,9 +37,9 @@ function start(env = process.env) {
 }
 
 if (require.main === module) {
-  try {
-    start();
-  } catch (error) {
+  Promise.resolve()
+    .then(() => start())
+    .catch(error => {
     console.error(
       JSON.stringify({
         level: "fatal",
@@ -44,8 +54,8 @@ if (require.main === module) {
       })
     );
 
-    process.exitCode = 1;
-  }
+      process.exitCode = 1;
+    });
 }
 
 module.exports = {

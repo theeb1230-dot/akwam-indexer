@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS episodes (
   description TEXT,
   image TEXT,
   source_url TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_seen_at TEXT,
+  missing_since TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(provider, provider_episode_id),
@@ -206,6 +209,9 @@ CREATE TABLE IF NOT EXISTS provider_episodes (
   provider_episode_id TEXT NOT NULL,
 
   source_url TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_seen_at TEXT,
+  missing_since TEXT,
 
   confidence REAL NOT NULL DEFAULT 1.0,
 
@@ -352,6 +358,60 @@ CREATE TABLE IF NOT EXISTS playback_verification (
 CREATE INDEX IF NOT EXISTS idx_playback_verification_health
 ON playback_verification(health_state, checked_at);
 
+CREATE TABLE IF NOT EXISTS runtime_jobs (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  provider TEXT,
+  provider_series_id TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  total INTEGER NOT NULL DEFAULT 0,
+  completed INTEGER NOT NULL DEFAULT 0,
+  failed INTEGER NOT NULL DEFAULT 0,
+  progress INTEGER NOT NULL DEFAULT 0,
+  current_item_json TEXT,
+  result_json TEXT,
+  errors_json TEXT NOT NULL DEFAULT '[]',
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  dedupe_key TEXT,
+  cancel_requested INTEGER NOT NULL DEFAULT 0,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 3,
+  worker_id TEXT,
+  lease_expires_at TEXT,
+  available_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at TEXT,
+  finished_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_jobs_claim
+ON runtime_jobs(status, available_at, lease_expires_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_jobs_target
+ON runtime_jobs(type, provider, provider_series_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_runtime_jobs_active_dedupe
+ON runtime_jobs(dedupe_key)
+WHERE dedupe_key IS NOT NULL
+  AND status IN ('queued', 'running');
+
+CREATE TABLE IF NOT EXISTS episode_health_schedule (
+  canonical_episode_id INTEGER PRIMARY KEY,
+  last_status TEXT,
+  last_checked_at TEXT,
+  next_check_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_job_id TEXT,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_episode_health_due
+ON episode_health_schedule(next_check_at);
+
 CREATE TABLE IF NOT EXISTS legacy_series_map (
   legacy_series_id INTEGER PRIMARY KEY,
   canonical_series_id INTEGER NOT NULL,
@@ -437,6 +497,27 @@ ON playback_options(status);
 CREATE INDEX IF NOT EXISTS idx_playback_candidates_episode
 ON playback_candidates(canonical_episode_id, status, priority);
 `);
+
+function ensureColumn(table, column, definition) {
+  const columns = db.prepare(
+    `PRAGMA table_info(${table})`
+  ).all();
+
+  if (!columns.some(item => item.name === column)) {
+    db.exec(
+      `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`
+    );
+  }
+}
+
+ensureColumn("episodes", "active", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("episodes", "last_seen_at", "TEXT");
+ensureColumn("episodes", "missing_since", "TEXT");
+ensureColumn("provider_episodes", "active", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("provider_episodes", "last_seen_at", "TEXT");
+ensureColumn("provider_episodes", "missing_since", "TEXT");
+ensureColumn("runtime_jobs", "dedupe_key", "TEXT");
+ensureColumn("runtime_jobs", "cancel_requested", "INTEGER NOT NULL DEFAULT 0");
 
 
 /*

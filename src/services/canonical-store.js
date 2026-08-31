@@ -145,6 +145,9 @@ const saveResolvedSeries = db.transaction(result => {
           provider_series_id = excluded.provider_series_id,
           source_url = excluded.source_url,
           metadata_json = excluded.metadata_json,
+          active = 1,
+          last_seen_at = CURRENT_TIMESTAMP,
+          missing_since = NULL,
           updated_at = CURRENT_TIMESTAMP
       `).run(
         ce.id,

@@ -4,6 +4,9 @@ const { version: VERSION } = require("../package.json");
 const providers = require("./providers");
 const jobs = require("./services/job-manager");
 const { runImportJob } = require("./services/importer");
+const {
+  shouldExecuteJobsInline
+} = require("./config/runtime-mode");
 
 const libraryRouter = require("./routes/library");
 const refreshRouter = require("./routes/refresh");
@@ -163,18 +166,20 @@ function queueImport(
         seriesId
     });
 
-  setImmediate(() => {
-    runImportJob(
-      job.id,
-      provider,
-      seriesId
-    ).catch(error => {
-      console.error(
-        `[IMPORT ${job.id}]`,
-        error.message
-      );
+  if (shouldExecuteJobsInline()) {
+    setImmediate(() => {
+      runImportJob(
+        job.id,
+        provider,
+        seriesId
+      ).catch(error => {
+        console.error(
+          `[IMPORT ${job.id}]`,
+          error.message
+        );
+      });
     });
-  });
+  }
 
   return res.status(202).json({
     message:
@@ -555,6 +560,33 @@ app.get(
     }
 
     res.json(job);
+  }
+);
+
+app.post(
+  "/api/import/jobs/:jobId/cancel",
+  (req, res) => {
+    const job = jobs.requestCancel(
+      req.params.jobId
+    );
+
+    if (!job) {
+      return res.status(404).json({
+        error: "JOB_NOT_FOUND"
+      });
+    }
+
+    if (!["queued", "running", "cancelled"].includes(job.status)) {
+      return res.status(409).json({
+        error: "JOB_NOT_CANCELLABLE",
+        status: job.status
+      });
+    }
+
+    return res.status(202).json({
+      message: "Cancellation requested",
+      job
+    });
   }
 );
 

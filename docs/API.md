@@ -1,5 +1,13 @@
 # API
 
+## Background jobs
+
+- `GET /api/import/jobs` — list durable jobs.
+- `GET /api/import/jobs/:jobId` — inspect progress, lease and result.
+- `POST /api/import/jobs/:jobId/cancel` — request cooperative cancellation.
+
+Queued jobs cancel immediately. Running import/refresh/health jobs observe the cancellation flag at safe boundaries and retain a terminal `cancelled` record.
+
 جميع الاستجابات بصيغة JSON ما عدا مسار التشغيل الذي يعيد أو يمرر الوسائط.
 
 ## الحالة والمصادر

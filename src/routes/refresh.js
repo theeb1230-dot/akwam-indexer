@@ -6,6 +6,9 @@ const jobs = require("../services/job-manager");
 const {
   runImportJob
 } = require("../services/importer");
+const {
+  shouldExecuteJobsInline
+} = require("../config/runtime-mode");
 
 const router = express.Router();
 
@@ -101,18 +104,20 @@ router.post(
             series.provider_series_id
         });
 
-      setImmediate(() => {
-        runImportJob(
-          job.id,
-          series.provider,
-          series.provider_series_id
-        ).catch(error => {
-          console.error(
-            "Refresh job failed:",
-            error.message
-          );
+      if (shouldExecuteJobsInline()) {
+        setImmediate(() => {
+          runImportJob(
+            job.id,
+            series.provider,
+            series.provider_series_id
+          ).catch(error => {
+            console.error(
+              "Refresh job failed:",
+              error.message
+            );
+          });
         });
-      });
+      }
 
       res.status(202).json({
         message:

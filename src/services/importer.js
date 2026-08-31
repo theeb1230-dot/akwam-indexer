@@ -105,6 +105,9 @@ function upsertEpisode(
       description,
       image,
       source_url,
+      active,
+      last_seen_at,
+      missing_since,
       updated_at
     )
     VALUES (
@@ -116,6 +119,9 @@ function upsertEpisode(
       @description,
       @image,
       @source_url,
+      1,
+      CURRENT_TIMESTAMP,
+      NULL,
       CURRENT_TIMESTAMP
     )
     ON CONFLICT(provider, provider_episode_id)
@@ -126,6 +132,9 @@ function upsertEpisode(
       description = excluded.description,
       image = excluded.image,
       source_url = excluded.source_url,
+      active = 1,
+      last_seen_at = CURRENT_TIMESTAMP,
+      missing_since = NULL,
       updated_at = CURRENT_TIMESTAMP
   `).run({
     series_id:
@@ -163,6 +172,87 @@ function upsertEpisode(
     details.provider,
     String(details.episode.id)
   ).id;
+}
+
+function reconcileMissingEpisodes(
+  seriesId,
+  provider,
+  listedIds
+) {
+  const ids = [...new Set(
+    listedIds.map(String)
+  )];
+
+  let result;
+  if (ids.length === 0) {
+    result = db.prepare(`
+      UPDATE episodes
+      SET active = 0,
+          missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE series_id = ? AND provider = ? AND active = 1
+    `).run(seriesId, provider);
+  } else {
+    const placeholders = ids.map(() => "?").join(", ");
+    result = db.prepare(`
+      UPDATE episodes
+      SET active = 0,
+          missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE series_id = ? AND provider = ? AND active = 1
+        AND provider_episode_id NOT IN (${placeholders})
+    `).run(seriesId, provider, ...ids);
+  }
+
+  const providerSeries = db.prepare(`
+    SELECT ps.id
+    FROM provider_series ps
+    JOIN series s
+      ON s.provider = ps.provider
+     AND s.provider_series_id = ps.provider_series_id
+    WHERE s.id = ? AND ps.provider = ?
+    LIMIT 1
+  `).get(seriesId, provider);
+
+  if (providerSeries) {
+    if (ids.length === 0) {
+      db.prepare(`
+        UPDATE provider_episodes
+        SET active = 0,
+            missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE provider_series_id = ? AND provider = ? AND active = 1
+      `).run(providerSeries.id, provider);
+    } else {
+      const placeholders = ids.map(() => "?").join(", ");
+      db.prepare(`
+        UPDATE provider_episodes
+        SET active = CASE
+              WHEN provider_episode_id IN (${placeholders}) THEN 1
+              ELSE 0
+            END,
+            last_seen_at = CASE
+              WHEN provider_episode_id IN (${placeholders})
+                THEN CURRENT_TIMESTAMP
+              ELSE last_seen_at
+            END,
+            missing_since = CASE
+              WHEN provider_episode_id IN (${placeholders}) THEN NULL
+              ELSE COALESCE(missing_since, CURRENT_TIMESTAMP)
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE provider_series_id = ? AND provider = ?
+      `).run(
+        ...ids,
+        ...ids,
+        ...ids,
+        providerSeries.id,
+        provider
+      );
+    }
+  }
+
+  return result.changes;
 }
 
 function upsertWatchOption(
@@ -235,6 +325,28 @@ async function importSeries(
       seriesData
     );
 
+  const existingIds = new Set(
+    db.prepare(`
+      SELECT provider_episode_id
+      FROM episodes
+      WHERE series_id = ? AND provider = ?
+    `).all(seriesDbId, providerName)
+      .map(item => String(item.provider_episode_id))
+  );
+
+  const listedIds = (seriesData.episodes || [])
+    .map(item => String(item.id));
+
+  const newEpisodeCount = listedIds
+    .filter(id => !existingIds.has(id))
+    .length;
+
+  const disappearedCount = reconcileMissingEpisodes(
+    seriesDbId,
+    providerName,
+    listedIds
+  );
+
   if (jobId) {
     jobs.start(
       jobId,
@@ -246,11 +358,17 @@ async function importSeries(
   let failed = 0;
 
   const errors = [];
+  let cancelled = false;
 
   for (
     const episode
     of seriesData.episodes
   ) {
+    if (jobId && jobs.isCancellationRequested(jobId)) {
+      cancelled = true;
+      break;
+    }
+
     if (jobId) {
       jobs.setCurrentEpisode(
         jobId,
@@ -328,7 +446,9 @@ async function importSeries(
 
   const result = {
     status:
-      failed === 0
+      cancelled
+        ? "cancelled"
+        : failed === 0
         ? "completed"
         : "completed_with_errors",
 
@@ -347,16 +467,23 @@ async function importSeries(
     episode_count:
       seriesData.episodes.length,
 
+    new_episode_count:
+      newEpisodeCount,
+
+    disappeared_source_count:
+      disappearedCount,
+
     completed,
     failed,
     errors
   };
 
   if (jobId) {
-    jobs.complete(
-      jobId,
-      result
-    );
+    if (cancelled) {
+      jobs.cancel(jobId, result);
+    } else {
+      jobs.complete(jobId, result);
+    }
   }
 
   return result;
@@ -468,5 +595,6 @@ if (require.main === module) {
 module.exports = {
   importSeries,
   runImportJob,
-  getProvider
+  getProvider,
+  reconcileMissingEpisodes
 };
