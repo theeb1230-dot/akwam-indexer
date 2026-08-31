@@ -27,6 +27,8 @@
 
 راجع [ADR-001](ADR-001-DISTRIBUTED-RUNTIME.md).
 
+ترحيل قاعدة الإنتاج موثق في [ADR-002](ADR-002-POSTGRESQL-MIGRATION.md). وجود `DATABASE_URL` وحده لا يعني اكتمال الترحيل؛ كل Repository يجب أن يجتاز اختبارات التكافؤ قبل تفعيل PostgreSQL في Runtime.
+
 ## الطبقات
 
 1. **Routes:** التحقق الأولي من الطلب وتحويله إلى الخدمة المناسبة.

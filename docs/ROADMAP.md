@@ -1,5 +1,13 @@
 # Roadmap
 
+## المرحلة السادسة — PostgreSQL Migration
+
+- مخطط PostgreSQL مبدئي بدون تخزين Direct URLs المؤقتة.
+- Migration runner بإصدارات مرتبة.
+- TLS مفعل افتراضيًا.
+- Job Repository يستخدم `FOR UPDATE SKIP LOCKED`.
+- المتبقي: نقل Canonical/Health/Import repositories، أداة نقل البيانات، واختبارات parity الحية.
+
 ## المرحلة الخامسة — Background Health & Refresh
 
 - Queue دائمة بدل الذاكرة المحلية.
