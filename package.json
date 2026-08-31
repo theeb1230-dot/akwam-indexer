@@ -2,10 +2,11 @@
   "name": "akwam-indexer",
   "version": "1.0.0",
   "description": "Theeb Engine multi-provider media indexer and resolver",
-  "main": "src/server.js",
+  "main": "src/entrypoint.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "node src/entrypoint.js",
+    "start:api": "THEEB_ROLE=api node src/entrypoint.js",
+    "dev": "node --watch src/entrypoint.js",
     "test": "node --test",
     "live:test": "node scripts/live-playback-validation.js"
   },
