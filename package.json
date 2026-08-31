@@ -10,7 +10,8 @@
     "start:health-worker": "THEEB_ROLE=health-worker node src/entrypoint.js",
     "dev": "node --watch src/entrypoint.js",
     "test": "node --test",
-    "live:test": "node scripts/live-playback-validation.js"
+    "live:test": "node scripts/live-playback-validation.js",
+    "db:migrate:postgres": "node scripts/migrate-postgres.js"
   },
   "repository": {
     "type": "git",
@@ -36,6 +37,7 @@
     "axios": "^1.20.0",
     "better-sqlite3": "^13.0.3",
     "cheerio": "^1.2.0",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
   }
 }

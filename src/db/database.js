@@ -1,6 +1,20 @@
 const fs = require("fs");
 const path = require("path");
 const Database = require("better-sqlite3");
+const {
+  DRIVERS,
+  databaseDriver
+} = require("./config");
+
+const driver = databaseDriver();
+
+if (driver !== DRIVERS.SQLITE) {
+  const error = new Error(
+    "POSTGRES_RUNTIME_REPOSITORY_REQUIRED"
+  );
+  error.code = "POSTGRES_RUNTIME_REPOSITORY_REQUIRED";
+  throw error;
+}
 
 const configuredPath = process.env.DATABASE_PATH
   ? path.resolve(process.env.DATABASE_PATH)

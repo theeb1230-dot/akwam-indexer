@@ -30,10 +30,18 @@ RUN apt-get update \
   && apt-get install --yes --no-install-recommends chromium \
   && rm -rf /var/lib/apt/lists/*
 COPY --chown=theeb:theeb scripts ./scripts
+COPY --chown=theeb:theeb migrations ./migrations
 ENV CHROME_PATH=/usr/bin/chromium
 ENV THEEB_ROLE=health-worker
 USER theeb
 CMD ["node", "src/entrypoint.js"]
+
+FROM runtime-base AS migration
+
+COPY --chown=theeb:theeb scripts ./scripts
+COPY --chown=theeb:theeb migrations ./migrations
+USER theeb
+CMD ["node", "scripts/migrate-postgres.js"]
 
 FROM runtime-base AS api
 

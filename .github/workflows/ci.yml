@@ -43,3 +43,6 @@ jobs:
 
       - name: Build worker image
         run: docker build --target worker --tag theeb-worker:ci .
+
+      - name: Build migration image
+        run: docker build --target migration --tag theeb-migration:ci .
