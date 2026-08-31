@@ -259,6 +259,10 @@ async function inspectWatchOption({
         info?.media_types ??
         [],
 
+      resolution_trace:
+        info?.resolution_trace ??
+        [],
+
       sources
     };
   } catch (error) {
@@ -276,6 +280,14 @@ async function inspectWatchOption({
         null,
 
       sources: [],
+
+      resolution_trace: [
+        {
+          stage: "watch_info",
+          status: "failed",
+          error: error.message
+        }
+      ],
 
       error:
         error.message

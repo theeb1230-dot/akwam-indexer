@@ -406,10 +406,20 @@ class WeCimaProvider {
       "mp4plus",
       "anafast",
       "vidspeed",
-      "mixdrop"
+      "mixdrop",
+      "vidara",
+      "vibuxer",
+      "dhtpre",
+      "bysesukior",
+      "uqload",
+      "dsvplay"
     ];
 
     const servers = [];
+    const observedServers = [];
+
+    const rawServerCount =
+      $("li[data-embed]").length;
 
     $("li[data-embed]").each(
       (_, element) => {
@@ -480,8 +490,30 @@ class WeCimaProvider {
               ""
             );
 
+        const serverKey =
+          key === "mxdrop"
+            ? "mixdrop"
+            : key;
+
         const rank =
-          priority.indexOf(key);
+          priority.indexOf(
+            serverKey
+          );
+
+        observedServers.push({
+          name,
+          normalized_key: key,
+          accepted: rank !== -1,
+          embed_hostname: (() => {
+            try {
+              return new URL(
+                embedUrl
+              ).hostname;
+            } catch {
+              return null;
+            }
+          })()
+        });
 
         /*
          * نستبعد السيرفرات التي ثبت أنها غير مناسبة.
@@ -497,7 +529,7 @@ class WeCimaProvider {
           name,
 
           server:
-            key,
+            serverKey,
 
           type:
             "embed",
@@ -549,6 +581,43 @@ class WeCimaProvider {
         servers.length
           ? ["embed"]
           : [],
+
+      resolution_trace: [
+        {
+          stage: "provider_episode_mapping",
+          status: "ok",
+          episode_id: id
+        },
+        {
+          stage: "play_page",
+          status: "ok",
+          url: playUrl
+        },
+        {
+          stage: "watch_options",
+          status:
+            rawServerCount > 0
+              ? "found"
+              : "empty",
+          raw_count:
+            rawServerCount,
+          accepted_count:
+            servers.length
+        },
+        {
+          stage: "candidate_normalization",
+          status:
+            servers.length > 0
+              ? "ok"
+              : "empty",
+          accepted_servers:
+            servers.map(
+              item => item.server
+            ),
+          observed_servers:
+            observedServers
+        }
+      ],
 
       watch_options:
         servers,
