@@ -16,7 +16,7 @@
 - `playback-worker`: مهام الحل والتحقق الثقيلة.
 - `all`: توافق محلي خلال المرحلة الانتقالية.
 
-حاليًا `api` و`all` و`refresh-worker` منفذة. يعتمد Refresh Worker على Queue دائمة وLease محددة واستعادة المهمة بعد انتهاء Lease. يبقى `health-worker` و`playback-worker` مغلقين حتى تكتمل عقودهما؛ لا نعلن خدمة وهمية على أنها جاهزة.
+حاليًا `api` و`all` و`refresh-worker` و`health-worker` منفذة. تعتمد الـWorkers على Queue دائمة وLease وHeartbeat واستعادة بعد الانقطاع. Health Worker يميز الوصول عن التشغيل المثبت ويستخدم Chromium للـEmbed. يبقى `playback-worker` مغلقًا حتى يكتمل عقده؛ لا نعلن خدمة وهمية على أنها جاهزة.
 
 ## التوزيع المستهدف
 

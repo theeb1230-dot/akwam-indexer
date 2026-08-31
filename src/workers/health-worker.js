@@ -71,6 +71,11 @@ async function executeHealthCheck(job, options = {}) {
   const browserProbe = options.probe || probe;
   const verificationStore = options.recordVerification || recordVerification;
 
+  if (jobs.isCancellationRequested(job.id)) {
+    jobs.cancel(job.id, { status: "cancelled" });
+    return { status: "cancelled" };
+  }
+
   const result = await executor({
     query: job.payload.query,
     groupKey: job.payload.group_key,
@@ -83,6 +88,11 @@ async function executeHealthCheck(job, options = {}) {
     : "TEMPORARILY_FAILED";
   let browser = null;
   const selected = result.selected_source;
+
+  if (jobs.isCancellationRequested(job.id)) {
+    jobs.cancel(job.id, { status: "cancelled" });
+    return { status: "cancelled", result };
+  }
 
   if (selected?.type === "embed") {
     if (!selected.embed_url) {

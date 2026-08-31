@@ -33,6 +33,7 @@ function hydrate(row) {
     errors: json(row.errors_json, []),
     payload: json(row.payload_json, {}),
     dedupe_key: row.dedupe_key,
+    cancel_requested: Boolean(row.cancel_requested),
     attempts: row.attempts,
     max_attempts: row.max_attempts,
     worker_id: row.worker_id,
@@ -240,11 +241,12 @@ class JobManager {
       const row = db.prepare(`
         SELECT id FROM runtime_jobs
         WHERE type IN (${placeholders})
-          AND available_at <= ?
+          AND datetime(available_at) <= datetime(?)
           AND attempts < max_attempts
+          AND cancel_requested = 0
           AND (
             status = 'queued'
-            OR (status = 'running' AND lease_expires_at < ?)
+            OR (status = 'running' AND datetime(lease_expires_at) < datetime(?))
           )
         ORDER BY created_at ASC LIMIT 1
       `).get(...allowed, now.toISOString(), now.toISOString());
@@ -258,7 +260,7 @@ class JobManager {
           started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND (
-          status = 'queued' OR lease_expires_at < ?
+          status = 'queued' OR datetime(lease_expires_at) < datetime(?)
         )
       `).run(workerId, lease, row.id, now.toISOString());
 
@@ -283,6 +285,47 @@ class JobManager {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND worker_id = ? AND status = 'running'
     `).run(available, id, workerId).changes === 1;
+  }
+
+  requestCancel(id) {
+    const job = this.get(id);
+    if (!job) return null;
+
+    if (job.status === "queued") {
+      db.prepare(`
+        UPDATE runtime_jobs
+        SET status = 'cancelled', cancel_requested = 1,
+            finished_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(id);
+    } else if (job.status === "running") {
+      db.prepare(`
+        UPDATE runtime_jobs
+        SET cancel_requested = 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(id);
+    }
+
+    return this.get(id);
+  }
+
+  isCancellationRequested(id) {
+    return Boolean(this.get(id)?.cancel_requested);
+  }
+
+  cancel(id, result = null) {
+    db.prepare(`
+      UPDATE runtime_jobs
+      SET status = 'cancelled', cancel_requested = 1,
+          result_json = ?, worker_id = NULL,
+          lease_expires_at = NULL,
+          finished_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(encode(result, null), id);
+    return this.get(id);
   }
 }
 

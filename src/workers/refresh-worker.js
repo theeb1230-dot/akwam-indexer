@@ -2,6 +2,9 @@ const db = require("../db/schema");
 const jobs = require("../services/job-manager");
 const { importSeries } = require("../services/importer");
 const { runWorker } = require("./worker-runner");
+const {
+  enqueueDueRefreshJobs
+} = require("../services/refresh-scheduler");
 
 async function refreshAll(job) {
   const series = db.prepare(`
@@ -54,6 +57,22 @@ async function handleRefreshJob(job) {
 }
 
 function startRefreshWorker(options = {}) {
+  const schedulerMs = Number(process.env.REFRESH_SCHEDULER_MS || 60000);
+  const timer = setInterval(() => {
+    try {
+      enqueueDueRefreshJobs();
+    } catch (error) {
+      console.error(JSON.stringify({
+        level: "error",
+        event: "refresh_schedule_failed",
+        error: error.message
+      }));
+    }
+  }, schedulerMs);
+
+  timer.unref?.();
+  enqueueDueRefreshJobs();
+
   return runWorker({
     role: "refresh-worker",
     types: ["import", "refresh", "refresh-all"],
@@ -61,7 +80,7 @@ function startRefreshWorker(options = {}) {
     leaseMs: Number(process.env.JOB_LEASE_MS || 60000),
     pollMs: Number(process.env.JOB_POLL_MS || 1000),
     ...options
-  });
+  }).finally(() => clearInterval(timer));
 }
 
 module.exports = {

@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS episodes (
   description TEXT,
   image TEXT,
   source_url TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_seen_at TEXT,
+  missing_since TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(provider, provider_episode_id),
@@ -206,6 +209,9 @@ CREATE TABLE IF NOT EXISTS provider_episodes (
   provider_episode_id TEXT NOT NULL,
 
   source_url TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  last_seen_at TEXT,
+  missing_since TEXT,
 
   confidence REAL NOT NULL DEFAULT 1.0,
 
@@ -367,6 +373,7 @@ CREATE TABLE IF NOT EXISTS runtime_jobs (
   errors_json TEXT NOT NULL DEFAULT '[]',
   payload_json TEXT NOT NULL DEFAULT '{}',
   dedupe_key TEXT,
+  cancel_requested INTEGER NOT NULL DEFAULT 0,
   attempts INTEGER NOT NULL DEFAULT 0,
   max_attempts INTEGER NOT NULL DEFAULT 3,
   worker_id TEXT,
@@ -490,6 +497,27 @@ ON playback_options(status);
 CREATE INDEX IF NOT EXISTS idx_playback_candidates_episode
 ON playback_candidates(canonical_episode_id, status, priority);
 `);
+
+function ensureColumn(table, column, definition) {
+  const columns = db.prepare(
+    `PRAGMA table_info(${table})`
+  ).all();
+
+  if (!columns.some(item => item.name === column)) {
+    db.exec(
+      `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`
+    );
+  }
+}
+
+ensureColumn("episodes", "active", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("episodes", "last_seen_at", "TEXT");
+ensureColumn("episodes", "missing_since", "TEXT");
+ensureColumn("provider_episodes", "active", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("provider_episodes", "last_seen_at", "TEXT");
+ensureColumn("provider_episodes", "missing_since", "TEXT");
+ensureColumn("runtime_jobs", "dedupe_key", "TEXT");
+ensureColumn("runtime_jobs", "cancel_requested", "INTEGER NOT NULL DEFAULT 0");
 
 
 /*

@@ -22,7 +22,7 @@ function dueEpisodes(options = {}) {
     WHERE ce.episode_number IS NOT NULL
       AND (
         hs.canonical_episode_id IS NULL
-        OR hs.next_check_at <= ?
+        OR datetime(hs.next_check_at) <= datetime(?)
       )
     ORDER BY
       COALESCE(hs.next_check_at, ce.created_at) ASC,

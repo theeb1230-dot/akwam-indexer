@@ -563,6 +563,33 @@ app.get(
   }
 );
 
+app.post(
+  "/api/import/jobs/:jobId/cancel",
+  (req, res) => {
+    const job = jobs.requestCancel(
+      req.params.jobId
+    );
+
+    if (!job) {
+      return res.status(404).json({
+        error: "JOB_NOT_FOUND"
+      });
+    }
+
+    if (!["queued", "running", "cancelled"].includes(job.status)) {
+      return res.status(409).json({
+        error: "JOB_NOT_CANCELLABLE",
+        status: job.status
+      });
+    }
+
+    return res.status(202).json({
+      message: "Cancellation requested",
+      job
+    });
+  }
+);
+
 /*
  * =========================================================
  * LIBRARY

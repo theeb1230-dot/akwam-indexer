@@ -83,3 +83,15 @@ test("active dedupe keys produce one job", () => {
   assert.equal(second.created, false);
   assert.equal(second.job.id, first.job.id);
 });
+
+test("queued jobs cancel immediately and cannot be claimed", () => {
+  const created = jobs.create({ type: "cancel-fixture" });
+  const cancelled = jobs.requestCancel(created.id);
+
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.cancel_requested, true);
+  assert.equal(
+    jobs.claimNext("worker", ["cancel-fixture"]),
+    null
+  );
+});
