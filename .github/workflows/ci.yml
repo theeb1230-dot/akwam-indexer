@@ -46,3 +46,33 @@ jobs:
 
       - name: Build migration image
         run: docker build --target migration --tag theeb-migration:ci .
+
+  golden-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run bounded offline golden gates
+        env:
+          GATE_TIMEOUT_MS: 60000
+          GATE_LOAD_OPERATIONS: 2000
+          GATE_LOAD_CONCURRENCY: 25
+          GATE_SOAK_CYCLES: 10000
+        run: npm run gate:golden
+      - name: Upload golden gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-gate-report
+          path: artifacts/golden-gates/
+          if-no-files-found: error
+          retention-days: 14
