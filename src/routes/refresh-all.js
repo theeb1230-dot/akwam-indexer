@@ -6,6 +6,9 @@ const jobs = require("../services/job-manager");
 const {
   runImportJob
 } = require("../services/importer");
+const {
+  shouldExecuteJobsInline
+} = require("../config/runtime-mode");
 
 const router = express.Router();
 
@@ -56,7 +59,7 @@ router.post(
           provider: "multiple"
         });
 
-      setImmediate(async () => {
+      if (shouldExecuteJobsInline()) setImmediate(async () => {
         try {
           jobs.start(
             parentJob.id,

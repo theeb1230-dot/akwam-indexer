@@ -62,3 +62,12 @@ test("worker roles cannot pretend to be ready before PR 4", () => {
       "THEEB_ROLE_NOT_IMPLEMENTED"
   );
 });
+
+test("refresh worker is implemented with durable jobs", () => {
+  assert.equal(
+    assertImplementedRole(
+      RUNTIME_ROLES.REFRESH_WORKER
+    ),
+    RUNTIME_ROLES.REFRESH_WORKER
+  );
+});

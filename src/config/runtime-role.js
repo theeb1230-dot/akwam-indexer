@@ -8,7 +8,8 @@ const RUNTIME_ROLES = Object.freeze({
 
 const IMPLEMENTED_ROLES = new Set([
   RUNTIME_ROLES.ALL,
-  RUNTIME_ROLES.API
+  RUNTIME_ROLES.API,
+  RUNTIME_ROLES.REFRESH_WORKER
 ]);
 
 function normalizeRuntimeRole(value) {

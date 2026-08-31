@@ -1,5 +1,14 @@
 # Roadmap
 
+## المرحلة الخامسة — Background Health & Refresh
+
+- Queue دائمة بدل الذاكرة المحلية.
+- ملكية Job عبر Lease وHeartbeat.
+- استعادة آمنة بعد انتهاء Lease.
+- Refresh Worker مستقل مع Retry وBackoff.
+- فصل API enqueue عن Worker execution عبر `THEEB_ROLE`.
+- Health Worker وTTL scheduling هما البوابة التالية داخل المرحلة نفسها.
+
 ## أولوية قريبة
 
 - إضافة اختبارات وحدات أوسع للتطبيع والتجميع ودرجات المطابقة.

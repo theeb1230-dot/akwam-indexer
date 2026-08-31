@@ -352,6 +352,37 @@ CREATE TABLE IF NOT EXISTS playback_verification (
 CREATE INDEX IF NOT EXISTS idx_playback_verification_health
 ON playback_verification(health_state, checked_at);
 
+CREATE TABLE IF NOT EXISTS runtime_jobs (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  provider TEXT,
+  provider_series_id TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  total INTEGER NOT NULL DEFAULT 0,
+  completed INTEGER NOT NULL DEFAULT 0,
+  failed INTEGER NOT NULL DEFAULT 0,
+  progress INTEGER NOT NULL DEFAULT 0,
+  current_item_json TEXT,
+  result_json TEXT,
+  errors_json TEXT NOT NULL DEFAULT '[]',
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 3,
+  worker_id TEXT,
+  lease_expires_at TEXT,
+  available_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at TEXT,
+  finished_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_jobs_claim
+ON runtime_jobs(status, available_at, lease_expires_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_jobs_target
+ON runtime_jobs(type, provider, provider_series_id, status);
+
 CREATE TABLE IF NOT EXISTS legacy_series_map (
   legacy_series_id INTEGER PRIMARY KEY,
   canonical_series_id INTEGER NOT NULL,
