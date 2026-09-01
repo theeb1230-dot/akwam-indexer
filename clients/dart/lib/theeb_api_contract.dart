@@ -262,7 +262,8 @@ class TheebApiClient {
   final TheebApiTransport transport;
 
   Future<List<TheebSeries>> search(String query) async {
-    final data = _data(await transport.get('/v1/search?q=${Uri.encodeQueryComponent(query)}'));
+    final encodedQuery = Uri.encodeComponent(query);
+    final data = _data(await transport.get('/v1/search?q=$encodedQuery'));
     return _list(data, 'items').map((item) =>
       TheebSeries.fromJson(_objectMap(item, 'series'))).toList(growable: false);
   }
