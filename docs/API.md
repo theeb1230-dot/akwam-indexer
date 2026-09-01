@@ -1,5 +1,29 @@
 # API
 
+## Client API v1 (Flutter / TV / Web)
+
+العقد الثابت للتطبيق موثّق في `contracts/openapi-v1.json`، ويوجد عميل Dart خفيف في
+`clients/dart/lib/theeb_api_contract.dart`. العميل يعرف المحتوى الموحّد فقط؛ لا يعرف
+Provider أو `watch_id` أو iframe أو رابط CDN.
+
+- `GET /v1/search?q=...`
+- `GET /v1/series/:id`
+- `GET /v1/series/:id/episodes`
+- `GET /v1/episodes/:id`
+- `POST /v1/playback/sessions`
+- `GET /v1/playback/sessions/:id`
+- `POST /v1/playback/sessions/:id/feedback`
+- `GET /v1/episodes/:id/download-options`
+
+جلسة التشغيل تبدأ بـ`planning`، ولا تصبح `ready` لمجرد وجود مرشح أو استجابة HTTP 200.
+التغذية الراجعة تقبل أحداثًا محددة وقابلة لإعادة الإرسال بأمان عبر `event_id`.
+تفاصيلها ذات حقول محصورة وحجم ومعدل محدودين، وتُعامل ساعة العميل كمدخل غير موثوق؛
+أي وقت يبتعد أكثر من خمس دقائق يُطبّع إلى وقت الاستلام في الخادم.
+خيارات التحميل منفصلة تمامًا عن جلسة المشاهدة، ولا يبدأ التحميل بمجرد عرض الخيارات.
+
+مسارات `/api/*` الحالية باقية خلال فترة الانتقال لضمان التوافق الخلفي، لكنها ليست عقد
+التطبيق طويل الأجل.
+
 ## Background jobs
 
 - `GET /api/import/jobs` — list durable jobs.

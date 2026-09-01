@@ -18,6 +18,7 @@ const resolveRouter = require("./routes/resolve");
 const episodeResolveRouter = require("./routes/episode-resolve");
 const canonicalRouter = require("./routes/canonical");
 const playbackRouter = require("./routes/playback");
+const v1Router = require("./routes/v1");
 
 const app = express();
 
@@ -35,6 +36,8 @@ app.use(
     extended: true
   })
 );
+
+app.use("/v1", v1Router);
 
 function normalizeProviderName(value) {
   return String(value || "")

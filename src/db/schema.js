@@ -358,6 +358,57 @@ CREATE TABLE IF NOT EXISTS playback_verification (
 CREATE INDEX IF NOT EXISTS idx_playback_verification_health
 ON playback_verification(health_state, checked_at);
 
+/* ============================================================
+ * CLIENT PLAYBACK SESSIONS
+ *
+ * The public client contract stores internal identifiers only. It never
+ * persists a temporary direct media URL and never exposes provider locators
+ * to Flutter.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS playback_sessions (
+  id TEXT PRIMARY KEY,
+  canonical_episode_id INTEGER NOT NULL,
+  state TEXT NOT NULL DEFAULT 'planning',
+  requested_quality TEXT NOT NULL DEFAULT 'auto',
+  client_platform TEXT NOT NULL,
+  client_version TEXT,
+  selected_candidate_id INTEGER,
+  plan_version INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE,
+  FOREIGN KEY(selected_candidate_id)
+    REFERENCES playback_candidates(id)
+    ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_sessions_episode
+ON playback_sessions(canonical_episode_id, created_at);
+
+CREATE TABLE IF NOT EXISTS playback_session_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  position_seconds REAL,
+  error_code TEXT,
+  details_json TEXT,
+  occurred_at TEXT NOT NULL,
+  received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(session_id, event_id),
+  FOREIGN KEY(session_id)
+    REFERENCES playback_sessions(id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_playback_session_events_type
+ON playback_session_events(session_id, event_type, occurred_at);
+
 CREATE TABLE IF NOT EXISTS runtime_jobs (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,
