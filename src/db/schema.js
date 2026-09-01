@@ -358,43 +358,6 @@ CREATE TABLE IF NOT EXISTS playback_verification (
 CREATE INDEX IF NOT EXISTS idx_playback_verification_health
 ON playback_verification(health_state, checked_at);
 
-CREATE TABLE IF NOT EXISTS playback_sessions (
-  id TEXT PRIMARY KEY,
-  canonical_episode_id INTEGER,
-  client_platform TEXT,
-  status TEXT NOT NULL DEFAULT 'created',
-  selected_candidate_key TEXT,
-  first_frame_ms INTEGER,
-  buffering_count INTEGER NOT NULL DEFAULT 0,
-  stalled_count INTEGER NOT NULL DEFAULT 0,
-  fatal_error_code TEXT,
-  started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  last_event_at TEXT,
-  ended_at TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(canonical_episode_id)
-    REFERENCES canonical_episodes(id)
-    ON DELETE SET NULL
-);
-
-CREATE TABLE IF NOT EXISTS playback_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  position_seconds REAL,
-  error_code TEXT,
-  metadata_json TEXT NOT NULL DEFAULT '{}',
-  occurred_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(session_id)
-    REFERENCES playback_sessions(id)
-    ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_playback_events_session
-ON playback_events(session_id, occurred_at);
-
 CREATE TABLE IF NOT EXISTS runtime_jobs (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,

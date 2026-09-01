@@ -1,45 +1,52 @@
 const express = require("express");
-const db = require("../db/schema");
 const adminAuth = require("../middleware/admin-auth");
 const metrics = require("../observability/metrics");
-const router = express.Router();
+const logger = require("../observability/logger");
+const { redactString } = require("../observability/redact");
+const { createObservabilityRepository } = require("../repositories/observability-repository");
 
-router.use(adminAuth);
+function safeFailure(res, error) {
+  logger.error("admin_read_failed", { error_code: error?.code || "ADMIN_STORAGE_UNAVAILABLE" });
+  return res.status(503).json({ error: "ADMIN_STORAGE_UNAVAILABLE" });
+}
 
-router.get("/health/providers", (req, res) => {
-  const providers = db.prepare(`SELECT provider,
-    COUNT(*) AS candidates, SUM(success_count) AS successes,
-    SUM(failure_count) AS failures, ROUND(AVG(avg_latency_ms)) AS avg_latency_ms,
-    MAX(updated_at) AS last_updated_at
-    FROM playback_health GROUP BY provider ORDER BY provider`).all();
-  res.json({ providers });
-});
+function createAdminRouter(options = {}) {
+  const router = express.Router();
+  const repository = options.repository || createObservabilityRepository();
 
-router.get("/circuits", (req, res) => {
-  const circuits = db.prepare(`SELECT provider, server, playback_type,
-    consecutive_failures, last_failure_reason, circuit_open_until, updated_at
-    FROM playback_health WHERE circuit_open_until > CURRENT_TIMESTAMP
-    ORDER BY circuit_open_until DESC LIMIT 200`).all();
-  res.json({ circuits });
-});
+  router.use(adminAuth);
 
-router.get("/jobs", (req, res) => {
-  const jobs = db.prepare(`SELECT id, type, provider, provider_series_id, status,
-    total, completed, failed, progress, attempts, max_attempts, worker_id,
-    lease_expires_at, available_at, created_at, started_at, finished_at, updated_at
-    FROM runtime_jobs ORDER BY created_at DESC LIMIT 200`).all();
-  res.json({ jobs });
-});
+  router.get("/health/providers", async (req, res) => {
+    try { res.json({ providers: await repository.providerHealth() }); }
+    catch (error) { safeFailure(res, error); }
+  });
 
-router.get("/playback", (req, res) => {
-  const aggregate = db.prepare(`SELECT status, COUNT(*) AS sessions,
-    ROUND(AVG(first_frame_ms)) AS avg_first_frame_ms,
-    SUM(buffering_count) AS buffering_events, SUM(stalled_count) AS stalled_events
-    FROM playback_sessions GROUP BY status`).all();
-  res.json({ aggregate });
-});
+  router.get("/circuits", async (req, res) => {
+    try {
+      const circuits = await repository.openCircuits();
+      res.json({ circuits: circuits.map(item => ({
+        ...item,
+        last_failure_reason: redactString(String(item.last_failure_reason || "UNKNOWN"))
+      })) });
+    }
+    catch (error) { safeFailure(res, error); }
+  });
 
-router.get("/metrics", (req, res) => res.json({ metrics: metrics.snapshot() }));
-router.get("/metrics.prom", (req, res) => res.type("text/plain; version=0.0.4").send(metrics.prometheus()));
+  router.get("/jobs", async (req, res) => {
+    try { res.json({ jobs: await repository.recentJobs() }); }
+    catch (error) { safeFailure(res, error); }
+  });
 
-module.exports = router;
+  router.get("/playback", async (req, res) => {
+    try { res.json(await repository.playbackSummary()); }
+    catch (error) { safeFailure(res, error); }
+  });
+
+  router.get("/metrics", (req, res) => res.json({ metrics: metrics.snapshot() }));
+  router.get("/metrics.prom", (req, res) => res.type("text/plain; version=0.0.4").send(metrics.prometheus()));
+
+  return router;
+}
+
+module.exports = createAdminRouter();
+module.exports.createAdminRouter = createAdminRouter;

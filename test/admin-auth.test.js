@@ -16,10 +16,18 @@ test("admin API fails closed without a configured token", () => {
 });
 
 test("admin API uses bearer authentication", () => {
-  process.env.ADMIN_READ_TOKEN = "a-strong-test-token";
+  process.env.ADMIN_READ_TOKEN = "a-strong-test-token-that-is-32-bytes";
   let called = false;
   const res = response();
-  adminAuth({ get: () => "Bearer a-strong-test-token" }, res, () => { called = true; });
+  adminAuth({ get: () => "Bearer a-strong-test-token-that-is-32-bytes" }, res, () => { called = true; });
   assert.equal(called, true);
+  delete process.env.ADMIN_READ_TOKEN;
+});
+
+test("admin API rejects weak configured tokens", () => {
+  process.env.ADMIN_READ_TOKEN = "short";
+  const res = response();
+  adminAuth({ get: () => "Bearer short" }, res, () => assert.fail("must not continue"));
+  assert.equal(res.code, 503);
   delete process.env.ADMIN_READ_TOKEN;
 });

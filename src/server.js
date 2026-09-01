@@ -18,7 +18,6 @@ const resolveRouter = require("./routes/resolve");
 const episodeResolveRouter = require("./routes/episode-resolve");
 const canonicalRouter = require("./routes/canonical");
 const playbackRouter = require("./routes/playback");
-const telemetryRouter = require("./routes/telemetry");
 const adminRouter = require("./routes/admin");
 const observability = require("./middleware/observability");
 
@@ -27,19 +26,15 @@ const app = express();
 const PORT =
   Number(process.env.PORT) || 3000;
 
-app.use(
-  express.json({
-    limit: "1mb"
-  })
-);
+app.use(observability);
+
+app.use(express.json({ limit: "1mb" }));
 
 app.use(
   express.urlencoded({
     extended: true
   })
 );
-
-app.use(observability);
 
 function normalizeProviderName(value) {
   return String(value || "")
@@ -611,7 +606,6 @@ app.use(
   playbackRouter
 );
 
-app.use("/v1/playback", telemetryRouter);
 app.use("/internal/admin", adminRouter);
 
 app.use(
