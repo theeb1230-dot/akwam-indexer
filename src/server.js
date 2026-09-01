@@ -1,5 +1,6 @@
 const express = require("express");
 const { version: VERSION } = require("../package.json");
+const db = require("./db/schema");
 
 const providers = require("./providers");
 const jobs = require("./services/job-manager");
@@ -21,6 +22,12 @@ const playbackRouter = require("./routes/playback");
 
 const app = express();
 
+const runtimeState = {
+  acceptingTraffic: false,
+  shuttingDown: false,
+  startedAt: null
+};
+
 const PORT =
   Number(process.env.PORT) || 3000;
 
@@ -35,6 +42,33 @@ app.use(
     extended: true
   })
 );
+
+app.get("/livez", (req, res) => {
+  res.status(200).json({
+    status: "alive",
+    version: VERSION,
+    uptime_seconds: Math.floor(process.uptime())
+  });
+});
+
+app.get("/readyz", (req, res) => {
+  if (!runtimeState.acceptingTraffic || runtimeState.shuttingDown) {
+    return res.status(503).json({
+      status: "not_ready",
+      reason: runtimeState.shuttingDown ? "SHUTTING_DOWN" : "STARTING"
+    });
+  }
+
+  try {
+    db.prepare("SELECT 1 AS ok").get();
+    return res.status(200).json({ status: "ready", database: "reachable" });
+  } catch (error) {
+    return res.status(503).json({
+      status: "not_ready",
+      reason: "DATABASE_UNAVAILABLE"
+    });
+  }
+});
 
 function normalizeProviderName(value) {
   return String(value || "")
@@ -648,16 +682,22 @@ app.use(
  * =========================================================
  */
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
+function startServer(options = {}) {
+  const port = Number(options.port ?? PORT);
+  const host = options.host || "0.0.0.0";
+
+  runtimeState.shuttingDown = false;
+  runtimeState.acceptingTraffic = false;
+
+  const server = app.listen(port, host, () => {
+    runtimeState.acceptingTraffic = true;
+    runtimeState.startedAt = new Date().toISOString();
     console.log("");
     console.log(
       `🐺 THEEB ENGINE v${VERSION}`
     );
     console.log(
-      `🚀 http://localhost:${PORT}`
+      `🚀 http://localhost:${port}`
     );
     console.log(
       `🔌 Providers: ${providers.list().join(", ")}`
@@ -687,5 +727,18 @@ app.listen(
       "🧩 URL/Slug imports ready"
     );
     console.log("");
-  }
-);
+  });
+
+  server.stopAcceptingTraffic = () => {
+    runtimeState.shuttingDown = true;
+    runtimeState.acceptingTraffic = false;
+  };
+
+  return server;
+}
+
+module.exports = {
+  app,
+  runtimeState,
+  startServer
+};
