@@ -6,7 +6,10 @@ async function verify(manifestFile, options = {}) {
   if (!manifestFile) throw new Error("BACKUP_MANIFEST_REQUIRED");
   const absoluteManifest = path.resolve(manifestFile);
   const manifest = JSON.parse(fs.readFileSync(absoluteManifest, "utf8"));
-  if (manifest.format !== "pg_dump-custom" || !manifest.dump || !manifest.sha256) {
+  if (manifest.format !== "pg_dump-custom" ||
+      !manifest.dump ||
+      path.basename(manifest.dump) !== manifest.dump ||
+      !/^[a-f0-9]{64}$/i.test(String(manifest.sha256 || ""))) {
     throw new Error("INVALID_BACKUP_MANIFEST");
   }
   const dump = path.resolve(path.dirname(absoluteManifest), manifest.dump);
