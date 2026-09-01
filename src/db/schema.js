@@ -313,6 +313,40 @@ CREATE TABLE IF NOT EXISTS playback_candidates (
     ON DELETE CASCADE
 );
 
+/* ============================================================
+ * DOWNLOAD CANDIDATES
+ *
+ * Download discovery is deliberately separate from playback.
+ * Only stable provider locators are persisted. A direct media URL
+ * is resolved live after the user explicitly chooses an option.
+ * ============================================================
+ */
+
+CREATE TABLE IF NOT EXISTS download_candidates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  canonical_episode_id INTEGER NOT NULL,
+  provider_episode_id INTEGER NOT NULL,
+  candidate_key TEXT NOT NULL UNIQUE,
+  provider TEXT NOT NULL,
+  download_id TEXT,
+  quality TEXT,
+  format TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  locator_json TEXT NOT NULL,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(canonical_episode_id)
+    REFERENCES canonical_episodes(id)
+    ON DELETE CASCADE,
+  FOREIGN KEY(provider_episode_id)
+    REFERENCES provider_episodes(id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_download_candidates_episode
+  ON download_candidates(canonical_episode_id, status);
+
 CREATE TABLE IF NOT EXISTS playback_health (
   candidate_key TEXT PRIMARY KEY,
   provider TEXT NOT NULL,
@@ -867,6 +901,11 @@ const stats = {
   playback_candidates:
     db.prepare(
       "SELECT COUNT(*) AS count FROM playback_candidates"
+    ).get().count,
+
+  download_candidates:
+    db.prepare(
+      "SELECT COUNT(*) AS count FROM download_candidates"
     ).get().count
 };
 
