@@ -16,11 +16,14 @@
     "gate:regression": "node --test test/gates/regression.gate.test.js",
     "gate:security": "node --test test/gates/security.gate.test.js",
     "gate:providers": "node --test test/gates/provider-contract.gate.test.js",
-    "gate:migrations": "node --test test/gates/migration.gate.test.js",
+    "gate:live-contract": "node --test test/gates/live-matrix.gate.test.js",
+    "gate:harness-contract": "node --test test/gates/harness-contract.gate.test.js",
+    "gate:migrations": "node --test test/gates/migration.gate.test.js && node scripts/gates/postgres-migration-drill.js",
     "gate:backup-restore": "node scripts/gates/backup-restore-drill.js",
     "gate:load": "node scripts/gates/load-harness.js",
     "gate:soak": "node scripts/gates/soak-harness.js",
-    "gate:golden": "node scripts/gates/run-gates.js"
+    "gate:golden": "node scripts/gates/run-gates.js",
+    "gate:live-matrix": "node scripts/gates/validate-live-matrix.js"
   },
   "repository": {
     "type": "git",

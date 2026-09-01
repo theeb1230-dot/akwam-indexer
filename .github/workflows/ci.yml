@@ -51,6 +51,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: theeb_gate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d theeb_gate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,6 +78,7 @@ jobs:
         run: npm ci
       - name: Run bounded offline golden gates
         env:
+          GATE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/theeb_gate
           GATE_TIMEOUT_MS: 60000
           GATE_LOAD_OPERATIONS: 2000
           GATE_LOAD_CONCURRENCY: 25

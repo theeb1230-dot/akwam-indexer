@@ -4,7 +4,10 @@ const {
   "../src/services/playback-executor"
 );
 
-const episodes = [1, 2, 3, 5, 7];
+const fs = require("node:fs");
+const path = require("node:path");
+
+const episodes = [1, 2, 3, 4, 5, 6, 7];
 
 async function main() {
   const report = {
@@ -154,6 +157,12 @@ async function main() {
           "embed_page_reachable"
       ).length
   };
+
+  if (process.env.LIVE_REPORT_PATH) {
+    const reportPath = path.resolve(process.env.LIVE_REPORT_PATH);
+    fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+    fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
 
   console.log(
     "THEEB_LIVE_REPORT_START"
