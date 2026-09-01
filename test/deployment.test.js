@@ -113,10 +113,30 @@ test("deployment smoke URL requires HTTPS outside loopback", () => {
   assert.equal(deploymentBaseUrl({ THEEB_BASE_URL: "https://api.theeb.example/" }).href,
     "https://api.theeb.example/");
   assert.equal(deploymentBaseUrl({ THEEB_BASE_URL: "http://127.0.0.1:8080" }).port, "8080");
+  assert.equal(deploymentBaseUrl({ THEEB_BASE_URL: "http://[::1]:8080" }).port, "8080");
   assert.throws(() => deploymentBaseUrl({ THEEB_BASE_URL: "http://api.theeb.example" }),
     error => error.code === "HTTPS_BASE_URL_REQUIRED");
+  assert.throws(() => deploymentBaseUrl({ THEEB_BASE_URL: "https://user:pass@api.theeb.example" }),
+    error => error.code === "BASE_URL_CREDENTIALS_FORBIDDEN");
   assert.equal(cryptoSafeEqual("abc", "abc"), true);
   assert.equal(cryptoSafeEqual("abc", "abd"), false);
+});
+
+test("backup verification rejects paths outside its evidence directory", async () => {
+  const directory = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "theeb-verify-"));
+  const manifest = path.join(directory, "unsafe.json");
+  fs.writeFileSync(manifest, JSON.stringify({
+    format: "pg_dump-custom",
+    dump: "../outside.dump",
+    sha256: "a".repeat(64)
+  }));
+
+  try {
+    const { verify } = require("../scripts/verify-postgres-backup");
+    await assert.rejects(verify(manifest), /INVALID_BACKUP_MANIFEST/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("backup keeps database credentials out of process arguments and emits evidence", async t => {
