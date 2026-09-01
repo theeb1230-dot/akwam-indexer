@@ -8,7 +8,12 @@ function deploymentBaseUrl(env = process.env) {
   }
 
   const url = new URL(env.THEEB_BASE_URL);
-  const local = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  if (url.username || url.password) {
+    throw Object.assign(new Error("BASE_URL_CREDENTIALS_FORBIDDEN"), {
+      code: "BASE_URL_CREDENTIALS_FORBIDDEN"
+    });
+  }
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (url.protocol !== "https:" && !(local && url.protocol === "http:")) {
     throw Object.assign(new Error("HTTPS_BASE_URL_REQUIRED"), {
       code: "HTTPS_BASE_URL_REQUIRED"
