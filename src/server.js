@@ -1,5 +1,15 @@
 const express = require("express");
 const { version: VERSION } = require("../package.json");
+const { securityConfig } = require("./config/security");
+const {
+  authentication,
+  errorEnvelope,
+  errorHandler,
+  inputGuard,
+  rateLimiter,
+  requestContext,
+  validProviderTarget
+} = require("./middleware/security");
 
 const providers = require("./providers");
 const jobs = require("./services/job-manager");
@@ -21,21 +31,33 @@ const playbackRouter = require("./routes/playback");
 const downloadRouter = require("./routes/download");
 
 const app = express();
+const security = securityConfig();
+
+app.set("trust proxy", security.trustProxy);
+app.disable("x-powered-by");
+app.use(requestContext);
+app.use(errorEnvelope);
+app.use(rateLimiter(security));
+app.use(authentication(security));
 
 const PORT =
   Number(process.env.PORT) || 3000;
 
 app.use(
   express.json({
-    limit: "1mb"
+    limit: security.bodyLimit,
+    strict: true
   })
 );
 
 app.use(
   express.urlencoded({
-    extended: true
+    extended: false,
+    limit: security.bodyLimit,
+    parameterLimit: 50
   })
 );
+app.use(inputGuard(security));
 
 function normalizeProviderName(value) {
   return String(value || "")
@@ -132,6 +154,10 @@ function queueImport(
       message:
         "Provide series_id in the request body, query string, or URL path."
     });
+  }
+
+  if (!validProviderTarget(providers.get(provider), seriesId)) {
+    return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
   }
 
   const existing =
@@ -376,6 +402,9 @@ app.get(
     if (!provider) return;
 
     try {
+      if (!validProviderTarget(provider, req.params.id)) {
+        return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
+      }
       const result =
         await provider.getSeries(
           req.params.id
@@ -411,6 +440,9 @@ app.get(
     if (!provider) return;
 
     try {
+      if (!validProviderTarget(provider, req.params.id)) {
+        return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
+      }
       const result =
         await provider.getEpisode(
           req.params.id
@@ -643,10 +675,12 @@ app.use(
         req.method,
 
       path:
-        req.originalUrl
+        req.path
     });
   }
 );
+
+app.use(errorHandler);
 
 /*
  * =========================================================
