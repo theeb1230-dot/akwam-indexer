@@ -1,8 +1,7 @@
-const axios = require("axios");
 const cheerio = require("cheerio");
+const { safeGet } = require("../services/safe-media-request");
 
 const BASE = "https://akwam.ss";
-const MAX_REDIRECTS = 5;
 
 function clean(text = "") {
   return String(text)
@@ -31,22 +30,6 @@ function absoluteUrl(value, base = BASE) {
 
   try {
     return new URL(value, base).href;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeRedirect(location, currentUrl) {
-  if (!location) return null;
-
-  const fixed =
-    repairUtf8(location);
-
-  try {
-    return new URL(
-      fixed,
-      currentUrl
-    ).href;
   } catch {
     return null;
   }
@@ -139,14 +122,10 @@ function findValue(bodyText, label) {
     : null;
 }
 
-async function requestPage(
-  url,
-  redirectCount = 0
-) {
+async function requestPage(url) {
   const response =
-    await axios.get(url, {
+    await safeGet(url, {
       timeout: 20000,
-      maxRedirects: 0,
 
       headers: {
         "User-Agent":
@@ -167,57 +146,14 @@ async function requestPage(
           "no-cache"
       },
 
-      validateStatus(status) {
-        return (
-          status >= 200 &&
-          status < 400
-        );
-      }
+      validateStatus: status => status >= 200 && status < 400
+    }, {
+      maxRedirects: 5
     });
-
-  if (
-    response.status >= 300 &&
-    response.status < 400
-  ) {
-    if (
-      redirectCount >=
-      MAX_REDIRECTS
-    ) {
-      throw new Error(
-        "Too many redirects"
-      );
-    }
-
-    const rawLocation =
-      response.headers.location;
-
-    if (!rawLocation) {
-      throw new Error(
-        "Redirect without Location"
-      );
-    }
-
-    const nextUrl =
-      normalizeRedirect(
-        rawLocation,
-        url
-      );
-
-    if (!nextUrl) {
-      throw new Error(
-        "Invalid redirect URL"
-      );
-    }
-
-    return requestPage(
-      nextUrl,
-      redirectCount + 1
-    );
-  }
 
   return {
     response,
-    finalUrl: url
+    finalUrl: response.finalUrl
   };
 }
 
@@ -260,6 +196,7 @@ class AkwamProvider {
   constructor() {
     this.id = "akwam";
     this.name = "Akwam";
+    this.baseUrl = BASE;
   }
 
   async search(query) {

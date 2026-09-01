@@ -64,7 +64,10 @@ async function diagnoseTls(
           port,
           servername:
             parsed.hostname,
-          rejectUnauthorized: false,
+          // Diagnostics observe the same verified handshake as production.
+          // Invalid chains fail and are classified by the caller; we never
+          // establish an insecure connection merely to inspect a certificate.
+          rejectUnauthorized: true,
           timeout:
             Number(
               options.timeoutMs ||
