@@ -9,7 +9,7 @@
     "start:refresh-worker": "THEEB_ROLE=refresh-worker node src/entrypoint.js",
     "start:health-worker": "THEEB_ROLE=health-worker node src/entrypoint.js",
     "dev": "node --watch src/entrypoint.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "live:test": "node scripts/live-playback-validation.js",
     "db:migrate:postgres": "node scripts/migrate-postgres.js",
     "db:transfer:postgres": "node scripts/transfer-sqlite-to-postgres.js"
