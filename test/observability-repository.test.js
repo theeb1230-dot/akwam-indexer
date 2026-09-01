@@ -37,3 +37,20 @@ test("PostgreSQL observability uses async pool queries", async () => {
   });
   assert.ok(queries.every(sql => !sql.includes("?")));
 });
+
+test("job observability excludes provider locators and job payloads", async () => {
+  const queries = [];
+  const repository = new PostgresObservabilityRepository({
+    async query(sql) {
+      queries.push(sql);
+      return { rows: [] };
+    }
+  });
+
+  await repository.recentJobs();
+  assert.equal(queries.length, 1);
+  assert.doesNotMatch(
+    queries[0],
+    /provider_series_id|current_item|payload|result|errors/i
+  );
+});
