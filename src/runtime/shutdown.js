@@ -25,7 +25,6 @@ function installShutdownHandlers(options = {}) {
       let timeout;
       const timedOut = new Promise(resolve => {
         timeout = setTimeout(() => resolve("timeout"), timeoutMs);
-        timeout.unref?.();
       });
 
       const drained = completion && typeof completion.then === "function"
