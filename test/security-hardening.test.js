@@ -19,6 +19,9 @@ const {
   safeGet,
   validateResolvedRecords
 } = require("../src/services/safe-media-request");
+const {
+  tlsVerificationError
+} = require("../src/services/tls-diagnostics");
 
 function response() {
   return {
@@ -317,6 +320,19 @@ test("runtime source contains no TLS verification bypass", () => {
   for (const file of files) {
     assert.doesNotMatch(fs.readFileSync(file, "utf8"), /rejectUnauthorized\s*:\s*false/, file);
   }
+});
+
+test("TLS diagnostics classify certificate rejection without accepting it", () => {
+  assert.equal(
+    tlsVerificationError({ code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" }),
+    true
+  );
+  assert.equal(
+    tlsVerificationError({ code: "ERR_TLS_CERT_ALTNAME_INVALID" }),
+    true
+  );
+  assert.equal(tlsVerificationError({ code: "ECONNRESET" }), false);
+  assert.equal(tlsVerificationError(new Error("certificate wording only")), false);
 });
 
 test("runtime provider traffic cannot bypass the safe request layer", () => {
