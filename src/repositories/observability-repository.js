@@ -12,7 +12,7 @@ const OPEN_CIRCUITS_SQL = `SELECT provider, server, playback_type,
   FROM playback_health WHERE circuit_open_until > CURRENT_TIMESTAMP
   ORDER BY circuit_open_until DESC LIMIT 200`;
 
-const JOBS_SQL = `SELECT id, type, provider, provider_series_id, status,
+const JOBS_SQL = `SELECT id, type, provider, status,
   total, completed, failed, progress, attempts, max_attempts, worker_id,
   lease_expires_at, available_at, created_at, started_at, finished_at, updated_at
   FROM runtime_jobs ORDER BY created_at DESC LIMIT 200`;
