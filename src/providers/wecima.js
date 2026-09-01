@@ -65,6 +65,27 @@ class WeCimaProvider {
     );
   }
 
+  async getDownloadOptions(episodeId) {
+    const id =
+      this.extractVid(episodeId) ||
+      String(episodeId || "").trim();
+
+    if (!id) {
+      throw new Error("EPISODE_ID_REQUIRED");
+    }
+
+    return [{
+      download_id: id,
+      type: "external_download_page",
+      quality: null,
+      format: "unknown",
+      availability: "unknown",
+      page_url:
+        `${this.baseUrl}/downloads.php?vid=` +
+        encodeURIComponent(id)
+    }];
+  }
+
   async getSeries(idOrUrl) {
     const url =
       String(idOrUrl).startsWith("http")

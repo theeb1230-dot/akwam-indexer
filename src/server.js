@@ -18,6 +18,7 @@ const resolveRouter = require("./routes/resolve");
 const episodeResolveRouter = require("./routes/episode-resolve");
 const canonicalRouter = require("./routes/canonical");
 const playbackRouter = require("./routes/playback");
+const downloadRouter = require("./routes/download");
 
 const app = express();
 
@@ -259,6 +260,9 @@ app.get(
 
         resolve_episode:
           "/api/resolve/episode?q=...&season=1&episode=1",
+
+        download_options:
+          "/v1/episodes/:id/download-options",
 
         library_search:
           "/api/library/search?q=...",
@@ -600,6 +604,8 @@ app.use(
   "/api/canonical",
   canonicalRouter
 );
+
+app.use("/v1", downloadRouter);
 
 app.use(
   "/api/playback",
