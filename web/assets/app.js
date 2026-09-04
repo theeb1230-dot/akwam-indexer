@@ -199,20 +199,23 @@ async function loadWatchOptions(episodeId) {
       })
     });
     const session = body?.data || {};
-    const options = session.fallback_plan || session.options || session.candidates || [];
     panel.replaceChildren();
 
-    if (!options.length) {
-      panel.innerHTML = '<div class="option-card">لا توجد خيارات مشاهدة جاهزة حاليًا.</div>';
+    if (session.state !== "ready" || !session.playback?.uri) {
+      panel.innerHTML = '<div class="option-card">لا يوجد مسار مشاهدة جاهز حاليًا.</div>';
       return;
     }
 
-    for (const option of options) {
-      const card = document.createElement("div");
-      card.className = "option-card";
-      card.innerHTML = `<strong>${text(option.quality) || "جودة تلقائية"}</strong><span>${text(option.provider) || "مصدر متاح"}</span>`;
-      panel.appendChild(card);
-    }
+    const card = document.createElement("div");
+    card.className = "option-card";
+    const link = document.createElement("a");
+    link.className = "primary-action";
+    link.href = session.playback.uri;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = `فتح المشاهدة${session.playback.quality ? ` • ${session.playback.quality}` : ""}`;
+    card.appendChild(link);
+    panel.appendChild(card);
   } catch (error) {
     panel.innerHTML = `<div class="option-card">${text(error.message)}</div>`;
   }
@@ -225,7 +228,7 @@ async function loadDownloadOptions(episodeId) {
   try {
     const body = await request(`/v1/episodes/${encodeURIComponent(episodeId)}/download-options`);
     const payload = body?.data || body;
-    const options = payload?.download_options || payload?.options || [];
+    const options = payload?.download_options || payload?.options || payload?.items || [];
     panel.replaceChildren();
 
     if (!options.length) {
@@ -236,7 +239,16 @@ async function loadDownloadOptions(episodeId) {
     for (const option of options) {
       const card = document.createElement("div");
       card.className = "option-card";
-      card.innerHTML = `<strong>${text(option.quality) || "جودة متاحة"}</strong><span>${[option.format, option.status].filter(Boolean).join(" • ") || "خيار تحميل"}</span>`;
+      const title = document.createElement("strong");
+      title.textContent = text(option.quality) || "جودة متاحة";
+      const meta = document.createElement("span");
+      meta.textContent = [option.format, option.status].filter(Boolean).join(" • ") || "خيار تحميل";
+      const link = document.createElement("a");
+      link.className = "primary-action";
+      link.href = `/v1/episodes/${encodeURIComponent(episodeId)}/download-options/${encodeURIComponent(option.id)}/open`;
+      link.rel = "noopener noreferrer";
+      link.textContent = "تنفيذ هذا التحميل";
+      card.append(title, meta, link);
       panel.appendChild(card);
     }
   } catch (error) {
