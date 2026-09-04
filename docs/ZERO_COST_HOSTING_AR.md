@@ -2,51 +2,73 @@
 
 ## القاعدة الحاكمة
 
-المشروع غير ربحي حاليًا، والميزانية المستهدفة للاستضافة هي **0 ريال**. لذلك لا يعتمد التصميم على خدمات قد تتحول إلى فاتورة تلقائيًا عند تجاوز حصة مجانية.
+المشروع غير ربحي حاليًا، والميزانية المستهدفة للاستضافة هي **0 ريال**. القرار المعماري هو توزيع الأدوار على أكثر من مزود مجاني لتقليل أثر نوم خدمة أو سقوط عقدة أو بلوغ حصة مجانية. لا توجد ترقية مدفوعة تلقائية، ولا autoscaling مدفوع، ولا مورد يفترض أن المالك سيدفع لاحقًا.
 
-القيمة من التوزيع هنا هي زيادة الاستقرار ضمن الموارد المجانية، وليس بناء بنية Enterprise مدفوعة.
+## التوزيع المعتمد
 
-## التوزيع المقترح
+### Cloudflare Workers Free — المدخل الخفيف والـfailover
+- يستخدم فقط كـAPI router خفيف، وليس لتشغيل Node/Chromium أو تمرير الفيديو.
+- الخطة المجانية الحالية تسمح حتى 100,000 طلب يوميًا و10ms CPU لكل invocation.
+- يوجه الطلبات العادية إلى Koyeb، وعند فشل الشبكة/5xx يمكنه تجربة Oracle API الاحتياطية.
+- مسارات الوسائط مثل `/play` لا تمر عبره.
 
-### 1. Koyeb Free — Public API
-- يشغل `THEEB_ROLE=api`.
-- مناسب للطلبات القصيرة والـstateless.
-- لا يشغل Chromium أو jobs طويلة.
-- إذا وصلت الحصة المجانية أو تغيرت سياسة المزود، يتم إيقافه بدل الترقية المدفوعة.
+### Koyeb Free — Public API الأساسي
+- يشغل صورة `api` فقط مع `THEEB_ROLE=api`.
+- Free Instance الحالية: 512MB RAM و0.1 vCPU و2GB SSD، ومسموح instance مجاني واحد لكل organization.
+- تنام بعد ساعة بلا traffic، لذلك لا نعتمد عليها وحدها.
+- لا Chromium، لا health worker، لا تخزين دائم.
 
-### 2. Oracle Cloud Always Free — Workers
-- A1 أو الموارد المؤهلة لـAlways Free فقط.
-- `health-worker` للـChromium والتحقق.
-- `refresh-worker` للتحديث والفهرسة.
-- يمكن فصل الأدوار على VMs مجانية مختلفة لتقليل أثر سقوط عقدة واحدة.
+### Oracle Cloud Always Free — API احتياطي + Workers
+- نستخدم موارد Always Free فقط.
+- الحد الحالي الموثق لـAmpere A1 في Free tenancy هو إجمالي 2 OCPU و12GB RAM، ويمكن تقسيمه على VM واحدة أو اثنتين ضمن حدود التخزين.
+- على Oracle نشغّل API احتياطيًا خفيفًا إضافة إلى `health-worker` و`refresh-worker`.
+- Chromium يبقى هنا لأن Koyeb Free صغير جدًا لهذا الحمل.
+- إذا لم تتوفر سعة A1 في المنطقة، لا نتحول تلقائيًا إلى shape مدفوع.
 
-### 3. Neon Free — PostgreSQL مشتركة
-- قاعدة PostgreSQL خارجية مشتركة بين API والWorkers.
-- لا تخزن Direct URLs المؤقتة.
-- التطبيق يجب أن يتحمل scale-to-zero أو انقطاع القاعدة المؤقت.
-- عند الاقتراب من حدود Free Plan، تقلل البيانات/الاحتفاظ بدل الترقية المدفوعة.
+### Neon Free — PostgreSQL المشتركة
+- قاعدة مشتركة بين Koyeb وOracle.
+- Free plan الحالية توفر 0.5GB storage لكل project و50 CU-hours شهريًا لكل project مع scale-to-zero.
+- لا نخزن Direct URLs المؤقتة.
+- عند الاقتراب من الحد نقلل retention/telemetry ووتيرة jobs بدل شراء سعة.
+- قاعدة البيانات تبقى نقطة اعتماد مشتركة؛ لذلك النسخ الاحتياطي مهم.
 
-### 4. GitHub Actions — CI وRelease Gates
-- Unit / integration / contract / golden gates.
-- يمكن استخدامها لفحوص دورية محدودة.
-- ليست بديلًا عن worker دائم أو database.
+### GitHub Actions — CI وGolden Gates والنسخ المنطقي
+- المستودع عام، واستخدام standard GitHub-hosted runners للمستودعات العامة مجاني.
+- يستخدم للاختبارات والـrelease gates والـpg_dump المجدول عند إعداد secret قاعدة البيانات.
+- لا يستخدم كـserver دائم.
+
+## لماذا هذا التوزيع؟
+
+```text
+Client
+  |
+Cloudflare Worker Free
+  |-----------------------|
+  v                       v
+Koyeb Free API       Oracle Always Free API (standby)
+  |                       |
+  +-----------+-----------+
+              |
+          Neon Free
+          PostgreSQL
+              |
+      +-------+-------+
+      |               |
+Oracle Health     Oracle Refresh
+Worker            Worker
+```
+
+سقوط Koyeb لا يعني سقوط API بالكامل. سقوط Oracle لا يمنع Koyeb من خدمة الطلبات الخفيفة. نوم Neon أو بلوغ حصتها سيؤثر على العقدتين، لذلك نحتفظ بنسخ منطقية ونفشل بوضوح بدل إنشاء فاتورة.
 
 ## ممنوع افتراضيًا
 
 - أي autoscaling مدفوع.
 - أي instance أو disk غير موسوم Free/Always Free.
 - Cloud Run كمسار افتراضي في مرحلة الصفر تكلفة.
-- Render Postgres كقاعدة دائمة لأن الخطة المجانية مؤقتة.
+- Render Postgres كقاعدة دائمة مؤقتة.
 - ترقية تلقائية عند نفاد الحصة.
-- إضافة بطاقة/خطة مدفوعة فقط لتجاوز limit تشغيلي.
-
-## مبدأ الفشل
-
-عند نفاد حصة مجانية:
-1. نقل الحمل إلى عقدة مجانية أخرى إن أمكن.
-2. تخفيض معدل refresh/health.
-3. السماح للخدمة غير الحرجة بالنوم.
-4. عدم فتح مسار مدفوع تلقائيًا.
+- Proxy للفيديو عبر Cloudflare Worker.
+- افتراض أن Free Tier ثابت للأبد؛ الحدود تُراجع قبل أي نشر جديد.
 
 ## متغيرات البيئة
 
@@ -56,18 +78,23 @@ THEEB_DEPLOYMENT_TARGET=koyeb-free
 THEEB_ROLE=api
 ```
 
-القيم المسموحة تحت Zero Cost validation:
+القيم المقبولة في validator:
+- `cloudflare-workers-free`
 - `oracle-always-free`
 - `koyeb-free`
 - `neon-free`
 - `github-actions`
 - `local`
 
-## ترتيب الأولويات
+## سياسة نفاد الحصة
 
-1. إكمال PostgreSQL repository parity.
-2. تشغيل API على Koyeb Free.
-3. تشغيل health-worker على Oracle Always Free.
-4. تشغيل refresh-worker على Oracle Always Free مستقل إن أمكن.
-5. ربط الجميع بPostgreSQL مجانية مشتركة.
-6. اختبار سقوط كل عقدة واستعادة الـjobs عبر lease/heartbeat.
+1. تخفيض health/refresh frequency.
+2. إيقاف telemetry غير الضرورية.
+3. السماح للـAPI المجاني بالنوم.
+4. توجيه control-plane API إلى العقدة المجانية الأخرى.
+5. عدم إنشاء مورد مدفوع تلقائيًا.
+6. إذا لم توجد سعة مجانية: نقبل التوقف المؤقت بدل فاتورة.
+
+## شرط الإنتاج الحقيقي
+
+التوزيع بين عدة استضافات لا يصبح صحيحًا إلا بعد اكتمال PostgreSQL repository parity. SQLite محلية على عقد متعددة تعني قواعد حقيقة مختلفة، لذلك validator يبقى fail-closed حتى `POSTGRES_RUNTIME_PARITY=verified`.
