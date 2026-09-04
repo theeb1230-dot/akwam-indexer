@@ -17,10 +17,10 @@ function fixtureEpisode() {
   `).run();
 }
 
-test("session starts in an honest planning state without external source data", () => {
+test("session starts in an honest planning state without external source data", async () => {
   fixtureEpisode();
   const now = new Date();
-  const session = sessions.createSession({
+  const session = await await await sessions.createSession({
     canonical_episode_id: 9150,
     quality: "720p",
     client: { platform: "android_tv", version: "2.2.0" }
@@ -33,7 +33,7 @@ test("session starts in an honest planning state without external source data", 
   assert.equal(JSON.stringify(session).includes("direct_url"), false);
 });
 
-test("feedback is idempotent and validates its event taxonomy", () => {
+test("feedback is idempotent and validates its event taxonomy", async () => {
   fixtureEpisode();
   const id = "00000000-0000-4000-8000-000000000019";
   const now = new Date();
@@ -48,12 +48,12 @@ test("feedback is idempotent and validates its event taxonomy", () => {
     occurred_at: now.toISOString(),
     position_seconds: 2.1
   };
-  assert.deepEqual(sessions.recordFeedback(id, feedback), { accepted: true, duplicate: false });
-  assert.deepEqual(sessions.recordFeedback(id, feedback), { accepted: true, duplicate: true });
-  assert.throws(() => sessions.recordFeedback(id, { ...feedback, event_id: "x", type: "http_200" }), /EVENT_TYPE_INVALID/);
+  assert.deepEqual(await sessions.recordFeedback(id, feedback), { accepted: true, duplicate: false });
+  assert.deepEqual(await sessions.recordFeedback(id, feedback), { accepted: true, duplicate: true });
+  await assert.rejects(() => await await sessions.recordFeedback(id, { ...feedback, event_id: "x", type: "http_200" }), /EVENT_TYPE_INVALID/);
 });
 
-test("feedback bounds untrusted timestamps, labels and volume", () => {
+test("feedback bounds untrusted timestamps, labels and volume", async () => {
   fixtureEpisode();
   const id = "00000000-0000-4000-8000-000000000029";
   const now = new Date("2026-09-01T12:00:00Z");
@@ -75,7 +75,7 @@ test("feedback bounds untrusted timestamps, labels and volume", () => {
   assert.equal(stored.occurred_at, now.toISOString());
   assert.equal(stored.received_at, now.toISOString());
 
-  assert.throws(() => sessions.recordFeedback(id, {
+  await assert.rejects(() => sessions.recordFeedback(id, {
     event_id: "bad-label",
     type: "playing",
     occurred_at: now.toISOString(),
@@ -89,20 +89,20 @@ test("feedback bounds untrusted timestamps, labels and volume", () => {
       occurred_at: now.toISOString()
     }, { now });
   }
-  assert.throws(() => sessions.recordFeedback(id, {
+  await assert.rejects(() => sessions.recordFeedback(id, {
     event_id: "over-limit",
     type: "buffering",
     occurred_at: now.toISOString()
   }, { now }), /FEEDBACK_RATE_LIMITED/);
 });
 
-test("watch and download remain separate contracts", () => {
+test("watch and download remain separate contracts", async () => {
   fixtureEpisode();
-  const session = sessions.createSession({
+  const session = await sessions.createSession({
     canonical_episode_id: 9150,
     client: { platform: "web" }
   });
-  const downloads = sessions.downloadOptions(9150);
+  const downloads = await sessions.downloadOptions(9150);
 
   assert.equal(session.playback, null);
   assert.equal(downloads.canonical_episode_id, 9150);
@@ -110,8 +110,8 @@ test("watch and download remain separate contracts", () => {
   assert.equal(Object.hasOwn(downloads, "playback"), false);
 });
 
-test("invalid client input fails with stable machine codes", () => {
+test("invalid client input fails with stable machine codes", async () => {
   fixtureEpisode();
-  assert.throws(() => sessions.createSession({ canonical_episode_id: 9150, client: { platform: "provider-webview" } }), /CLIENT_PLATFORM_INVALID/);
-  assert.throws(() => sessions.createSession({ canonical_episode_id: 9150, quality: "4k", client: { platform: "android" } }), /QUALITY_INVALID/);
+  await assert.rejects(() => sessions.createSession({ canonical_episode_id: 9150, client: { platform: "provider-webview" } }), /CLIENT_PLATFORM_INVALID/);
+  await assert.rejects(() => sessions.createSession({ canonical_episode_id: 9150, quality: "4k", client: { platform: "android" } }), /QUALITY_INVALID/);
 });
