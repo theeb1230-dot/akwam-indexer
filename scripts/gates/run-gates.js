@@ -4,7 +4,7 @@ const { spawnSync } = require("node:child_process");
 
 const root = path.join(__dirname, "../..");
 const outputDirectory = path.join(root, "artifacts/golden-gates");
-const gates = ["regression", "security", "providers", "live-contract", "harness-contract", "migrations", "backup-restore", "load", "soak"];
+const gates = ["regression", "security", "providers", "live-contract", "harness-contract", "migrations", "postgres-e2e", "backup-restore", "load", "soak"];
 
 function boundedText(value, limit = 12000) {
   return String(value || "").slice(-limit);
@@ -15,11 +15,21 @@ function run(options = {}) {
   const results = [];
   for (const gate of gates) {
     const started = Date.now();
-    const child = spawnSync("npm", ["run", `gate:${gate}`, "--silent"], {
+    const command = gate === "postgres-e2e"
+      ? ["run", "test:postgres-e2e", "--silent"]
+      : ["run", `gate:${gate}`, "--silent"];
+    const child = spawnSync("npm", command, {
       cwd: root,
       encoding: "utf8",
       timeout: timeoutMs,
-      env: { ...process.env, THEEB_LIVE_TESTS: "0" }
+      env: {
+        ...process.env,
+        THEEB_LIVE_TESTS: "0",
+        E2E_POSTGRES_URL:
+          gate === "postgres-e2e"
+            ? (process.env.E2E_POSTGRES_URL || process.env.GATE_DATABASE_URL || "")
+            : process.env.E2E_POSTGRES_URL
+      }
     });
     const stdout = boundedText(child.stdout);
     const stderr = boundedText(child.stderr);
