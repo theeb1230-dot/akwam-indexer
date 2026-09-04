@@ -72,6 +72,43 @@ Queued jobs cancel immediately. Running import/refresh/health jobs observe the c
 
 يحل المصدر عند الطلب ويدعم طلبات Range عندما يسمح المصدر بذلك. لا تعتمد على بقاء الرابط الخارجي المباشر صالحًا.
 
+## التحميل
+
+`GET /v1/episodes/:id/download-options`
+
+يعيد خيارات التحميل للحلقة الـCanonical المحددة. التحميل منفصل تمامًا عن
+`playback_plan`، ولا يختار المحرك خيارًا أو يبدأ تحميلًا تلقائيًا. كل خيار يحمل
+`requires_user_selection: true`، وعلى التطبيق انتظار اختيار المستخدم.
+
+لا يظهر الرابط المؤقت في استجابة قائمة الخيارات ولا يُحفظ في قاعدة البيانات.
+قاعدة البيانات تحفظ فقط locator ثابتًا مثل provider وepisode ID وdownload ID
+والجودة والصيغة. حل رابط الاختيار النهائي يتم في مسار تنفيذ منفصل بعد اختيار
+المستخدم، وليس أثناء عرض القائمة.
+
+الاستجابة العامة لا تكشف اسم Provider أو Provider Episode ID أو locator
+الداخلي. يعرض التطبيق `id` المعتم، الجودة، الصيغة، الحجم إن توفر،
+وحالة الخيار. النوع `external_download_page` يعني صفحة تحميل خارجية وليس ملفًا
+مباشرًا؛ لذلك تكون `is_direct_file: false` و`requires_external_navigation: true`.
+
+```json
+{
+  "download_option_count": 1,
+  "automatic_download": false,
+  "action_required": "user_selection",
+  "download_options": [
+    {
+      "id": "opaque-sha256-id",
+      "type": "download_file",
+      "quality": "1080p",
+      "format": "mp4",
+      "status": "unknown",
+      "requires_user_selection": true,
+      "is_direct_file": true
+    }
+  ]
+}
+```
+
 ## أخطاء شائعة
 
 | الرمز | المعنى |
