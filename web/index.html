@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="ذيب العرب — تجربة موحدة للبحث والمشاهدة والتحميل.">
+  <link rel="manifest" href="/app.webmanifest">
+  <link rel="stylesheet" href="/assets/app.css">
+  <title>ذيب العرب</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">ذ</div>
+        <div>
+          <h1>ذيب العرب</h1>
+          <p>بحث موحد، مشاهدة وتحميل باختيارك</p>
+        </div>
+      </div>
+      <button id="installButton" class="ghost" hidden>تثبيت التطبيق</button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">THEEB ARAB</p>
+        <h2>مكتبتك في واجهة واحدة.</h2>
+        <p>ابحث في الفهرس الموحد ثم اختر بنفسك بين المشاهدة أو التحميل. لا تشغيل تلقائي ولا تنزيل تلقائي.</p>
+        <form id="searchForm" class="search-box" role="search">
+          <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="ابحث عن مسلسل أو فيلم…" aria-label="بحث">
+          <button type="submit">بحث</button>
+        </form>
+      </section>
+
+      <section class="status-row" aria-live="polite">
+        <span id="apiStatus" class="status-chip">جاري فحص الخدمة…</span>
+        <span id="resultCount" class="muted"></span>
+      </section>
+
+      <section id="results" class="grid" aria-label="نتائج البحث"></section>
+
+      <section id="emptyState" class="empty-state">
+        <h3>ابدأ بالبحث</h3>
+        <p>اكتب اسم المحتوى وسيتم جلب النتائج من واجهة <code>/v1</code> الموحدة.</p>
+      </section>
+    </main>
+  </div>
+
+  <template id="cardTemplate">
+    <article class="card">
+      <div class="poster">
+        <img alt="" loading="lazy">
+      </div>
+      <div class="card-body">
+        <div class="meta"></div>
+        <h3></h3>
+        <p class="description"></p>
+        <a class="primary-action" href="#">عرض التفاصيل</a>
+      </div>
+    </article>
+  </template>
+
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>
