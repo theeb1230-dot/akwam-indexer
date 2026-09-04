@@ -211,6 +211,10 @@ class PostgresCanonicalRepository {
 
   async saveResolvedSeries(result, key) {
     return this.transaction(async client => {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+        [key]
+      );
       let found = await client.query(`
         SELECT cs.* FROM canonical_keys ck
         JOIN canonical_series cs ON cs.id = ck.canonical_series_id
@@ -332,6 +336,10 @@ class PostgresCanonicalRepository {
 
   async saveResolvedEpisode(result, key) {
     return this.transaction(async client => {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+        [key]
+      );
       const canonicalResult = await client.query(`
         SELECT cs.* FROM canonical_keys ck
         JOIN canonical_series cs ON cs.id = ck.canonical_series_id
