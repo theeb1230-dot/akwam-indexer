@@ -1,6 +1,16 @@
 const express = require("express");
 const { version: VERSION } = require("../package.json");
 const db = require("./db/schema");
+const { securityConfig } = require("./config/security");
+const {
+  authentication,
+  errorEnvelope,
+  errorHandler,
+  inputGuard,
+  rateLimiter,
+  requestContext,
+  validProviderTarget
+} = require("./middleware/security");
 
 const providers = require("./providers");
 const jobs = require("./services/job-manager");
@@ -19,6 +29,10 @@ const resolveRouter = require("./routes/resolve");
 const episodeResolveRouter = require("./routes/episode-resolve");
 const canonicalRouter = require("./routes/canonical");
 const playbackRouter = require("./routes/playback");
+const downloadRouter = require("./routes/download");
+const v1Router = require("./routes/v1");
+const adminRouter = require("./routes/admin");
+const observability = require("./middleware/observability");
 
 const app = express();
 
@@ -27,47 +41,44 @@ const runtimeState = {
   shuttingDown: false,
   startedAt: null
 };
+const security = securityConfig();
+
+app.set("trust proxy", security.trustProxy);
+app.disable("x-powered-by");
+app.use(requestContext);
+app.use(observability);
+app.use(errorEnvelope);
+app.use(rateLimiter(security));
+app.use(authentication(security));
 
 const PORT =
   Number(process.env.PORT) || 3000;
 
 app.use(
   express.json({
-    limit: "1mb"
+    limit: security.bodyLimit,
+    strict: true
   })
 );
 
 app.use(
   express.urlencoded({
-    extended: true
+    extended: false,
+    limit: security.bodyLimit,
+    parameterLimit: 50
   })
 );
+app.use(inputGuard(security));
+app.use("/v1", v1Router);
 
 app.get("/livez", (req, res) => {
-  res.status(200).json({
-    status: "alive",
-    version: VERSION,
-    uptime_seconds: Math.floor(process.uptime())
-  });
+  res.status(200).json({ status: "alive", version: VERSION, uptime_seconds: Math.floor(process.uptime()) });
 });
 
 app.get("/readyz", (req, res) => {
-  if (!runtimeState.acceptingTraffic || runtimeState.shuttingDown) {
-    return res.status(503).json({
-      status: "not_ready",
-      reason: runtimeState.shuttingDown ? "SHUTTING_DOWN" : "STARTING"
-    });
-  }
-
-  try {
-    db.prepare("SELECT 1 AS ok").get();
-    return res.status(200).json({ status: "ready", database: "reachable" });
-  } catch (error) {
-    return res.status(503).json({
-      status: "not_ready",
-      reason: "DATABASE_UNAVAILABLE"
-    });
-  }
+  if (!runtimeState.acceptingTraffic || runtimeState.shuttingDown) return res.status(503).json({ status: "not_ready", reason: runtimeState.shuttingDown ? "SHUTTING_DOWN" : "STARTING" });
+  try { db.prepare("SELECT 1 AS ok").get(); return res.status(200).json({ status: "ready", database: "reachable" }); }
+  catch { return res.status(503).json({ status: "not_ready", reason: "DATABASE_UNAVAILABLE" }); }
 });
 
 function normalizeProviderName(value) {
@@ -165,6 +176,10 @@ function queueImport(
       message:
         "Provide series_id in the request body, query string, or URL path."
     });
+  }
+
+  if (!validProviderTarget(providers.get(provider), seriesId)) {
+    return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
   }
 
   const existing =
@@ -294,6 +309,9 @@ app.get(
         resolve_episode:
           "/api/resolve/episode?q=...&season=1&episode=1",
 
+        download_options:
+          "/v1/episodes/:id/download-options",
+
         library_search:
           "/api/library/search?q=...",
 
@@ -406,6 +424,9 @@ app.get(
     if (!provider) return;
 
     try {
+      if (!validProviderTarget(provider, req.params.id)) {
+        return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
+      }
       const result =
         await provider.getSeries(
           req.params.id
@@ -441,6 +462,9 @@ app.get(
     if (!provider) return;
 
     try {
+      if (!validProviderTarget(provider, req.params.id)) {
+        return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
+      }
       const result =
         await provider.getEpisode(
           req.params.id
@@ -635,10 +659,14 @@ app.use(
   canonicalRouter
 );
 
+app.use("/v1", downloadRouter);
+
 app.use(
   "/api/playback",
   playbackRouter
 );
+
+app.use("/internal/admin", adminRouter);
 
 app.use(
   "/api/library",
@@ -671,10 +699,12 @@ app.use(
         req.method,
 
       path:
-        req.originalUrl
+        req.path
     });
   }
 );
+
+app.use(errorHandler);
 
 /*
  * =========================================================
@@ -685,60 +715,17 @@ app.use(
 function startServer(options = {}) {
   const port = Number(options.port ?? PORT);
   const host = options.host || "0.0.0.0";
-
   runtimeState.shuttingDown = false;
   runtimeState.acceptingTraffic = false;
-
   const server = app.listen(port, host, () => {
     runtimeState.acceptingTraffic = true;
     runtimeState.startedAt = new Date().toISOString();
-    console.log("");
-    console.log(
-      `🐺 THEEB ENGINE v${VERSION}`
-    );
-    console.log(
-      `🚀 http://localhost:${port}`
-    );
-    console.log(
-      `🔌 Providers: ${providers.list().join(", ")}`
-    );
-    console.log(
-      "▶️ Theeb Play ready"
-    );
-    console.log(
-      "📚 Library API ready"
-    );
-    console.log(
-      "🔎 Search ready"
-    );
-    console.log(
-      "📊 Stats ready"
-    );
-    console.log(
-      "⚙️ Background Import ready"
-    );
-    console.log(
-      "🔄 Series Refresh ready"
-    );
-    console.log(
-      "🔁 Refresh All ready"
-    );
-    console.log(
-      "🧩 URL/Slug imports ready"
-    );
-    console.log("");
+    console.log(`🐺 THEEB ENGINE v${VERSION}`);
+    console.log(`🚀 http://localhost:${port}`);
+    console.log(`🔌 Providers: ${providers.list().join(", ")}`);
   });
-
-  server.stopAcceptingTraffic = () => {
-    runtimeState.shuttingDown = true;
-    runtimeState.acceptingTraffic = false;
-  };
-
+  server.stopAcceptingTraffic = () => { runtimeState.shuttingDown = true; runtimeState.acceptingTraffic = false; };
   return server;
 }
 
-module.exports = {
-  app,
-  runtimeState,
-  startServer
-};
+module.exports = { app, runtimeState, startServer };
