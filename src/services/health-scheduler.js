@@ -1,38 +1,23 @@
-const db = require("../db/schema");
 const jobs = require("./job-manager");
+const {
+  createEpisodeHealthRepository
+} = require("../repositories/episode-health-repository");
 
-function dueEpisodes(options = {}) {
+async function dueEpisodes(options = {}) {
   const now = options.now || new Date();
   const limit = Math.max(1, Math.min(500, Number(options.limit || 25)));
+  const repository =
+    options.repository ||
+    createEpisodeHealthRepository(options.env || process.env);
 
-  return db.prepare(`
-    SELECT
-      ce.id AS canonical_episode_id,
-      cs.title,
-      ck.canonical_key,
-      ce.season_number,
-      ce.episode_number
-    FROM canonical_episodes ce
-    JOIN canonical_series cs
-      ON cs.id = ce.canonical_series_id
-    JOIN canonical_keys ck
-      ON ck.canonical_series_id = cs.id
-    LEFT JOIN episode_health_schedule hs
-      ON hs.canonical_episode_id = ce.id
-    WHERE ce.episode_number IS NOT NULL
-      AND (
-        hs.canonical_episode_id IS NULL
-        OR datetime(hs.next_check_at) <= datetime(?)
-      )
-    ORDER BY
-      COALESCE(hs.next_check_at, ce.created_at) ASC,
-      ce.id ASC
-    LIMIT ?
-  `).all(now.toISOString(), limit);
+  return repository.dueEpisodes({
+    now: now.toISOString(),
+    limit
+  });
 }
 
 async function enqueueDueHealthJobs(options = {}) {
-  const rows = dueEpisodes(options);
+  const rows = await dueEpisodes(options);
   const queued = [];
   let deduplicated = 0;
 
