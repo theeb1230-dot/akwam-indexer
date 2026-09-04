@@ -1,5 +1,5 @@
 const { randomUUID } = require("node:crypto");
-const db = require("../db/schema");
+let db;
 
 function json(value, fallback) {
   try {
@@ -53,7 +53,7 @@ function calculate(total, completed, failed) {
   ));
 }
 
-class JobManager {
+class SqliteJobManager {
   create(data = {}) {
     const id = data.id || randomUUID();
 
@@ -329,4 +329,17 @@ class JobManager {
   }
 }
 
-module.exports = new JobManager();
+const { DRIVERS, databaseDriver } = require("../db/config");
+let manager;
+
+if (databaseDriver() === DRIVERS.POSTGRES) {
+  const { getPool } = require("../db/postgres");
+  const { PostgresJobRepository } = require("../repositories/postgres-job-repository");
+  manager = new PostgresJobRepository(getPool());
+} else {
+  db = require("../db/schema");
+  manager = new SqliteJobManager();
+}
+
+module.exports = manager;
+module.exports.SqliteJobManager = SqliteJobManager;
