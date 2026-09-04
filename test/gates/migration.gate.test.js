@@ -5,8 +5,14 @@ const path = require("node:path");
 const { TABLES, mapRow, insertStatement, checksum } = require("../../src/db/sqlite-postgres-transfer");
 const { gateConnectionString } = require("../../scripts/gates/postgres-migration-drill");
 
-test("PostgreSQL migration contains required durable constraints", () => {
-  const sql = fs.readFileSync(path.join(__dirname, "../../migrations/postgresql/001_initial.sql"), "utf8");
+test("PostgreSQL migrations contain required durable constraints", () => {
+  const directory = path.join(__dirname, "../../migrations/postgresql");
+  const files = fs.readdirSync(directory)
+    .filter(file => /^\d+_[a-z0-9_-]+\.sql$/i.test(file))
+    .sort();
+  const sql = files
+    .map(file => fs.readFileSync(path.join(directory, file), "utf8"))
+    .join("\n");
   for (const table of TABLES) assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`), table);
   assert.match(sql, /ON DELETE CASCADE/);
   assert.match(sql, /runtime_jobs_active_dedupe/);
