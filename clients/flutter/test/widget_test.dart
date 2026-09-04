@@ -83,7 +83,7 @@ class FakeTransport implements TheebApiTransport {
         }
       };
     }
-    throw StateError('Unexpected GET ' + path);
+    throw StateError('Unexpected GET $path');
   }
 
   @override
@@ -111,7 +111,7 @@ class FakeTransport implements TheebApiTransport {
         }
       };
     }
-    throw StateError('Unexpected POST ' + path);
+    throw StateError('Unexpected POST $path');
   }
 }
 
