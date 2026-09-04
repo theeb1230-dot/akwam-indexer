@@ -23,8 +23,8 @@ const candidate = {
   quality: null
 };
 
-test("reachable embed is not treated as verified playback", () => {
-  const stored = recordVerification(candidate, {
+test("reachable embed is not treated as verified playback", async () => {
+  const stored = await recordVerification(candidate, {
     embed_status: "reachable",
     playback_status: "unverified",
     video_element_discovered: false,
@@ -37,8 +37,8 @@ test("reachable embed is not treated as verified playback", () => {
   assert.equal(stored.playback_verified, false);
 });
 
-test("verified playback persists the runtime evidence", () => {
-  const stored = recordVerification(candidate, {
+test("verified playback persists the runtime evidence", async () => {
+  const stored = await recordVerification(candidate, {
     embed_status: "reachable",
     playback_status: "verified",
     video_element_discovered: true,
@@ -55,9 +55,9 @@ test("verified playback persists the runtime evidence", () => {
   assert.equal(stored.max_current_time > 2, true);
 });
 
-test("store rejects a verified label without runtime evidence", () => {
+test("store rejects a verified label without runtime evidence", async () => {
   const invalidCandidate = { ...candidate, server: "invalid-claim" };
-  const stored = recordVerification(invalidCandidate, {
+  const stored = await recordVerification(invalidCandidate, {
     embed_status: "reachable",
     playback_status: "verified",
     video_element_discovered: true,
@@ -72,9 +72,9 @@ test("store rejects a verified label without runtime evidence", () => {
   assert.equal(stored.health_state, HEALTH_STATE.DEGRADED);
 });
 
-test("verification freshness obeys its TTL", () => {
+test("verification freshness obeys its TTL", async () => {
   const staleCandidate = { ...candidate, server: "stale" };
-  recordVerification(staleCandidate, {
+  await recordVerification(staleCandidate, {
     embed_status: "reachable",
     playback_status: "verified",
     health: HEALTH_STATE.PLAYBACK_VERIFIED,
@@ -82,6 +82,6 @@ test("verification freshness obeys its TTL", () => {
     checked_at: new Date(Date.now() - 5000).toISOString()
   });
 
-  const stored = getVerification(staleCandidate, { ttlMs: 1000 });
+  const stored = await getVerification(staleCandidate, { ttlMs: 1000 });
   assert.equal(stored.fresh, false);
 });
