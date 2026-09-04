@@ -1,5 +1,5 @@
-const axios = require("axios");
 const cheerio = require("cheerio");
+const { safeGet } = require("../services/safe-media-request");
 
 class Shahid4uProvider {
   constructor() {
@@ -95,9 +95,8 @@ class Shahid4uProvider {
 
   async requestPage(url) {
     const response =
-      await axios.get(url, {
+      await safeGet(url, {
         timeout: 20000,
-        maxRedirects: 5,
 
         headers: {
           "User-Agent":
@@ -107,12 +106,9 @@ class Shahid4uProvider {
             "ar,en;q=0.8"
         },
 
-        validateStatus(status) {
-          return (
-            status >= 200 &&
-            status < 400
-          );
-        }
+        validateStatus: status => status >= 200 && status < 400
+      }, {
+        maxRedirects: 5
       });
 
     return {
