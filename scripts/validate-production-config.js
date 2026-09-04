@@ -8,6 +8,8 @@ const {
 
 function validate(env = process.env) {
   const errors = [];
+  const zeroCostOnly = String(env.THEEB_ZERO_COST_ONLY || "false").toLowerCase() === "true";
+  const target = String(env.THEEB_DEPLOYMENT_TARGET || "").trim().toLowerCase();
   let role;
 
   try {
@@ -39,6 +41,12 @@ function validate(env = process.env) {
     errors.push("POSTGRES_RUNTIME_PARITY_NOT_VERIFIED");
   }
 
+  if (zeroCostOnly) {
+    const allowed = new Set(["oracle-always-free", "koyeb-free", "neon-free", "github-actions", "local"]);
+    if (!target) errors.push("ZERO_COST_DEPLOYMENT_TARGET_REQUIRED");
+    else if (!allowed.has(target)) errors.push("NON_ZERO_COST_TARGET_REJECTED");
+  }
+
   for (const [name, min, max] of [
     ["SHUTDOWN_TIMEOUT_MS", 1000, 300000],
     ["PG_POOL_MAX", 1, 100],
@@ -59,7 +67,7 @@ function validate(env = process.env) {
     throw error;
   }
 
-  return { role, database: "postgres", tls: "verified" };
+  return { role, database: "postgres", tls: "verified", zero_cost_only: zeroCostOnly, deployment_target: target || null };
 }
 
 if (require.main === module) {
