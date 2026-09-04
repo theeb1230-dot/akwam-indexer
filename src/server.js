@@ -1,6 +1,6 @@
 const express = require("express");
 const { version: VERSION } = require("../package.json");
-const db = require("./db/schema");
+const { createDatabaseReadiness } = require("./db/readiness");
 const { securityConfig } = require("./config/security");
 const {
   authentication,
@@ -35,6 +35,7 @@ const adminRouter = require("./routes/admin");
 const observability = require("./middleware/observability");
 
 const app = express();
+const databaseReadiness = createDatabaseReadiness();
 
 const runtimeState = {
   acceptingTraffic: false,
@@ -79,7 +80,7 @@ app.get("/livez", (req, res) => {
   });
 });
 
-app.get("/readyz", (req, res) => {
+app.get("/readyz", async (req, res) => {
   if (!runtimeState.acceptingTraffic || runtimeState.shuttingDown) {
     return res.status(503).json({
       status: "not_ready",
@@ -88,8 +89,12 @@ app.get("/readyz", (req, res) => {
   }
 
   try {
-    db.prepare("SELECT 1 AS ok").get();
-    return res.status(200).json({ status: "ready", database: "reachable" });
+    await databaseReadiness.check();
+    return res.status(200).json({
+      status: "ready",
+      database: "reachable",
+      database_driver: databaseReadiness.driver
+    });
   } catch {
     return res.status(503).json({ status: "not_ready", reason: "DATABASE_UNAVAILABLE" });
   }
@@ -124,16 +129,15 @@ function getProviderOrRespond(
   return providers.get(name);
 }
 
-function getRunningImport(
+async function getRunningImport(
   provider,
   providerSeriesId
 ) {
   const target =
     String(providerSeriesId);
 
-  return jobs
-    .getAll()
-    .find(job => {
+  const allJobs = await jobs.getAll();
+  return allJobs.find(job => {
       return (
         job.type === "import" &&
         job.provider === provider &&
@@ -148,7 +152,7 @@ function getRunningImport(
     });
 }
 
-function queueImport(
+async function queueImport(
   providerName,
   providerSeriesId,
   res
@@ -197,7 +201,7 @@ function queueImport(
   }
 
   const existing =
-    getRunningImport(
+    await getRunningImport(
       provider,
       seriesId
     );
@@ -222,7 +226,7 @@ function queueImport(
   }
 
   const job =
-    jobs.create({
+    await jobs.create({
       type: "import",
       provider,
       provider_series_id:
@@ -571,7 +575,7 @@ app.get(
 
 app.post(
   "/api/import/:provider",
-  (req, res) => {
+  async (req, res) => {
     const seriesId =
       req.body?.series_id ??
       req.body?.seriesId ??
@@ -588,7 +592,7 @@ app.post(
 
 app.post(
   "/api/import/:provider/:seriesId",
-  (req, res) => {
+  async (req, res) => {
     return queueImport(
       req.params.provider,
       req.params.seriesId,
@@ -605,22 +609,20 @@ app.post(
 
 app.get(
   "/api/import/jobs",
-  (req, res) => {
+  async (req, res) => {
+    const allJobs = await jobs.getAll();
     res.json({
-      count:
-        jobs.getAll().length,
-
-      jobs:
-        jobs.getAll()
+      count: allJobs.length,
+      jobs: allJobs
     });
   }
 );
 
 app.get(
   "/api/import/jobs/:jobId",
-  (req, res) => {
+  async (req, res) => {
     const job =
-      jobs.get(
+      await jobs.get(
         req.params.jobId
       );
 
@@ -637,8 +639,8 @@ app.get(
 
 app.post(
   "/api/import/jobs/:jobId/cancel",
-  (req, res) => {
-    const job = jobs.requestCancel(
+  async (req, res) => {
+    const job = await jobs.requestCancel(
       req.params.jobId
     );
 
