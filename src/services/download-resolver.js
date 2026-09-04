@@ -128,64 +128,13 @@ function metadataWithoutUrls(option) {
 }
 
 function createDownloadResolver(dependencies = {}) {
-  const db = dependencies.db || require("../db/schema");
+  const downloadRepositories = require("../repositories/download-repository");
+  const repository =
+    dependencies.repository ||
+    (dependencies.db
+      ? new downloadRepositories.SqliteDownloadRepository(dependencies.db)
+      : downloadRepositories.createDownloadRepository(dependencies.env || process.env));
   const providers = dependencies.providers || require("../providers");
-  const episodeStatement = db.prepare(`
-    SELECT ce.*, cs.title AS series_title
-    FROM canonical_episodes ce
-    JOIN canonical_series cs
-      ON cs.id = ce.canonical_series_id
-    WHERE ce.id = ?
-  `);
-
-  const sourcesStatement = db.prepare(`
-    SELECT id, provider, provider_episode_id, source_url
-    FROM provider_episodes
-    WHERE canonical_episode_id = ?
-      AND active = 1
-    ORDER BY provider, id
-  `);
-
-  const saveStatement = db.prepare(`
-    INSERT INTO download_candidates (
-      canonical_episode_id, provider_episode_id, candidate_key,
-      provider, download_id, quality, format, status,
-      locator_json, metadata_json, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(candidate_key) DO UPDATE SET
-      download_id = excluded.download_id,
-      quality = excluded.quality,
-      format = excluded.format,
-      status = 'active',
-      locator_json = excluded.locator_json,
-      metadata_json = excluded.metadata_json,
-      updated_at = CURRENT_TIMESTAMP
-  `);
-
-  const deactivateStatement = db.prepare(`
-    UPDATE download_candidates
-    SET status = 'inactive', updated_at = CURRENT_TIMESTAMP
-    WHERE provider_episode_id = ?
-  `);
-
-  const persistOptions = db.transaction((source, rawOptions, options) => {
-    deactivateStatement.run(source.id);
-
-    for (let index = 0; index < options.length; index++) {
-      const option = options[index];
-      saveStatement.run(
-        source.canonical_episode_id,
-        source.id,
-        option.candidate_id,
-        option.provider,
-        option.download_id,
-        option.quality,
-        option.format,
-        JSON.stringify(option.locator),
-        JSON.stringify(metadataWithoutUrls(rawOptions[index]))
-      );
-    }
-  });
 
   async function optionsForSource(source) {
     if (!providers.has(source.provider)) {
@@ -198,11 +147,8 @@ function createDownloadResolver(dependencies = {}) {
     }
 
     let rawOptions = [];
-
     try {
-      rawOptions = await provider.getDownloadOptions(
-        source.provider_episode_id
-      );
+      rawOptions = await provider.getDownloadOptions(source.provider_episode_id);
     } catch (error) {
       return { options: [], error: providerErrorCode(error) };
     }
@@ -218,7 +164,13 @@ function createDownloadResolver(dependencies = {}) {
       })
     );
 
-    persistOptions(source, rawOptions, options);
+    await repository.replaceCandidates(
+      source,
+      options.map((option, index) => ({
+        ...option,
+        metadata: metadataWithoutUrls(rawOptions[index])
+      }))
+    );
 
     return { options, error: null };
   }
@@ -231,17 +183,14 @@ function createDownloadResolver(dependencies = {}) {
       throw error;
     }
 
-    const episode = episodeStatement.get(id);
+    const episode = await repository.getEpisode(id);
     if (!episode) {
       const error = new Error("CANONICAL_EPISODE_NOT_FOUND");
       error.code = "CANONICAL_EPISODE_NOT_FOUND";
       throw error;
     }
 
-    const sources = sourcesStatement.all(id).map(source => ({
-      ...source,
-      canonical_episode_id: id
-    }));
+    const sources = await repository.listSources(id);
     const resolved = await Promise.all(sources.map(optionsForSource));
     const options = resolved.flatMap(item => item.options);
 
