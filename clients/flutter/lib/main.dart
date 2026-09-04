@@ -409,7 +409,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
 
   String _episodeLabel(TheebEpisode episode) {
     if (episode.title != null) return episode.title!;
-    return 'الحلقة ' + (episode.episodeNumber ?? episode.id).toString();
+    return 'الحلقة ${episode.episodeNumber ?? episode.id}';
   }
 
   @override
