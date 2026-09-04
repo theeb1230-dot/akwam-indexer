@@ -34,7 +34,7 @@ test("Theeb Arab PWA shell has required installable assets", () => {
   assert.match(app, /serviceWorker\.register/);
 
   const worker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
-  assert.match(worker, /theeb-arab-shell-v1/);
+  assert.match(worker, /theeb-arab-shell-v2/);
   assert.match(worker, /url\.pathname\.startsWith\("\/v1\/"\)/);
 });
 
