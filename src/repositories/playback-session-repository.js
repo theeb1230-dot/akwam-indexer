@@ -63,6 +63,17 @@ class SqlitePlaybackSessionRepository {
     `).get(episodeId, quality, quality, quality) || null;
   }
 
+  async selectedCandidate(sessionId) {
+    return this.db.prepare(`
+      SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
+        pe.provider_episode_id
+      FROM playback_sessions ps
+      JOIN playback_candidates pc ON pc.id = ps.selected_candidate_id
+      JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
+      WHERE ps.id = ?
+    `).get(sessionId) || null;
+  }
+
   async feedbackExists(sessionId, eventId) {
     return Boolean(this.db.prepare(`
       SELECT 1 FROM playback_session_events
@@ -198,6 +209,18 @@ class PostgresPlaybackSessionRepository {
         pc.id ASC
       LIMIT 1
     `, [episodeId, quality]);
+    return result.rows[0] || null;
+  }
+
+  async selectedCandidate(sessionId) {
+    const result = await this.pool.query(`
+      SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
+        pe.provider_episode_id
+      FROM playback_sessions ps
+      JOIN playback_candidates pc ON pc.id = ps.selected_candidate_id
+      JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
+      WHERE ps.id = $1
+    `, [sessionId]);
     return result.rows[0] || null;
   }
 
