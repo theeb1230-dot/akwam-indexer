@@ -10,8 +10,8 @@ process.env.DATABASE_PATH = path.join(
 
 const db = require("../src/db/schema");
 const {
-  reconcileMissingEpisodes
-} = require("../src/services/importer");
+  SqliteImporterRepository
+} = require("../src/repositories/importer-repository");
 const {
   enqueueDueRefreshJobs
 } = require("../src/services/refresh-scheduler");
@@ -28,7 +28,7 @@ function seedSeries() {
   return Number(inserted.lastInsertRowid);
 }
 
-test("missing provider episodes become inactive without deletion", () => {
+test("missing provider episodes become inactive without deletion", async () => {
   const seriesId = seedSeries();
   const insert = db.prepare(`
     INSERT INTO episodes (
@@ -40,7 +40,8 @@ test("missing provider episodes become inactive without deletion", () => {
   insert.run(seriesId, "e1", 1, "E1");
   insert.run(seriesId, "e2", 2, "E2");
 
-  const changed = reconcileMissingEpisodes(
+  const repository = new SqliteImporterRepository(db);
+  const changed = await repository.reconcileMissingEpisodes(
     seriesId,
     "fixture",
     ["e2"]
