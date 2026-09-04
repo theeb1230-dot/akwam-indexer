@@ -18,7 +18,7 @@ function fakePool() {
       if (text.startsWith("SELECT id FROM canonical_episodes")) {
         return { rowCount: params[0] === 9150 ? 1 : 0, rows: params[0] === 9150 ? [{ id: 9150 }] : [] };
       }
-      if (text.includes("FROM playback_sessions ps") && text.includes("WHERE ps.id")) {
+      if (text.includes("FROM playback_sessions ps") && text.includes("JOIN playback_candidates pc") && text.includes("WHERE ps.id")) {
         return {
           rowCount: 1,
           rows: [{
