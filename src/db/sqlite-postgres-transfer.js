@@ -7,7 +7,6 @@ const TABLES = Object.freeze([
   "canonical_episodes",
   "provider_episodes",
   "playback_candidates",
-  "download_candidates",
   "playback_health",
   "playback_verification",
   "runtime_jobs",
@@ -18,10 +17,6 @@ const COLUMN_MAP = Object.freeze({
   provider_series: { metadata_json: "metadata" },
   provider_episodes: { metadata_json: "metadata" },
   playback_candidates: { locator_json: "locator" },
-  download_candidates: {
-    locator_json: "locator",
-    metadata_json: "metadata"
-  },
   runtime_jobs: {
     current_item_json: "current_item",
     result_json: "result",

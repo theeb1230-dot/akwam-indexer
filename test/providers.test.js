@@ -33,11 +33,6 @@ test("provider descriptions reflect callable capabilities", () => {
     assert.equal(description.capabilities.episode, true);
     assert.equal(typeof description.capabilities.search, "boolean");
     assert.equal(typeof description.capabilities.watch, "boolean");
-    assert.equal(typeof description.capabilities.download, "boolean");
-    assert.equal(
-      description.capabilities.download,
-      typeof providers.get(description.name).getDownloadOptions === "function"
-    );
   }
 });
 

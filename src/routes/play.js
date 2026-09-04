@@ -1,7 +1,6 @@
 const express = require("express");
+const axios = require("axios");
 const providers = require("../providers");
-const { safeGet } = require("../services/safe-media-request");
-const { opaqueIdentifier } = require("../middleware/security");
 
 const router = express.Router();
 
@@ -29,14 +28,6 @@ router.get("/play/:provider/:watchId/:episodeId", async (req, res) => {
 
   try {
     const providerName = clean(req.params.provider);
-
-    if (
-      !opaqueIdentifier(providerName, 50) ||
-      !opaqueIdentifier(req.params.watchId) ||
-      !opaqueIdentifier(req.params.episodeId)
-    ) {
-      return res.status(400).json({ error: "INVALID_PATH" });
-    }
 
     if (!providers.has(providerName)) {
       return res.status(404).json({
@@ -76,25 +67,20 @@ router.get("/play/:provider/:watchId/:episodeId", async (req, res) => {
       "Accept-Encoding": "identity"
     };
 
-    if (req.headers.range && !/^bytes=\d*-\d*$/.test(req.headers.range)) {
-      return res.status(416).json({ error: "INVALID_RANGE" });
-    }
-
     if (req.headers.range) {
       headers.Range = req.headers.range;
     }
 
-    upstream = await safeGet(source.direct_url, {
+    upstream = await axios.get(source.direct_url, {
       responseType: "stream",
       headers,
       timeout: 30000,
-      decompress: false,
-      validateStatus: status => status === 200 || status === 206 || (status >= 300 && status < 400)
-    }, {
       maxRedirects: 5,
-      // Playback is streamed and never buffered by the API. Redirects and
-      // every resolved address are still validated by safeGet.
-      maxResponseBytes: null
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      decompress: false,
+      validateStatus: status =>
+        status === 200 || status === 206
     });
 
     res.status(upstream.status);

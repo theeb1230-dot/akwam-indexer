@@ -1,5 +1,5 @@
+const axios = require("axios");
 const cheerio = require("cheerio");
-const { safeGet } = require("../services/safe-media-request");
 
 class WeCimaProvider {
   constructor() {
@@ -35,8 +35,9 @@ class WeCimaProvider {
 
   async requestPage(url) {
     const response =
-      await safeGet(url, {
+      await axios.get(url, {
         timeout: 20000,
+        maxRedirects: 5,
 
         headers: {
           "User-Agent":
@@ -46,9 +47,12 @@ class WeCimaProvider {
             "ar,en;q=0.8"
         },
 
-        validateStatus: status => status >= 200 && status < 400
-      }, {
-        maxRedirects: 5
+        validateStatus(status) {
+          return (
+            status >= 200 &&
+            status < 400
+          );
+        }
       });
 
     return response.data;
@@ -59,27 +63,6 @@ class WeCimaProvider {
       `${this.baseUrl}/watch.php?vid=` +
       encodeURIComponent(String(id))
     );
-  }
-
-  async getDownloadOptions(episodeId) {
-    const id =
-      this.extractVid(episodeId) ||
-      String(episodeId || "").trim();
-
-    if (!id) {
-      throw new Error("EPISODE_ID_REQUIRED");
-    }
-
-    return [{
-      download_id: id,
-      type: "external_download_page",
-      quality: null,
-      format: "unknown",
-      availability: "unknown",
-      page_url:
-        `${this.baseUrl}/downloads.php?vid=` +
-        encodeURIComponent(id)
-    }];
   }
 
   async getSeries(idOrUrl) {

@@ -1,26 +1,6 @@
 const dns = require("node:dns").promises;
 const tls = require("node:tls");
 
-const TLS_VERIFICATION_ERROR_CODES = new Set([
-  "CERT_HAS_EXPIRED",
-  "CERT_NOT_YET_VALID",
-  "CERT_REVOKED",
-  "CERT_SIGNATURE_FAILURE",
-  "DEPTH_ZERO_SELF_SIGNED_CERT",
-  "ERR_TLS_CERT_ALTNAME_INVALID",
-  "SELF_SIGNED_CERT_IN_CHAIN",
-  "UNABLE_TO_DECRYPT_CERT_SIGNATURE",
-  "UNABLE_TO_GET_ISSUER_CERT",
-  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
-  "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
-]);
-
-function tlsVerificationError(error) {
-  return TLS_VERIFICATION_ERROR_CODES.has(
-    String(error?.code || "")
-  );
-}
-
 function certificateSummary(
   certificate = {}
 ) {
@@ -84,10 +64,7 @@ async function diagnoseTls(
           port,
           servername:
             parsed.hostname,
-          // Diagnostics observe the same verified handshake as production.
-          // Invalid chains fail and are classified by the caller; we never
-          // establish an insecure connection merely to inspect a certificate.
-          rejectUnauthorized: true,
+          rejectUnauthorized: false,
           timeout:
             Number(
               options.timeoutMs ||
@@ -151,37 +128,7 @@ async function diagnoseTls(
 
       socket.once(
         "error",
-        error => {
-          if (!tlsVerificationError(error)) {
-            reject(error);
-            return;
-          }
-
-          // A verified handshake rejecting a bad chain is the diagnostic
-          // result, not a failure of the diagnostic itself. Keep the socket
-          // unauthorized and report the stable Node classification.
-          resolve({
-            hostname:
-              parsed.hostname,
-            port,
-            resolved_ips:
-              addresses.map(
-                item =>
-                  item.address
-              ),
-            remote_address:
-              socket.remoteAddress ||
-              null,
-            authorized: false,
-            authorization_error:
-              error.code,
-            tls_protocol: null,
-            cipher: null,
-            certificate: null,
-            diagnostic_status:
-              "tls_verification_rejected"
-          });
-        }
+        reject
       );
     }
   );
@@ -189,6 +136,5 @@ async function diagnoseTls(
 
 module.exports = {
   certificateSummary,
-  diagnoseTls,
-  tlsVerificationError
+  diagnoseTls
 };

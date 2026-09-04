@@ -1,6 +1,6 @@
 const express = require("express");
+const axios = require("axios");
 const cheerio = require("cheerio");
-const { safeGet } = require("../services/safe-media-request");
 
 const router = express.Router();
 
@@ -12,13 +12,12 @@ async function resolveArabSeedPlayer(episodeId) {
   const embedUrl =
     `https://arabsseed.christmas/embed.php?vid=${encodeURIComponent(episodeId)}`;
 
-  const response = await safeGet(embedUrl, {
+  const response = await axios.get(embedUrl, {
     timeout: 15000,
+    maxRedirects: 5,
     headers: {
       "User-Agent": "Mozilla/5.0"
     }
-  }, {
-    maxRedirects: 5
   });
 
   const $ = cheerio.load(response.data);
@@ -53,7 +52,8 @@ router.get("/arabseed/:episodeId", async (req, res) => {
     });
   } catch (error) {
     res.status(502).json({
-      error: "PROVIDER_WATCH_FAILED"
+      ok: false,
+      error: error.message
     });
   }
 });
@@ -118,7 +118,7 @@ a{
 </body>
 </html>`);
   } catch (error) {
-    res.status(502).json({ error: "PROVIDER_WATCH_FAILED" });
+    res.status(502).send(error.message);
   }
 });
 
@@ -183,7 +183,7 @@ a{
 </body>
 </html>`);
   } catch (error) {
-    res.status(502).json({ error: "PROVIDER_WATCH_FAILED" });
+    res.status(502).send(error.message);
   }
 });
 

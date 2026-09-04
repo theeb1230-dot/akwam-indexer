@@ -144,10 +144,6 @@ class ProviderRegistry {
 
         watch:
           typeof provider.getWatchInfo ===
-          "function",
-
-        download:
-          typeof provider.getDownloadOptions ===
           "function"
       }
     };

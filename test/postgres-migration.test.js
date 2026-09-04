@@ -19,6 +19,7 @@ test("migration runner applies unapplied files once", async () => {
   const result = await migrate({ client });
   assert.deepEqual(result.executed, [
     "001_initial",
+    "002_client_api",
     "003_download_candidates"
   ]);
   assert.ok(queries.some(sql => /CREATE TABLE IF NOT EXISTS canonical_series/.test(sql)));
@@ -32,6 +33,7 @@ test("migration runner skips recorded versions", async () => {
         return {
           rows: [
             { version: "001_initial" },
+            { version: "002_client_api" },
             { version: "003_download_candidates" }
           ]
         };
