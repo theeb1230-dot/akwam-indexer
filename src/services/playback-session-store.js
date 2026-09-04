@@ -181,12 +181,15 @@ function withRepository(customRepository) {
     if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error("SESSION_TTL_INVALID");
     const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
 
+    const candidate = await storage.selectCandidate(episodeId, quality);
     await storage.createSession({
       id,
       canonical_episode_id: episodeId,
+      state: candidate ? "ready" : "unavailable",
       requested_quality: quality,
       client_platform: platform,
       client_version: clientVersion,
+      selected_candidate_id: candidate ? Number(candidate.id) : null,
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
       expires_at: expiresAt
@@ -266,6 +269,21 @@ function withRepository(customRepository) {
     return { accepted: true, duplicate: !inserted };
   }
 
+  async function mediaHandoff(sessionIdValue) {
+    const id = assertSessionId(sessionIdValue);
+    const session = await getSession(id);
+    if (!session) throw new Error("PLAYBACK_SESSION_NOT_FOUND");
+    if (session.state !== "ready") throw new Error("PLAYBACK_SESSION_NOT_ACTIVE");
+
+    const candidate = await storage.selectedCandidate(id);
+    if (!candidate) throw new Error("PLAYBACK_SESSION_NOT_ACTIVE");
+
+    return {
+      session_id: id,
+      uri: `/play/${encodeURIComponent(candidate.provider)}/${encodeURIComponent(candidate.watch_id)}/${encodeURIComponent(candidate.provider_episode_id)}${candidate.quality ? `?quality=${encodeURIComponent(candidate.quality)}` : ""}`
+    };
+  }
+
   async function downloadOptions(episodeIdValue) {
     const episodeId = requiredInteger(episodeIdValue, "CANONICAL_EPISODE_ID_INVALID");
     if (!(await storage.episodeExists(episodeId))) {
@@ -293,6 +311,7 @@ function withRepository(customRepository) {
     createSession,
     downloadOptions,
     getSession,
+    mediaHandoff,
     recordFeedback
   };
 }
