@@ -106,3 +106,7 @@ jobs:
         run: dart analyze clients/dart/lib/theeb_api_contract.dart clients/dart/test/theeb_api_contract_test.dart
       - name: Run client contract tests
         run: dart clients/dart/test/theeb_api_contract_test.dart
+      - name: Analyze mobile foundation
+        run: dart analyze clients/dart/lib/http_theeb_transport.dart clients/dart/lib/theeb_client_config.dart clients/dart/lib/theeb_brand.dart clients/dart/test/mobile_foundation_test.dart
+      - name: Run mobile foundation tests
+        run: dart clients/dart/test/mobile_foundation_test.dart
