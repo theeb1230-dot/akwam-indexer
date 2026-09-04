@@ -184,17 +184,17 @@ function createV1Router(options = {}) {
     }
   });
 
-  router.post("/playback/sessions", (req, res) => {
+  router.post("/playback/sessions", async (req, res) => {
     try {
-      return res.status(201).json({ data: sessions.createSession(req.body) });
+      return res.status(201).json({ data: await sessions.createSession(req.body) });
     } catch (error) {
       return respondError(res, error);
     }
   });
 
-  router.get("/playback/sessions/:id", (req, res) => {
+  router.get("/playback/sessions/:id", async (req, res) => {
     try {
-      const session = sessions.getSession(req.params.id);
+      const session = await sessions.getSession(req.params.id);
       if (!session) throw new Error("PLAYBACK_SESSION_NOT_FOUND");
       return res.json({ data: session });
     } catch (error) {
@@ -202,19 +202,19 @@ function createV1Router(options = {}) {
     }
   });
 
-  router.post("/playback/sessions/:id/feedback", (req, res) => {
+  router.post("/playback/sessions/:id/feedback", async (req, res) => {
     try {
       return res.status(202).json({
-        data: sessions.recordFeedback(req.params.id, req.body)
+        data: await sessions.recordFeedback(req.params.id, req.body)
       });
     } catch (error) {
       return respondError(res, error);
     }
   });
 
-  router.get("/episodes/:id/download-options", (req, res) => {
+  router.get("/episodes/:id/download-options", async (req, res) => {
     try {
-      return res.json({ data: sessions.downloadOptions(positiveId(req.params.id)) });
+      return res.json({ data: await sessions.downloadOptions(positiveId(req.params.id)) });
     } catch (error) {
       return respondError(res, error);
     }
