@@ -42,7 +42,7 @@ function validate(env = process.env) {
   }
 
   if (zeroCostOnly) {
-    const allowed = new Set(["oracle-always-free", "koyeb-free", "neon-free", "github-actions", "local"]);
+    const allowed = new Set(["cloudflare-workers-free", "oracle-always-free", "koyeb-free", "neon-free", "github-actions", "local"]);
     if (!target) errors.push("ZERO_COST_DEPLOYMENT_TARGET_REQUIRED");
     else if (!allowed.has(target)) errors.push("NON_ZERO_COST_TARGET_REJECTED");
   }
