@@ -1,5 +1,6 @@
 const express = require("express");
 const { version: VERSION } = require("../package.json");
+const db = require("./db/schema");
 const { securityConfig } = require("./config/security");
 const {
   authentication,
@@ -34,6 +35,12 @@ const adminRouter = require("./routes/admin");
 const observability = require("./middleware/observability");
 
 const app = express();
+
+const runtimeState = {
+  acceptingTraffic: false,
+  shuttingDown: false,
+  startedAt: null
+};
 const security = securityConfig();
 
 app.set("trust proxy", security.trustProxy);
@@ -63,6 +70,16 @@ app.use(
 );
 app.use(inputGuard(security));
 app.use("/v1", v1Router);
+
+app.get("/livez", (req, res) => {
+  res.status(200).json({ status: "alive", version: VERSION, uptime_seconds: Math.floor(process.uptime()) });
+});
+
+app.get("/readyz", (req, res) => {
+  if (!runtimeState.acceptingTraffic || runtimeState.shuttingDown) return res.status(503).json({ status: "not_ready", reason: runtimeState.shuttingDown ? "SHUTTING_DOWN" : "STARTING" });
+  try { db.prepare("SELECT 1 AS ok").get(); return res.status(200).json({ status: "ready", database: "reachable" }); }
+  catch { return res.status(503).json({ status: "not_ready", reason: "DATABASE_UNAVAILABLE" }); }
+});
 
 function normalizeProviderName(value) {
   return String(value || "")
@@ -695,44 +712,20 @@ app.use(errorHandler);
  * =========================================================
  */
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log("");
-    console.log(
-      `🐺 THEEB ENGINE v${VERSION}`
-    );
-    console.log(
-      `🚀 http://localhost:${PORT}`
-    );
-    console.log(
-      `🔌 Providers: ${providers.list().join(", ")}`
-    );
-    console.log(
-      "▶️ Theeb Play ready"
-    );
-    console.log(
-      "📚 Library API ready"
-    );
-    console.log(
-      "🔎 Search ready"
-    );
-    console.log(
-      "📊 Stats ready"
-    );
-    console.log(
-      "⚙️ Background Import ready"
-    );
-    console.log(
-      "🔄 Series Refresh ready"
-    );
-    console.log(
-      "🔁 Refresh All ready"
-    );
-    console.log(
-      "🧩 URL/Slug imports ready"
-    );
-    console.log("");
-  }
-);
+function startServer(options = {}) {
+  const port = Number(options.port ?? PORT);
+  const host = options.host || "0.0.0.0";
+  runtimeState.shuttingDown = false;
+  runtimeState.acceptingTraffic = false;
+  const server = app.listen(port, host, () => {
+    runtimeState.acceptingTraffic = true;
+    runtimeState.startedAt = new Date().toISOString();
+    console.log(`🐺 THEEB ENGINE v${VERSION}`);
+    console.log(`🚀 http://localhost:${port}`);
+    console.log(`🔌 Providers: ${providers.list().join(", ")}`);
+  });
+  server.stopAcceptingTraffic = () => { runtimeState.shuttingDown = true; runtimeState.acceptingTraffic = false; };
+  return server;
+}
+
+module.exports = { app, runtimeState, startServer };

@@ -1,0 +1,32 @@
+[Unit]
+Description=Theeb Engine health worker
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/theeb/worker.env
+ExecStartPre=/usr/bin/test -r /etc/theeb/worker.env
+ExecStartPre=/bin/sh -c 'test "$(/usr/bin/stat -c %%a /etc/theeb/worker.env)" = "600"'
+ExecStartPre=/bin/sh -c 'test "$(/usr/bin/stat -c %%u /etc/theeb/worker.env)" = "0"'
+ExecStartPre=/usr/bin/test -r /etc/theeb/secrets/database-url
+ExecStartPre=/bin/sh -c 'test "$(/usr/bin/stat -c %%a /etc/theeb/secrets/database-url)" = "600"'
+ExecStartPre=/bin/sh -c 'test "$(/usr/bin/stat -c %%u /etc/theeb/secrets/database-url)" = "0"'
+ExecStartPre=/usr/bin/docker pull THEEB_WORKER_IMAGE
+ExecStartPre=-/usr/bin/docker rm -f theeb-health-worker
+ExecStart=/usr/bin/docker run --rm --name theeb-health-worker --env-file /etc/theeb/worker.env --mount type=bind,src=/etc/theeb/secrets/database-url,dst=/run/secrets/database_url,readonly --init --stop-timeout 30 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=512m --cap-drop ALL --security-opt no-new-privileges:true --pids-limit 512 THEEB_WORKER_IMAGE
+ExecStop=/usr/bin/docker stop --time 30 theeb-health-worker
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=300
+TimeoutStopSec=35
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

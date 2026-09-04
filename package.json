@@ -9,10 +9,14 @@
     "start:refresh-worker": "THEEB_ROLE=refresh-worker node src/entrypoint.js",
     "start:health-worker": "THEEB_ROLE=health-worker node src/entrypoint.js",
     "dev": "node --watch src/entrypoint.js",
-    "test": "node --test --test-concurrency=1",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
     "live:test": "node scripts/live-playback-validation.js",
     "db:migrate:postgres": "node scripts/migrate-postgres.js",
-    "db:transfer:postgres": "node scripts/transfer-sqlite-to-postgres.js"
+    "db:transfer:postgres": "node scripts/transfer-sqlite-to-postgres.js",
+    "deploy:validate": "node scripts/validate-production-config.js",
+    "deploy:smoke": "node scripts/deployment-smoke-test.js",
+    "backup:postgres": "node scripts/backup-postgres.js",
+    "backup:verify": "node scripts/verify-postgres-backup.js"
   },
   "repository": {
     "type": "git",
