@@ -8,7 +8,9 @@
 - Migration runner بإصدارات مرتبة.
 - TLS مفعل افتراضيًا.
 - Job Repository يستخدم `FOR UPDATE SKIP LOCKED`.
-- المتبقي: نقل Canonical/Health/Import repositories، أداة نقل البيانات، واختبارات parity الحية.
+- مكتمل: Canonical persistence/read، Importer، Health scheduling/persistence، Refresh scheduling/workers/API، Library/V1 reads، Playback sessions/health، وDownload resolver persistence تعمل عبر Repository contracts ثنائية SQLite/PostgreSQL.
+- مكتمل: أداة نقل SQLite→PostgreSQL ومخططات migrations المرتبة، مع منع تخزين Direct URLs المؤقتة.
+- المتبقي قبل إعلان `POSTGRES_RUNTIME_PARITY=verified`: بوابة CI تمنع أي SQLite leakage جديد، ثم اختبار PostgreSQL runtime E2E حقيقي يغطي API + workers + importer + refresh + download على قاعدة مشتركة.
 
 ## المرحلة الخامسة — Background Health & Refresh
 
@@ -23,9 +25,9 @@
 
 ## أولوية قريبة
 
-- إضافة اختبارات وحدات أوسع للتطبيع والتجميع ودرجات المطابقة.
-- اختبارات تكامل تعتمد على Fixtures محلية بدل المواقع الحية.
-- إكمال قاعدة البيانات Canonical وربطها الكامل بالـResolvers.
+- تثبيت PostgreSQL runtime parity عبر leakage guard ثم E2E gate حقيقي قبل تفعيل `POSTGRES_RUNTIME_PARITY=verified`.
+- تحديث/توسيع اختبارات Fixtures المحلية بحيث تغطي دورة API→Job→Worker→Repository بدون الاعتماد على المواقع الحية.
+- بعد إثبات parity، بدء Web/PWA وهوية «ذيب العرب» على عقد `/api/v1` الموحد.
 - توحيد أخطاء Providers والمهلات وإلغاء الطلبات.
 - ترتيب خيارات التشغيل حسب الصحة والجودة والمنطقة.
 - Fallback تلقائي وآمن بين المصادر.
