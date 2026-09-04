@@ -26,18 +26,52 @@ class SqlitePlaybackSessionRepository {
     this.db.prepare(`
       INSERT INTO playback_sessions (
         id, canonical_episode_id, state, requested_quality,
-        client_platform, client_version, created_at, updated_at, expires_at
-      ) VALUES (?, ?, 'planning', ?, ?, ?, ?, ?, ?)
+        client_platform, client_version, selected_candidate_id,
+        created_at, updated_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       row.id,
       row.canonical_episode_id,
+      row.state,
       row.requested_quality,
       row.client_platform,
       row.client_version,
+      row.selected_candidate_id,
       row.created_at,
       row.updated_at,
       row.expires_at
     );
+  }
+
+  async selectCandidate(episodeId, quality) {
+    return this.db.prepare(`
+      SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
+        pc.locator_json, pe.provider_episode_id
+      FROM playback_candidates pc
+      JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
+      WHERE pc.canonical_episode_id = ?
+        AND pc.status = 'active'
+      ORDER BY
+        CASE
+          WHEN ? != 'auto' AND lower(COALESCE(pc.quality, '')) = lower(?) THEN 0
+          WHEN ? = 'auto' THEN 0
+          ELSE 1
+        END,
+        pc.priority ASC,
+        pc.id ASC
+      LIMIT 1
+    `).get(episodeId, quality, quality, quality) || null;
+  }
+
+  async selectedCandidate(sessionId) {
+    return this.db.prepare(`
+      SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
+        pe.provider_episode_id
+      FROM playback_sessions ps
+      JOIN playback_candidates pc ON pc.id = ps.selected_candidate_id
+      JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
+      WHERE ps.id = ?
+    `).get(sessionId) || null;
   }
 
   async feedbackExists(sessionId, eventId) {
@@ -140,18 +174,54 @@ class PostgresPlaybackSessionRepository {
     await this.pool.query(`
       INSERT INTO playback_sessions (
         id, canonical_episode_id, state, requested_quality,
-        client_platform, client_version, created_at, updated_at, expires_at
-      ) VALUES ($1, $2, 'planning', $3, $4, $5, $6, $7, $8)
+        client_platform, client_version, selected_candidate_id,
+        created_at, updated_at, expires_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `, [
       row.id,
       row.canonical_episode_id,
+      row.state,
       row.requested_quality,
       row.client_platform,
       row.client_version,
+      row.selected_candidate_id,
       row.created_at,
       row.updated_at,
       row.expires_at
     ]);
+  }
+
+  async selectCandidate(episodeId, quality) {
+    const result = await this.pool.query(`
+      SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
+        pc.locator, pe.provider_episode_id
+      FROM playback_candidates pc
+      JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
+      WHERE pc.canonical_episode_id = $1
+        AND pc.status = 'active'
+      ORDER BY
+        CASE
+          WHEN $2 <> 'auto' AND lower(COALESCE(pc.quality, '')) = lower($2) THEN 0
+          WHEN $2 = 'auto' THEN 0
+          ELSE 1
+        END,
+        pc.priority ASC,
+        pc.id ASC
+      LIMIT 1
+    `, [episodeId, quality]);
+    return result.rows[0] || null;
+  }
+
+  async selectedCandidate(sessionId) {
+    const result = await this.pool.query(`
+      SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
+        pe.provider_episode_id
+      FROM playback_sessions ps
+      JOIN playback_candidates pc ON pc.id = ps.selected_candidate_id
+      JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
+      WHERE ps.id = $1
+    `, [sessionId]);
+    return result.rows[0] || null;
   }
 
   async feedbackExists(sessionId, eventId) {

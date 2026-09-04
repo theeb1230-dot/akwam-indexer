@@ -3,9 +3,6 @@ const {
   createDownloadResolver
 } = require("../services/download-resolver");
 
-const router = express.Router();
-const resolver = createDownloadResolver();
-
 function clientDownloadResult(result) {
   return {
     ...result,
@@ -65,16 +62,49 @@ function downloadErrorResponse(error) {
   };
 }
 
-router.get("/episodes/:id/download-options", async (req, res) => {
-  try {
-    const result = await resolver.resolveDownloadOptions(req.params.id);
-    return res.json(clientDownloadResult(result));
-  } catch (error) {
-    const response = downloadErrorResponse(error);
-    return res.status(response.status).json(response.body);
-  }
-});
+function createDownloadRouter(options = {}) {
+  const router = express.Router();
+  const resolver = options.resolver || createDownloadResolver();
 
-module.exports = router;
+  router.get("/episodes/:id/download-options/:candidateId/open", async (req, res) => {
+    try {
+      const result = await resolver.resolveDownloadOptions(req.params.id);
+      const candidateId = String(req.params.candidateId || "").trim();
+      const option = result.download_options.find(item =>
+        String(item.candidate_id) === candidateId
+      );
+
+      if (!option) {
+        return res.status(404).json({ error: "DOWNLOAD_OPTION_NOT_FOUND" });
+      }
+
+      const target = new URL(String(option.live_url || ""));
+      if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) {
+        return res.status(502).json({ error: "DOWNLOAD_OPTION_UNSAFE" });
+      }
+
+      res.setHeader("Cache-Control", "no-store");
+      return res.redirect(307, target.href);
+    } catch (error) {
+      const response = downloadErrorResponse(error);
+      return res.status(response.status).json(response.body);
+    }
+  });
+
+  router.get("/episodes/:id/download-options", async (req, res) => {
+    try {
+      const result = await resolver.resolveDownloadOptions(req.params.id);
+      return res.json(clientDownloadResult(result));
+    } catch (error) {
+      const response = downloadErrorResponse(error);
+      return res.status(response.status).json(response.body);
+    }
+  });
+
+  return router;
+}
+
+module.exports = createDownloadRouter();
+module.exports.createDownloadRouter = createDownloadRouter;
 module.exports.clientDownloadResult = clientDownloadResult;
 module.exports.downloadErrorResponse = downloadErrorResponse;

@@ -162,6 +162,15 @@ function createV1Router(options = {}) {
     }
   });
 
+  router.get("/playback/sessions/:id/media", async (req, res) => {
+    try {
+      const handoff = await sessions.mediaHandoff(req.params.id);
+      return res.redirect(307, handoff.uri);
+    } catch (error) {
+      return respondError(res, error);
+    }
+  });
+
   router.post("/playback/sessions/:id/feedback", async (req, res) => {
     try {
       return res.status(202).json({
