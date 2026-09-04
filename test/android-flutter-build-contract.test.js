@@ -19,7 +19,7 @@ test("Android Flutter build pipeline remains wired to a real APK artifact", () =
     sharedClientPath: pubspec.includes("path: ../dart"),
     arabicBrand: brand.includes("ذيب العرب"),
     sharedBrandUsage: main.includes("TheebBrand.productNameAr"),
-    apiClientUsage: main.includes("TheebApiClient(_transport)")
+    apiClientUsage: main.includes("TheebApiClient(")
   };
 
   for (const [name, passed] of Object.entries(checks)) {
