@@ -1,45 +1,49 @@
-# Theeb production deployment
+# Theeb deployment — Zero Cost Multi-Host
 
-This phase keeps Theeb as one codebase with separately deployed roles. It does not create cloud resources, spend money, or store credentials.
+## السياسة
 
-## Target topology
+الهدف الحالي هو تشغيل المشروع بتكلفة **0**. لا تستخدم هذه الخطة موردًا مدفوعًا ولا تعتمد على تجاوز تلقائي لحصة مجانية.
 
-- Cloud Run: public `api` role, scale to zero supported.
-- Oracle Cloud/VPS: `health-worker` and `refresh-worker` containers managed by systemd.
-- PostgreSQL: shared source of truth with certificate verification.
-- Cloud Run Job: one-shot, non-retrying database migrations before an API revision receives traffic.
+## التوزيع الافتراضي
 
-## Mandatory preflight
+- **Koyeb Free**: `THEEB_ROLE=api`.
+- **Oracle Cloud Always Free**: `health-worker` و`refresh-worker` والمهام الثقيلة.
+- **Neon Free PostgreSQL**: قاعدة مشتركة بين العقد، عندما تكون حصتها كافية.
+- **GitHub Actions**: CI والـGolden Gates والفحوص المجدولة.
 
-1. Complete runtime repository parity for PostgreSQL. The current database guard intentionally rejects PostgreSQL for SQLite-only services.
-2. Store `DATABASE_URL` in the platform secret manager or a root-owned `0600` file. Never commit it.
-3. Replace every uppercase placeholder in `deploy/`.
-4. Build immutable images and reference digests, not mutable `latest` tags.
-5. Run `npm test` and build all Docker targets.
-6. Run `npm run deploy:validate` in the final environment.
+راجع `ZERO_COST_HOSTING_AR.md` للتفاصيل والحدود.
 
-`POSTGRES_RUNTIME_PARITY=verified` is an explicit release gate, not a bypass. Do not set it until the API, workers and repository tests have run against the target PostgreSQL version. The current SQLite-backed runtime guard will still reject PostgreSQL until that repository migration is complete; therefore these templates are not evidence that production is ready.
+## Cloud Run
 
-## Release order
+ملفات `deploy/cloud-run/` محفوظة كمرجع تاريخي واختباري فقط وليست المسار الافتراضي. Cloud Run يملك Free Tier، لكن المشروع لا يعتمد عليه الآن لأن تجاوز الحصة قد ينتج تكلفة. تحت `THEEB_ZERO_COST_ONLY=true` يجب ألا يكون `THEEB_DEPLOYMENT_TARGET` مساويًا لأي هدف غير موجود في allow-list المجانية.
 
-1. Take and verify a PostgreSQL backup using `docs/POSTGRES_BACKUP_RESTORE.md`.
-2. Deploy or replace `deploy/cloud-run/migration.job.yaml`.
-3. Execute the migration job once and require exit code zero.
-4. Deploy `deploy/cloud-run/api.service.yaml` without shifting all traffic immediately.
-5. Verify `/livez`, `/readyz`, logs, and a smoke search/playback request.
-6. Shift traffic gradually. Roll back the revision if the acceptance checks fail.
-7. Install both worker units on the VPS and verify their structured startup logs.
+## Preflight
 
-Cloud Run startup uses `/readyz`; liveness uses `/livez`. During SIGTERM the API first fails readiness, stops accepting new connections, drains existing HTTP requests, closes PostgreSQL, and then exits. Its shutdown budget is kept below Cloud Run's termination window. Workers stop polling when aborted and finish the currently claimed job under its lease.
+1. أكمل PostgreSQL repository parity.
+2. استخدم Free Plan فقط في كل مزود.
+3. اضبط `THEEB_ZERO_COST_ONLY=true`.
+4. اضبط `THEEB_DEPLOYMENT_TARGET` على هدف مجاني معتمد.
+5. لا تحفظ الأسرار في Git.
+6. شغّل `npm test` و`npm run gate:golden`.
+7. شغّل `npm run deploy:validate` داخل كل بيئة.
 
-The API returns playback metadata and controlled identifiers only. It is not a video proxy and the deployment must not route arbitrary user-supplied URLs through the service.
+## ترتيب التشغيل
 
-## Rollback
+1. قاعدة PostgreSQL المجانية المشتركة.
+2. API المجاني.
+3. Health Worker على Oracle Always Free.
+4. Refresh Worker على عقدة مجانية منفصلة إن أمكن.
+5. اختبر `/livez` و`/readyz`.
+6. اختبر استرجاع job بعد سقوط worker وانتهاء lease.
 
-- API: route traffic to the prior known-good revision.
-- Workers: pin the prior image digest and restart the unit.
-- Database: prefer forward-fix migrations. Restore only after an explicit incident decision because restoration discards newer writes.
+## الفشل والحصص
 
-## Scope boundary
+إذا اقتربت أي خدمة من حدها المجاني:
+- خفّض health/refresh frequency.
+- اسمح للخدمة غير الحرجة بالنوم.
+- انقل الدور لعقدة مجانية أخرى.
+- لا تقم بالترقية المدفوعة تلقائيًا.
 
-The manifests are deployment templates, not an automatic production launch. They deliberately contain no project IDs, domains, tokens, database passwords, or paid resources.
+## النسخ الاحتياطي
+
+النسخ الاحتياطية تُحفظ خارج قرص الخدمة المؤقت وتتحقق بالـchecksum. لا تعتبر أي خطة مجانية بلا backup ضمانًا للبيانات؛ لذلك يجب الاحتفاظ بنسخة تصدير دورية ضمن مورد مجاني مستقل عند الإمكان.
