@@ -16,5 +16,5 @@ test("Android Flutter build pipeline remains wired to a real APK artifact", () =
   assert.match(pubspec, /name: theeb_arab/);
   assert.match(pubspec, /path: \.\.\/dart/);
   assert.match(main, /ذيب العرب/);
-  assert.match(main, /TheebApiClient\(_transport\)/);
+  assert.equal(main.includes("TheebApiClient(_transport)"), true);
 });
