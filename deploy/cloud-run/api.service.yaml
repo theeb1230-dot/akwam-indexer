@@ -1,0 +1,64 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: theeb-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 40
+      timeoutSeconds: 30
+      serviceAccountName: THEEB_API_SERVICE_ACCOUNT
+      containers:
+        - name: theeb-api
+          image: THEEB_API_IMAGE
+          env:
+            - name: THEEB_ROLE
+              value: api
+            - name: NODE_ENV
+              value: production
+            - name: DATABASE_DRIVER
+              value: postgres
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PG_POOL_MAX
+              value: "10"
+            - name: PG_CONNECT_TIMEOUT_MS
+              value: "10000"
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: "8000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: theeb-database-url
+                  key: latest
+          ports:
+            - name: http1
+              containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 1
+            timeoutSeconds: 2
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
