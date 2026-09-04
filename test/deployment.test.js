@@ -200,10 +200,16 @@ test("graceful shutdown force-closes connections after its budget", async () => 
   const server = {
     stopAcceptingTraffic() {},
     closeIdleConnections() {},
-    close() {},
+    close(callback) { callback(); },
     closeAllConnections() { forced = true; }
   };
-  const shutdown = installShutdownHandlers({ processRef, server, timeoutMs: 5 });
+  const neverCompletes = new Promise(() => {});
+  const shutdown = installShutdownHandlers({
+    processRef,
+    server,
+    completion: neverCompletes,
+    timeoutMs: 5
+  });
   await shutdown("SIGTERM");
   assert.equal(forced, true);
   assert.equal(processRef.exitCode, 1);
