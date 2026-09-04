@@ -92,3 +92,17 @@ jobs:
           path: artifacts/golden-gates/
           if-no-files-found: error
           retention-days: 14
+
+  dart-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Dart
+        uses: dart-lang/setup-dart@v1
+      - name: Analyze client contract
+        run: dart analyze clients/dart/lib/theeb_api_contract.dart clients/dart/test/theeb_api_contract_test.dart
+      - name: Run client contract tests
+        run: dart clients/dart/test/theeb_api_contract_test.dart

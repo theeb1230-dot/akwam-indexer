@@ -51,7 +51,18 @@ jobs:
       - name: Verify Lucky episode in Chromium
         env:
           EPISODE: ${{ matrix.episode }}
-        run: node scripts/wecima-browser-probe.js
+        shell: bash
+        run: |
+          set +e
+          node scripts/wecima-browser-probe.js 2>&1 | tee /tmp/theeb-browser-probe.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ] && grep -q 'CHROME_START_TIMEOUT' /tmp/theeb-browser-probe.log; then
+            echo "Chromium startup timed out; retrying startup once without relaxing playback verification."
+            sleep 2
+            node scripts/wecima-browser-probe.js
+            exit $?
+          fi
+          exit "$status"
 
   resolver-trace:
     runs-on: ubuntu-latest
