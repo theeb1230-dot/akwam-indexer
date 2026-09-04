@@ -89,3 +89,8 @@ code{color:var(--accent-2)}
 
 .install-hint{max-width:360px;padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.6}
 @supports(padding:max(0px)){body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}}
+
+.skip-link{position:fixed;top:8px;right:8px;z-index:9999;padding:10px 14px;border-radius:10px;background:var(--accent);color:#111;font-weight:800;text-decoration:none;transform:translateY(-160%);transition:transform .15s ease}
+.skip-link:focus{transform:translateY(0)}
+:focus-visible{outline:3px solid var(--accent-2);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

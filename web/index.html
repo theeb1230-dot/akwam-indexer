@@ -15,6 +15,7 @@
   <title>ذيب العرب</title>
 </head>
 <body>
+  <a class="skip-link" href="#mainContent">تخطي إلى المحتوى</a>
   <div class="app-shell">
     <header class="topbar">
       <a class="brand brand-link" href="/" aria-label="ذيب العرب">
@@ -28,7 +29,7 @@
       <div id="installHint" class="install-hint" hidden>على iPhone: افتح قائمة المشاركة ثم اختر «إضافة إلى الشاشة الرئيسية».</div>
     </header>
 
-    <main>
+    <main id="mainContent" tabindex="-1">
       <section id="homeView">
         <section class="hero">
           <p class="eyebrow">THEEB ARAB</p>
@@ -40,7 +41,7 @@
           </form>
         </section>
 
-        <section class="status-row" aria-live="polite">
+        <section class="status-row" role="status" aria-live="polite" aria-atomic="true">
           <span id="apiStatus" class="status-chip">جاري فحص الخدمة…</span>
           <span id="resultCount" class="muted"></span>
         </section>

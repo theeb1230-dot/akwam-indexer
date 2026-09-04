@@ -30,5 +30,5 @@ test("Theeb Arab web flow exposes series episode watch and download choices", ()
   assert.match(app, /لا يتم تشغيل الفيديو أو بدء التحميل تلقائيًا/);
   assert.match(css, /\.choice-action\.watch/);
   assert.match(css, /\.choice-action\.download/);
-  assert.match(worker, /theeb-arab-shell-v4/);
+  assert.match(worker, /theeb-arab-shell-v5/);
 });

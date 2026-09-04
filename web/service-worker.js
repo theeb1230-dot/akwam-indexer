@@ -1,10 +1,12 @@
-const CACHE = "theeb-arab-shell-v4";
+const CACHE = "theeb-arab-shell-v5";
 const SHELL = [
   "/",
   "/app.webmanifest",
   "/assets/app.css",
   "/assets/app.js",
-  "/assets/icon.svg"
+  "/assets/icon.svg",
+  "/assets/icon-maskable.svg",
+  "/offline.html"
 ];
 
 self.addEventListener("install", event => {
@@ -31,12 +33,21 @@ self.addEventListener("fetch", event => {
   }
 
   event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached || fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+    caches.match(event.request).then(async cached => {
+      if (cached) return cached;
+      try {
+        const response = await fetch(event.request);
+        if (response.ok && url.origin === self.location.origin) {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        }
         return response;
-      })
-    )
+      } catch (error) {
+        if (event.request.mode === "navigate") {
+          return caches.match("/offline.html");
+        }
+        throw error;
+      }
+    })
   );
 });
