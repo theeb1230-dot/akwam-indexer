@@ -27,7 +27,8 @@
     "gate:load": "node scripts/gates/load-harness.js",
     "gate:soak": "node scripts/gates/soak-harness.js",
     "gate:golden": "node scripts/gates/run-gates.js",
-    "gate:live-matrix": "node scripts/gates/validate-live-matrix.js"
+    "gate:live-matrix": "node scripts/gates/validate-live-matrix.js",
+    "test:postgres-e2e": "node --test test/postgres-runtime-e2e.test.js"
   },
   "repository": {
     "type": "git",
