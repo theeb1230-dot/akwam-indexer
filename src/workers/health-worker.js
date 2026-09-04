@@ -71,8 +71,8 @@ async function executeHealthCheck(job, options = {}) {
   const browserProbe = options.probe || probe;
   const verificationStore = options.recordVerification || recordVerification;
 
-  if (jobs.isCancellationRequested(job.id)) {
-    jobs.cancel(job.id, { status: "cancelled" });
+  if (await jobs.isCancellationRequested(job.id)) {
+    await jobs.cancel(job.id, { status: "cancelled" });
     return { status: "cancelled" };
   }
 
@@ -89,8 +89,8 @@ async function executeHealthCheck(job, options = {}) {
   let browser = null;
   const selected = result.selected_source;
 
-  if (jobs.isCancellationRequested(job.id)) {
-    jobs.cancel(job.id, { status: "cancelled" });
+  if (await jobs.isCancellationRequested(job.id)) {
+    await jobs.cancel(job.id, { status: "cancelled" });
     return { status: "cancelled", result };
   }
 
@@ -107,7 +107,7 @@ async function executeHealthCheck(job, options = {}) {
   }
 
   storeEpisodeHealth(job, status, options);
-  jobs.complete(job.id, {
+  await jobs.complete(job.id, {
     status,
     selected_source: safeCandidate(selected),
     attempts: result.attempts || [],
@@ -119,9 +119,9 @@ async function executeHealthCheck(job, options = {}) {
 
 function startHealthWorker(options = {}) {
   const schedulerMs = Number(process.env.HEALTH_SCHEDULER_MS || 30000);
-  const timer = setInterval(() => {
+  const timer = setInterval(async () => {
     try {
-      enqueueDueHealthJobs();
+      await enqueueDueHealthJobs();
     } catch (error) {
       console.error(JSON.stringify({
         level: "error",
@@ -132,7 +132,7 @@ function startHealthWorker(options = {}) {
   }, schedulerMs);
 
   timer.unref?.();
-  enqueueDueHealthJobs();
+  void enqueueDueHealthJobs().catch(error => console.error(JSON.stringify({ level: "error", event: "health_schedule_failed", error: error.message })));
 
   return runWorker({
     role: "health-worker",
