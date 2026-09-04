@@ -16,7 +16,7 @@ test("Theeb Arab PWA provides offline navigation fallback and accessible landmar
   assert.match(css, /:focus-visible/);
   assert.match(css, /prefers-reduced-motion/);
 
-  assert.match(worker, /theeb-arab-shell-v5/);
+  assert.match(worker, /theeb-arab-shell-v6/);
   assert.match(worker, /"\/offline\.html"/);
   assert.match(worker, /event\.request\.mode === "navigate"/);
   assert.match(worker, /caches\.match\("\/offline\.html"\)/);

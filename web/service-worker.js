@@ -1,7 +1,8 @@
-const CACHE = "theeb-arab-shell-v5";
+const CACHE = "theeb-arab-shell-v6";
 const SHELL = [
   "/",
   "/app.webmanifest",
+  "/brand.json",
   "/assets/app.css",
   "/assets/app.js",
   "/assets/icon.svg",
