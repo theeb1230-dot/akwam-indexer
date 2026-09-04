@@ -58,13 +58,13 @@ test("missing provider episodes become inactive without deletion", () => {
   assert.equal(rows.length, 2);
 });
 
-test("stale refresh scheduling deduplicates active jobs", () => {
+test("stale refresh scheduling deduplicates active jobs", async () => {
   seedSeries();
-  const first = enqueueDueRefreshJobs({
+  const first = await enqueueDueRefreshJobs({
     now: new Date("2026-08-31T00:00:00.000Z"),
     ttlMs: 1000
   });
-  const second = enqueueDueRefreshJobs({
+  const second = await enqueueDueRefreshJobs({
     now: new Date("2026-08-31T00:00:00.000Z"),
     ttlMs: 1000
   });
