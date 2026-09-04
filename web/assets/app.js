@@ -8,6 +8,7 @@ const input = $("#searchInput");
 const template = $("#cardTemplate");
 const episodeTemplate = $("#episodeTemplate");
 const installButton = $("#installButton");
+const installHint = $("#installHint");
 const homeView = $("#homeView");
 const detailView = $("#detailView");
 const seriesDetail = $("#seriesDetail");
@@ -291,6 +292,13 @@ window.addEventListener("popstate", () => {
   else showHome();
 });
 
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+if (isIos && !isStandalone) {
+  installButton.hidden = false;
+  installButton.textContent = "طريقة التثبيت";
+}
+
 window.addEventListener("beforeinstallprompt", event => {
   event.preventDefault();
   deferredPrompt = event;
@@ -298,10 +306,15 @@ window.addEventListener("beforeinstallprompt", event => {
 });
 
 installButton.addEventListener("click", async () => {
-  if (!deferredPrompt) return;
-  await deferredPrompt.prompt();
-  deferredPrompt = null;
-  installButton.hidden = true;
+  if (deferredPrompt) {
+    await deferredPrompt.prompt();
+    deferredPrompt = null;
+    installButton.hidden = true;
+    return;
+  }
+  if (isIos && !isStandalone) {
+    installHint.hidden = !installHint.hidden;
+  }
 });
 
 if ("serviceWorker" in navigator) {
