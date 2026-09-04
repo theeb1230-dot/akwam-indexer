@@ -32,6 +32,18 @@ function databaseUrl(env = process.env) {
 
 function sslConfiguration(env = process.env) {
   const mode = String(env.PGSSLMODE || "require").toLowerCase();
+
+  if (mode === "disable") {
+    const url = new URL(databaseUrl(env));
+    const loopback = ["127.0.0.1", "localhost", "::1"].includes(url.hostname);
+    const testOnly = String(env.NODE_ENV || "").toLowerCase() === "test";
+    if (loopback && testOnly) return false;
+
+    const error = new Error("POSTGRES_TLS_VERIFICATION_REQUIRED");
+    error.code = "POSTGRES_TLS_VERIFICATION_REQUIRED";
+    throw error;
+  }
+
   if (!["require", "verify-ca", "verify-full"].includes(mode)) {
     const error = new Error("POSTGRES_TLS_VERIFICATION_REQUIRED");
     error.code = "POSTGRES_TLS_VERIFICATION_REQUIRED";
