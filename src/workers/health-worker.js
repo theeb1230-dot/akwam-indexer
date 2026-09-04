@@ -101,7 +101,7 @@ async function executeHealthCheck(job, options = {}) {
       browser = await browserProbe(selected.embed_url, {
         timeoutMs: Number(process.env.BROWSER_PROBE_TIMEOUT_MS || 30000)
       });
-      const stored = verificationStore(selected, browser);
+      const stored = await verificationStore(selected, browser);
       status = stored.health_state;
     }
   }

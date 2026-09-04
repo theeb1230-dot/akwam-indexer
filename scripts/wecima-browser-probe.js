@@ -519,7 +519,7 @@ async function main() {
       );
 
     const stored =
-      recordVerification(
+      await recordVerification(
         candidate,
         result
       );
