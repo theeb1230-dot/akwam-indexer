@@ -595,7 +595,7 @@ async function resolveEpisode({
 
   try {
     resolved.canonical =
-      saveResolvedEpisode(resolved);
+      await saveResolvedEpisode(resolved);
   } catch (error) {
     resolved.canonical = {
       persisted: false,
