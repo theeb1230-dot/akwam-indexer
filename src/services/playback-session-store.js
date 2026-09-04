@@ -1,5 +1,9 @@
 const { randomUUID } = require("node:crypto");
-const db = require("../db/schema");
+const {
+  createPlaybackSessionRepository
+} = require("../repositories/playback-session-repository");
+
+const repository = createPlaybackSessionRepository();
 
 const PLATFORMS = new Set(["android", "android_tv", "ios", "web", "windows"]);
 const QUALITIES = new Set(["auto", "1080p", "720p", "480p"]);
@@ -12,7 +16,6 @@ const EVENT_TYPES = new Set([
   "ended",
   "fatal_error"
 ]);
-
 const SESSION_STATES = new Set([
   "planning",
   "ready",
@@ -55,6 +58,24 @@ function optionalString(value, maxLength, code) {
   return text;
 }
 
+function assertPlainObject(value, code) {
+  if (
+    value == null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  ) {
+    throw new Error(code);
+  }
+  return value;
+}
+
+function assertAllowedKeys(value, allowed, code) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) throw new Error(code);
+  }
+}
+
 function validateEventDetails(value) {
   if (value == null) return null;
   const details = assertPlainObject(value, "EVENT_DETAILS_INVALID");
@@ -74,24 +95,6 @@ function validateEventDetails(value) {
   return serialized;
 }
 
-function assertPlainObject(value, code) {
-  if (
-    value == null ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype
-  ) {
-    throw new Error(code);
-  }
-  return value;
-}
-
-function assertAllowedKeys(value, allowed, code) {
-  for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) throw new Error(code);
-  }
-}
-
 function assertSessionId(value) {
   const id = String(value || "").trim();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
@@ -107,219 +110,194 @@ function publicSession(row) {
 
   return {
     id: row.id,
-    canonical_episode_id: row.canonical_episode_id,
+    canonical_episode_id: Number(row.canonical_episode_id),
     state: row.state,
     requested_quality: row.requested_quality,
     client: {
       platform: row.client_platform,
       version: row.client_version || null
     },
-    plan_version: row.plan_version,
+    plan_version: Number(row.plan_version),
     playback: row.state === "ready"
       ? {
           uri: `/v1/playback/sessions/${row.id}/media`,
           quality: row.requested_quality
         }
       : null,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    expires_at: row.expires_at
+    created_at: new Date(row.created_at).toISOString(),
+    updated_at: new Date(row.updated_at).toISOString(),
+    expires_at: new Date(row.expires_at).toISOString()
   };
 }
 
-function getSession(id, options = {}) {
-  const sessionId = assertSessionId(id);
-  const now = options.now || new Date();
-  let row = db.prepare("SELECT * FROM playback_sessions WHERE id = ?").get(sessionId);
+function withRepository(customRepository) {
+  const storage = customRepository || repository;
 
-  if (
-    row &&
-    !["cancelled", "expired"].includes(row.state) &&
-    Date.parse(row.expires_at) <= now.getTime()
-  ) {
-    db.prepare(`
-      UPDATE playback_sessions
-      SET state = 'expired', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(sessionId);
-    row = db.prepare("SELECT * FROM playback_sessions WHERE id = ?").get(sessionId);
+  async function getSession(id, options = {}) {
+    const sessionId = assertSessionId(id);
+    const now = options.now || new Date();
+    let row = await storage.getSession(sessionId);
+
+    if (
+      row &&
+      !["cancelled", "expired"].includes(row.state) &&
+      Date.parse(row.expires_at) <= now.getTime()
+    ) {
+      await storage.expireSession(sessionId);
+      row = await storage.getSession(sessionId);
+    }
+
+    return row ? publicSession(row) : null;
   }
 
-  return row ? publicSession(row) : null;
-}
+  async function createSession(input, options = {}) {
+    assertPlainObject(input, "REQUEST_BODY_INVALID");
+    assertAllowedKeys(
+      input,
+      new Set(["canonical_episode_id", "quality", "client"]),
+      "REQUEST_BODY_UNKNOWN_FIELD"
+    );
 
-function createSession(input, options = {}) {
-  assertPlainObject(input, "REQUEST_BODY_INVALID");
-  assertAllowedKeys(
-    input,
-    new Set(["canonical_episode_id", "quality", "client"]),
-    "REQUEST_BODY_UNKNOWN_FIELD"
-  );
+    const episodeId = requiredInteger(input.canonical_episode_id, "CANONICAL_EPISODE_ID_INVALID");
+    const client = assertPlainObject(input.client, "CLIENT_INVALID");
+    assertAllowedKeys(client, new Set(["platform", "version"]), "CLIENT_UNKNOWN_FIELD");
+    const platform = String(client.platform || "").trim();
+    const quality = String(input.quality || "auto").trim().toLowerCase();
 
-  const episodeId = requiredInteger(input.canonical_episode_id, "CANONICAL_EPISODE_ID_INVALID");
-  const client = assertPlainObject(input.client, "CLIENT_INVALID");
-  assertAllowedKeys(client, new Set(["platform", "version"]), "CLIENT_UNKNOWN_FIELD");
-  const platform = String(client.platform || "").trim();
-  const quality = String(input.quality || "auto").trim().toLowerCase();
+    if (!PLATFORMS.has(platform)) throw new Error("CLIENT_PLATFORM_INVALID");
+    if (!QUALITIES.has(quality)) throw new Error("QUALITY_INVALID");
+    if (!(await storage.episodeExists(episodeId))) {
+      throw new Error("CANONICAL_EPISODE_NOT_FOUND");
+    }
 
-  if (!PLATFORMS.has(platform)) throw new Error("CLIENT_PLATFORM_INVALID");
-  if (!QUALITIES.has(quality)) throw new Error("QUALITY_INVALID");
+    const clientVersion = optionalString(
+      client.version,
+      MAX_CLIENT_VERSION_LENGTH,
+      "CLIENT_VERSION_INVALID"
+    );
+    const id = assertSessionId(options.id || randomUUID());
+    const now = options.now || new Date();
+    const ttlMs = Number(options.ttlMs || SESSION_TTL_MS);
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error("SESSION_TTL_INVALID");
+    const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
 
-  const episode = db.prepare("SELECT id FROM canonical_episodes WHERE id = ?").get(episodeId);
-  if (!episode) throw new Error("CANONICAL_EPISODE_NOT_FOUND");
+    await storage.createSession({
+      id,
+      canonical_episode_id: episodeId,
+      requested_quality: quality,
+      client_platform: platform,
+      client_version: clientVersion,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      expires_at: expiresAt
+    });
 
-  const clientVersion = optionalString(
-    client.version,
-    MAX_CLIENT_VERSION_LENGTH,
-    "CLIENT_VERSION_INVALID"
-  );
-  const id = assertSessionId(options.id || randomUUID());
-  const now = options.now || new Date();
-  const ttlMs = Number(options.ttlMs || SESSION_TTL_MS);
-  if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error("SESSION_TTL_INVALID");
-  const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
-
-  db.prepare(`
-    INSERT INTO playback_sessions (
-      id, canonical_episode_id, state, requested_quality,
-      client_platform, client_version, created_at, updated_at, expires_at
-    ) VALUES (?, ?, 'planning', ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    episodeId,
-    quality,
-    platform,
-    clientVersion,
-    now.toISOString(),
-    now.toISOString(),
-    expiresAt
-  );
-
-  return getSession(id, { now });
-}
-
-function recordFeedback(sessionId, input, options = {}) {
-  const id = assertSessionId(sessionId);
-  assertPlainObject(input, "REQUEST_BODY_INVALID");
-  assertAllowedKeys(
-    input,
-    new Set(["event_id", "type", "occurred_at", "position_seconds", "error_code", "details"]),
-    "REQUEST_BODY_UNKNOWN_FIELD"
-  );
-
-  const now = options.now || new Date();
-  const session = getSession(id, { now });
-  if (!session) throw new Error("PLAYBACK_SESSION_NOT_FOUND");
-  if (["cancelled", "expired"].includes(session.state)) {
-    throw new Error("PLAYBACK_SESSION_NOT_ACTIVE");
+    return getSession(id, { now });
   }
 
-  const eventId = String(input.event_id || "").trim();
-  const eventType = String(input.type || "").trim();
-  if (!eventId || eventId.length > 100) throw new Error("EVENT_ID_INVALID");
-  if (!EVENT_TYPES.has(eventType)) throw new Error("EVENT_TYPE_INVALID");
+  async function recordFeedback(sessionId, input, options = {}) {
+    const id = assertSessionId(sessionId);
+    assertPlainObject(input, "REQUEST_BODY_INVALID");
+    assertAllowedKeys(
+      input,
+      new Set(["event_id", "type", "occurred_at", "position_seconds", "error_code", "details"]),
+      "REQUEST_BODY_UNKNOWN_FIELD"
+    );
 
-  const position = input.position_seconds == null ? null : Number(input.position_seconds);
-  if (position != null && (!Number.isFinite(position) || position < 0)) {
-    throw new Error("POSITION_INVALID");
+    const now = options.now || new Date();
+    const session = await getSession(id, { now });
+    if (!session) throw new Error("PLAYBACK_SESSION_NOT_FOUND");
+    if (["cancelled", "expired"].includes(session.state)) {
+      throw new Error("PLAYBACK_SESSION_NOT_ACTIVE");
+    }
+
+    const eventId = String(input.event_id || "").trim();
+    const eventType = String(input.type || "").trim();
+    if (!eventId || eventId.length > 100) throw new Error("EVENT_ID_INVALID");
+    if (!EVENT_TYPES.has(eventType)) throw new Error("EVENT_TYPE_INVALID");
+
+    const position = input.position_seconds == null ? null : Number(input.position_seconds);
+    if (position != null && (!Number.isFinite(position) || position < 0)) {
+      throw new Error("POSITION_INVALID");
+    }
+
+    const suppliedOccurredAt = isoDate(input.occurred_at, "OCCURRED_AT_INVALID");
+    const occurredAt = Math.abs(Date.parse(suppliedOccurredAt) - now.getTime()) <= MAX_EVENT_CLOCK_SKEW_MS
+      ? suppliedOccurredAt
+      : now.toISOString();
+    const errorCode = optionalString(
+      input.error_code,
+      MAX_ERROR_CODE_LENGTH,
+      "ERROR_CODE_INVALID"
+    );
+    if (errorCode && !/^[A-Z0-9_.-]+$/.test(errorCode)) {
+      throw new Error("ERROR_CODE_INVALID");
+    }
+    const details = validateEventDetails(input.details);
+
+    if (await storage.feedbackExists(id, eventId)) {
+      return { accepted: true, duplicate: true };
+    }
+
+    const windowStart = new Date(now.getTime() - 60_000).toISOString();
+    const recentCount = await storage.recentFeedbackCount(id, windowStart);
+    if (recentCount >= MAX_FEEDBACK_EVENTS_PER_MINUTE) {
+      throw new Error("FEEDBACK_RATE_LIMITED");
+    }
+
+    const inserted = await storage.insertFeedback({
+      session_id: id,
+      event_id: eventId,
+      event_type: eventType,
+      position_seconds: position,
+      error_code: errorCode,
+      details_json: details,
+      occurred_at: occurredAt,
+      received_at: now.toISOString()
+    });
+
+    if (inserted && ["first_frame", "playing"].includes(eventType)) {
+      await storage.markReady(id);
+    }
+    if (inserted && eventType === "fatal_error") {
+      await storage.markUnavailable(id);
+    }
+
+    return { accepted: true, duplicate: !inserted };
   }
 
-  const suppliedOccurredAt = isoDate(input.occurred_at, "OCCURRED_AT_INVALID");
-  const occurredAt = Math.abs(Date.parse(suppliedOccurredAt) - now.getTime()) <= MAX_EVENT_CLOCK_SKEW_MS
-    ? suppliedOccurredAt
-    : now.toISOString();
-  const errorCode = optionalString(
-    input.error_code,
-    MAX_ERROR_CODE_LENGTH,
-    "ERROR_CODE_INVALID"
-  );
-  if (errorCode && !/^[A-Z0-9_.-]+$/.test(errorCode)) {
-    throw new Error("ERROR_CODE_INVALID");
+  async function downloadOptions(episodeIdValue) {
+    const episodeId = requiredInteger(episodeIdValue, "CANONICAL_EPISODE_ID_INVALID");
+    if (!(await storage.episodeExists(episodeId))) {
+      throw new Error("CANONICAL_EPISODE_NOT_FOUND");
+    }
+
+    const rows = await storage.downloadOptions(episodeId);
+    const items = rows.map(row => ({
+      id: String(row.id),
+      quality: row.quality || null,
+      format: null,
+      status: "resolvable"
+    }));
+
+    return {
+      canonical_episode_id: episodeId,
+      count: items.length,
+      items,
+      automatic_download: false,
+      action_required: "user_selection"
+    };
   }
-  const details = validateEventDetails(input.details);
-
-  const duplicate = db.prepare(`
-    SELECT 1 FROM playback_session_events
-    WHERE session_id = ? AND event_id = ?
-  `).get(id, eventId);
-  if (duplicate) return { accepted: true, duplicate: true };
-
-  const windowStart = new Date(now.getTime() - 60_000).toISOString();
-  const recentCount = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM playback_session_events
-    WHERE session_id = ? AND received_at >= ?
-  `).get(id, windowStart).count;
-  if (recentCount >= MAX_FEEDBACK_EVENTS_PER_MINUTE) {
-    throw new Error("FEEDBACK_RATE_LIMITED");
-  }
-
-  const result = db.prepare(`
-    INSERT INTO playback_session_events (
-      session_id, event_id, event_type, position_seconds,
-      error_code, details_json, occurred_at, received_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(session_id, event_id) DO NOTHING
-  `).run(
-    id,
-    eventId,
-    eventType,
-    position,
-    errorCode,
-    details,
-    occurredAt,
-    now.toISOString()
-  );
-
-  if (result.changes > 0 && ["first_frame", "playing"].includes(eventType)) {
-    db.prepare(`
-      UPDATE playback_sessions
-      SET state = 'ready', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND state = 'planning'
-    `).run(id);
-  }
-
-  if (result.changes > 0 && eventType === "fatal_error") {
-    db.prepare(`
-      UPDATE playback_sessions
-      SET state = 'unavailable', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND state IN ('planning', 'ready')
-    `).run(id);
-  }
-
-  return { accepted: true, duplicate: result.changes === 0 };
-}
-
-function downloadOptions(episodeIdValue) {
-  const episodeId = requiredInteger(episodeIdValue, "CANONICAL_EPISODE_ID_INVALID");
-  const episode = db.prepare("SELECT id FROM canonical_episodes WHERE id = ?").get(episodeId);
-  if (!episode) throw new Error("CANONICAL_EPISODE_NOT_FOUND");
-
-  const items = db.prepare(`
-    SELECT po.id, po.quality, po.status
-    FROM playback_options po
-    JOIN provider_episodes pe ON pe.id = po.provider_episode_id
-    WHERE pe.canonical_episode_id = ?
-      AND po.can_download = 1
-      AND po.status = 'active'
-    ORDER BY CASE po.quality
-      WHEN '1080p' THEN 1 WHEN '720p' THEN 2 WHEN '480p' THEN 3 ELSE 4 END,
-      po.priority, po.id
-  `).all(episodeId).map(row => ({
-    id: String(row.id),
-    quality: row.quality || null,
-    format: null,
-    status: "resolvable"
-  }));
 
   return {
-    canonical_episode_id: episodeId,
-    count: items.length,
-    items,
-    automatic_download: false,
-    action_required: "user_selection"
+    createSession,
+    downloadOptions,
+    getSession,
+    recordFeedback
   };
 }
+
+const api = withRepository();
 
 module.exports = {
   EVENT_TYPES,
@@ -330,8 +308,6 @@ module.exports = {
   QUALITIES,
   SESSION_STATES,
   assertSessionId,
-  createSession,
-  downloadOptions,
-  getSession,
-  recordFeedback
+  withRepository,
+  ...api
 };
