@@ -18,7 +18,7 @@ function fakePool() {
       if (text.startsWith("SELECT id FROM canonical_episodes")) {
         return { rowCount: params[0] === 9150 ? 1 : 0, rows: params[0] === 9150 ? [{ id: 9150 }] : [] };
       }
-      if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE ps.id")) {
+      if (text.includes("FROM playback_sessions ps") && text.includes("WHERE ps.id")) {
         return {
           rowCount: 1,
           rows: [{
@@ -31,7 +31,7 @@ function fakePool() {
           }]
         };
       }
-      if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE pc.canonical_episode_id")) {
+      if (text.includes("FROM playback_candidates pc") && text.includes("WHERE pc.canonical_episode_id")) {
         return {
           rowCount: 1,
           rows: [{
