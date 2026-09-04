@@ -185,7 +185,7 @@ function withRepository(customRepository) {
     await storage.createSession({
       id,
       canonical_episode_id: episodeId,
-      state: candidate ? "ready" : "unavailable",
+      state: candidate ? "ready" : "planning",
       requested_quality: quality,
       client_platform: platform,
       client_version: clientVersion,
