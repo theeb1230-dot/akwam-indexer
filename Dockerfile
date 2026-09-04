@@ -34,6 +34,7 @@ COPY --chown=theeb:theeb migrations ./migrations
 ENV CHROME_PATH=/usr/bin/chromium
 ENV THEEB_ROLE=health-worker
 USER theeb
+STOPSIGNAL SIGTERM
 CMD ["node", "src/entrypoint.js"]
 
 FROM runtime-base AS migration
@@ -48,4 +49,5 @@ FROM runtime-base AS api
 ENV THEEB_ROLE=api
 USER theeb
 EXPOSE 8080
+STOPSIGNAL SIGTERM
 CMD ["node", "src/entrypoint.js"]
