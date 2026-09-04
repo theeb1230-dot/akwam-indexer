@@ -559,7 +559,7 @@ async function resolveSeries({
 
   try {
     resolved.canonical =
-      saveResolvedSeries(resolved);
+      await saveResolvedSeries(resolved);
   } catch (error) {
     resolved.canonical = {
       persisted: false,
