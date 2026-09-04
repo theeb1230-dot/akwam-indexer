@@ -20,6 +20,8 @@ test("Theeb Arab PWA shell has required installable assets", () => {
   assert.match(html, /<html lang="ar" dir="rtl">/);
   assert.match(html, /ذيب العرب/);
   assert.match(html, /app\.webmanifest/);
+  assert.match(html, /apple-mobile-web-app-capable/);
+  assert.match(html, /id="installHint"/);
 
   const manifest = JSON.parse(
     fs.readFileSync(path.join(root, "app.webmanifest"), "utf8")
@@ -28,13 +30,15 @@ test("Theeb Arab PWA shell has required installable assets", () => {
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.dir, "rtl");
   assert.equal(manifest.start_url, "/");
+  assert.equal(manifest.id, "/");
+  assert.equal(manifest.icons.some(icon => icon.purpose === "maskable"), true);
 
   const app = fs.readFileSync(path.join(root, "assets/app.js"), "utf8");
   assert.match(app, /\/v1\/search\?q=/);
   assert.match(app, /serviceWorker\.register/);
 
   const worker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
-  assert.match(worker, /theeb-arab-shell-v3/);
+  assert.match(worker, /theeb-arab-shell-v4/);
   assert.match(worker, /url\.pathname\.startsWith\("\/v1\/"\)/);
 });
 
