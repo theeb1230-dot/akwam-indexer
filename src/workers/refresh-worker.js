@@ -1,4 +1,6 @@
-const db = require("../db/schema");
+const {
+  createRefreshSeriesRepository
+} = require("../repositories/refresh-series-repository");
 const jobs = require("../services/job-manager");
 const { importSeries } = require("../services/importer");
 const { runWorker } = require("./worker-runner");
@@ -6,17 +8,19 @@ const {
   enqueueDueRefreshJobs
 } = require("../services/refresh-scheduler");
 
-async function refreshAll(job) {
-  const series = db.prepare(`
-    SELECT id, provider, provider_series_id, title
-    FROM series ORDER BY id ASC
-  `).all();
+async function refreshAll(job, options = {}) {
+  const repository =
+    options.repository ||
+    createRefreshSeriesRepository(options.env || process.env);
+  const importer = options.importSeries || importSeries;
+  const jobManager = options.jobs || jobs;
+  const series = await repository.listAllSeries();
 
-  await jobs.start(job.id, series.length);
+  await jobManager.start(job.id, series.length);
   const results = [];
 
   for (const item of series) {
-    await jobs.setCurrentEpisode(job.id, {
+    await jobManager.setCurrentEpisode(job.id, {
       library_series_id: item.id,
       provider: item.provider,
       provider_series_id: item.provider_series_id,
@@ -24,21 +28,21 @@ async function refreshAll(job) {
     });
 
     try {
-      const result = await importSeries(
+      const result = await importer(
         item.provider,
         item.provider_series_id
       );
       results.push(result);
-      await jobs.episodeCompleted(job.id);
+      await jobManager.episodeCompleted(job.id);
     } catch (error) {
-      await jobs.episodeFailed(job.id, {
+      await jobManager.episodeFailed(job.id, {
         library_series_id: item.id,
         message: error.message
       });
     }
   }
 
-  await jobs.complete(job.id, {
+  await jobManager.complete(job.id, {
     series_count: series.length,
     results
   });

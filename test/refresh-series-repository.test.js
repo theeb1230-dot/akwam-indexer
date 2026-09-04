@@ -63,3 +63,36 @@ test("refresh scheduler awaits injected repository contract", async () => {
   assert.equal(calls[0].limit, 5);
   assert.equal(calls[0].cutoff, "2026-09-04T11:59:00.000Z");
 });
+
+
+test("PostgreSQL refresh repository lists all active provider series", async () => {
+  const calls = [];
+  const pool = {
+    async query(sql) {
+      calls.push(sql);
+      return {
+        rows: [
+          {
+            id: "7",
+            provider: "fixture",
+            provider_series_id: "s7",
+            title: "Fixture"
+          },
+          {
+            id: "8",
+            provider: "akwam",
+            provider_series_id: "s8",
+            title: "Another"
+          }
+        ]
+      };
+    }
+  };
+
+  const repository = new PostgresRefreshSeriesRepository(pool);
+  const rows = await repository.listAllSeries();
+
+  assert.deepEqual(rows.map(row => row.id), [7, 8]);
+  assert.match(calls[0], /WHERE ps\.active = TRUE/);
+  assert.match(calls[0], /ORDER BY ps\.id ASC/);
+});
