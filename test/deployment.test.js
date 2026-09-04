@@ -42,8 +42,7 @@ test("deployment templates contain probes and secret references without credenti
   assert.doesNotMatch(`${api}\n${migration}`, /postgresql:\/\//);
   assert.doesNotMatch(`${api}\n${migration}`, /:latest(?:\s|$)/);
   const oracleEnv = fs.readFileSync(path.join(root, "deploy/oracle/theeb-api.env.example"), "utf8");
-  assert.doesNotMatch(oracleEnv, /^POSTGRES_RUNTIME_PARITY=verified$/m);
-  assert.match(oracleEnv, /^# POSTGRES_RUNTIME_PARITY=verified$/m);
+  assert.match(oracleEnv, /^POSTGRES_RUNTIME_PARITY=verified$/m);
 });
 
 
