@@ -37,10 +37,42 @@ test("PostgreSQL TLS verifies certificates by default", () => {
 test("PostgreSQL rejects insecure TLS modes", () => {
   for (const PGSSLMODE of ["disable", "no-verify", "allow", "prefer"]) {
     assert.throws(
-      () => sslConfiguration({ PGSSLMODE }),
+      () => sslConfiguration({
+        PGSSLMODE,
+        DATABASE_URL: "postgresql://fixture:secret@db.example/theeb"
+      }),
       error => error.code === "POSTGRES_TLS_VERIFICATION_REQUIRED"
     );
   }
+});
+
+test("PostgreSQL allows TLS disable only for loopback tests", () => {
+  assert.equal(
+    sslConfiguration({
+      PGSSLMODE: "disable",
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/theeb"
+    }),
+    false
+  );
+
+  assert.throws(
+    () => sslConfiguration({
+      PGSSLMODE: "disable",
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/theeb"
+    }),
+    error => error.code === "POSTGRES_TLS_VERIFICATION_REQUIRED"
+  );
+
+  assert.throws(
+    () => sslConfiguration({
+      PGSSLMODE: "disable",
+      NODE_ENV: "test",
+      DATABASE_URL: "postgresql://postgres:postgres@db.example/theeb"
+    }),
+    error => error.code === "POSTGRES_TLS_VERIFICATION_REQUIRED"
+  );
 });
 
 test("initial PostgreSQL migration preserves storage invariants", () => {
