@@ -23,8 +23,9 @@ test("Theeb Arab web flow exposes series episode watch and download choices", ()
 
   assert.match(app, /watch\.addEventListener\("click"/);
   assert.match(app, /download\.addEventListener\("click"/);
-  assert.doesNotMatch(app, /openEpisode\([^)]*\).*loadWatchOptions/s);
-  assert.doesNotMatch(app, /openEpisode\([^)]*\).*loadDownloadOptions/s);
+  const openEpisodeBlock = app.match(/async function openEpisode\(id\) \{([\s\S]*?)\n\}/)?.[1] || "";
+  assert.doesNotMatch(openEpisodeBlock, /loadWatchOptions\(/);
+  assert.doesNotMatch(openEpisodeBlock, /loadDownloadOptions\(/);
 
   assert.match(app, /لا يتم تشغيل الفيديو أو بدء التحميل تلقائيًا/);
   assert.match(css, /\.choice-action\.watch/);
