@@ -348,7 +348,7 @@ async function importSeries(
   );
 
   if (jobId) {
-    jobs.start(
+    await jobs.start(
       jobId,
       seriesData.episodes.length
     );
@@ -364,13 +364,13 @@ async function importSeries(
     const episode
     of seriesData.episodes
   ) {
-    if (jobId && jobs.isCancellationRequested(jobId)) {
+    if (jobId && await jobs.isCancellationRequested(jobId)) {
       cancelled = true;
       break;
     }
 
     if (jobId) {
-      jobs.setCurrentEpisode(
+      await jobs.setCurrentEpisode(
         jobId,
         {
           id:
@@ -409,7 +409,7 @@ async function importSeries(
       completed++;
 
       if (jobId) {
-        jobs.episodeCompleted(
+        await jobs.episodeCompleted(
           jobId
         );
       }
@@ -436,7 +436,7 @@ async function importSeries(
       );
 
       if (jobId) {
-        jobs.episodeFailed(
+        await jobs.episodeFailed(
           jobId,
           errorData
         );
@@ -480,9 +480,9 @@ async function importSeries(
 
   if (jobId) {
     if (cancelled) {
-      jobs.cancel(jobId, result);
+      await jobs.cancel(jobId, result);
     } else {
-      jobs.complete(jobId, result);
+      await jobs.complete(jobId, result);
     }
   }
 
@@ -505,7 +505,7 @@ async function runImportJob(
       }
     );
   } catch (error) {
-    jobs.fail(
+    await jobs.fail(
       jobId,
       error
     );
