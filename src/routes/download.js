@@ -3,8 +3,9 @@ const {
   createDownloadResolver
 } = require("../services/download-resolver");
 
-const router = express.Router();
-const resolver = createDownloadResolver();
+function createDownloadRouter(options = {}) {
+  const router = express.Router();
+  const resolver = options.resolver || createDownloadResolver();
 
 function clientDownloadResult(result) {
   return {
@@ -100,6 +101,10 @@ router.get("/episodes/:id/download-options", async (req, res) => {
   }
 });
 
-module.exports = router;
+  return router;
+}
+
+module.exports = createDownloadRouter();
+module.exports.createDownloadRouter = createDownloadRouter;
 module.exports.clientDownloadResult = clientDownloadResult;
 module.exports.downloadErrorResponse = downloadErrorResponse;
