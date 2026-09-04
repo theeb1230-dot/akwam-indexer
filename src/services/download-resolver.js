@@ -128,10 +128,12 @@ function metadataWithoutUrls(option) {
 }
 
 function createDownloadResolver(dependencies = {}) {
+  const downloadRepositories = require("../repositories/download-repository");
   const repository =
     dependencies.repository ||
-    require("../repositories/download-repository")
-      .createDownloadRepository(dependencies.env || process.env);
+    (dependencies.db
+      ? new downloadRepositories.SqliteDownloadRepository(dependencies.db)
+      : downloadRepositories.createDownloadRepository(dependencies.env || process.env));
   const providers = dependencies.providers || require("../providers");
 
   async function optionsForSource(source) {
