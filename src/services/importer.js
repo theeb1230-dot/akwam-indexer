@@ -1,4 +1,6 @@
-const db = require("../db/schema");
+const {
+  createImporterRepository
+} = require("../repositories/importer-repository");
 const providers = require("../providers");
 const jobs = require("./job-manager");
 
@@ -10,296 +12,6 @@ function getProvider(providerName) {
   return providers.get(providerName);
 }
 
-function upsertSeries(providerSeriesId, data) {
-  db.prepare(`
-    INSERT INTO series (
-      provider,
-      provider_series_id,
-      title,
-      description,
-      image,
-      language,
-      quality,
-      country,
-      year,
-      source_url,
-      updated_at
-    )
-    VALUES (
-      @provider,
-      @provider_series_id,
-      @title,
-      @description,
-      @image,
-      @language,
-      @quality,
-      @country,
-      @year,
-      @source_url,
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT(provider, provider_series_id)
-    DO UPDATE SET
-      title = excluded.title,
-      description = excluded.description,
-      image = excluded.image,
-      language = excluded.language,
-      quality = excluded.quality,
-      country = excluded.country,
-      year = excluded.year,
-      source_url = excluded.source_url,
-      updated_at = CURRENT_TIMESTAMP
-  `).run({
-    provider: data.provider,
-    provider_series_id:
-      String(providerSeriesId),
-
-    title:
-      data.series.title,
-
-    description:
-      data.series.description,
-
-    image:
-      data.series.image,
-
-    language:
-      data.series.language,
-
-    quality:
-      data.series.quality,
-
-    country:
-      data.series.country,
-
-    year:
-      data.series.year,
-
-    source_url:
-      data.source_url
-  });
-
-  return db.prepare(`
-    SELECT id
-    FROM series
-    WHERE provider = ?
-    AND provider_series_id = ?
-  `).get(
-    data.provider,
-    String(providerSeriesId)
-  ).id;
-}
-
-function upsertEpisode(
-  seriesId,
-  episode,
-  details
-) {
-  db.prepare(`
-    INSERT INTO episodes (
-      series_id,
-      provider,
-      provider_episode_id,
-      episode_number,
-      title,
-      description,
-      image,
-      source_url,
-      active,
-      last_seen_at,
-      missing_since,
-      updated_at
-    )
-    VALUES (
-      @series_id,
-      @provider,
-      @provider_episode_id,
-      @episode_number,
-      @title,
-      @description,
-      @image,
-      @source_url,
-      1,
-      CURRENT_TIMESTAMP,
-      NULL,
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT(provider, provider_episode_id)
-    DO UPDATE SET
-      series_id = excluded.series_id,
-      episode_number = excluded.episode_number,
-      title = excluded.title,
-      description = excluded.description,
-      image = excluded.image,
-      source_url = excluded.source_url,
-      active = 1,
-      last_seen_at = CURRENT_TIMESTAMP,
-      missing_since = NULL,
-      updated_at = CURRENT_TIMESTAMP
-  `).run({
-    series_id:
-      seriesId,
-
-    provider:
-      details.provider,
-
-    provider_episode_id:
-      String(details.episode.id),
-
-    episode_number:
-      episode.number,
-
-    title:
-      details.episode.title ||
-      episode.title,
-
-    description:
-      details.episode.description,
-
-    image:
-      details.episode.image,
-
-    source_url:
-      details.source_url
-  });
-
-  return db.prepare(`
-    SELECT id
-    FROM episodes
-    WHERE provider = ?
-    AND provider_episode_id = ?
-  `).get(
-    details.provider,
-    String(details.episode.id)
-  ).id;
-}
-
-function reconcileMissingEpisodes(
-  seriesId,
-  provider,
-  listedIds
-) {
-  const ids = [...new Set(
-    listedIds.map(String)
-  )];
-
-  let result;
-  if (ids.length === 0) {
-    result = db.prepare(`
-      UPDATE episodes
-      SET active = 0,
-          missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE series_id = ? AND provider = ? AND active = 1
-    `).run(seriesId, provider);
-  } else {
-    const placeholders = ids.map(() => "?").join(", ");
-    result = db.prepare(`
-      UPDATE episodes
-      SET active = 0,
-          missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE series_id = ? AND provider = ? AND active = 1
-        AND provider_episode_id NOT IN (${placeholders})
-    `).run(seriesId, provider, ...ids);
-  }
-
-  const providerSeries = db.prepare(`
-    SELECT ps.id
-    FROM provider_series ps
-    JOIN series s
-      ON s.provider = ps.provider
-     AND s.provider_series_id = ps.provider_series_id
-    WHERE s.id = ? AND ps.provider = ?
-    LIMIT 1
-  `).get(seriesId, provider);
-
-  if (providerSeries) {
-    if (ids.length === 0) {
-      db.prepare(`
-        UPDATE provider_episodes
-        SET active = 0,
-            missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE provider_series_id = ? AND provider = ? AND active = 1
-      `).run(providerSeries.id, provider);
-    } else {
-      const placeholders = ids.map(() => "?").join(", ");
-      db.prepare(`
-        UPDATE provider_episodes
-        SET active = CASE
-              WHEN provider_episode_id IN (${placeholders}) THEN 1
-              ELSE 0
-            END,
-            last_seen_at = CASE
-              WHEN provider_episode_id IN (${placeholders})
-                THEN CURRENT_TIMESTAMP
-              ELSE last_seen_at
-            END,
-            missing_since = CASE
-              WHEN provider_episode_id IN (${placeholders}) THEN NULL
-              ELSE COALESCE(missing_since, CURRENT_TIMESTAMP)
-            END,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE provider_series_id = ? AND provider = ?
-      `).run(
-        ...ids,
-        ...ids,
-        ...ids,
-        providerSeries.id,
-        provider
-      );
-    }
-  }
-
-  return result.changes;
-}
-
-function upsertWatchOption(
-  episodeDbId,
-  provider,
-  option
-) {
-  db.prepare(`
-    INSERT INTO watch_options (
-      episode_id,
-      provider,
-      watch_id,
-      quality,
-      page_url,
-      updated_at
-    )
-    VALUES (
-      @episode_id,
-      @provider,
-      @watch_id,
-      @quality,
-      @page_url,
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT(provider, watch_id)
-    DO UPDATE SET
-      episode_id = excluded.episode_id,
-      quality = excluded.quality,
-      page_url = excluded.page_url,
-      updated_at = CURRENT_TIMESTAMP
-  `).run({
-    episode_id:
-      episodeDbId,
-
-    provider,
-
-    watch_id:
-      String(option.watch_id),
-
-    quality:
-      option.quality,
-
-    page_url:
-      option.page_url
-  });
-}
-
 async function importSeries(
   providerName,
   providerSeriesId,
@@ -307,6 +19,10 @@ async function importSeries(
 ) {
   const provider =
     getProvider(providerName);
+
+  const repository =
+    options.repository ||
+    createImporterRepository(options.env || process.env);
 
   const delayMs =
     Number(options.delayMs ?? 500);
@@ -320,18 +36,16 @@ async function importSeries(
     );
 
   const seriesDbId =
-    upsertSeries(
+    await repository.upsertSeries(
       providerSeriesId,
       seriesData
     );
 
   const existingIds = new Set(
-    db.prepare(`
-      SELECT provider_episode_id
-      FROM episodes
-      WHERE series_id = ? AND provider = ?
-    `).all(seriesDbId, providerName)
-      .map(item => String(item.provider_episode_id))
+    await repository.existingEpisodeIds(
+      seriesDbId,
+      providerName
+    )
   );
 
   const listedIds = (seriesData.episodes || [])
@@ -341,7 +55,7 @@ async function importSeries(
     .filter(id => !existingIds.has(id))
     .length;
 
-  const disappearedCount = reconcileMissingEpisodes(
+  const disappearedCount = await repository.reconcileMissingEpisodes(
     seriesDbId,
     providerName,
     listedIds
@@ -389,7 +103,7 @@ async function importSeries(
         );
 
       const episodeDbId =
-        upsertEpisode(
+        await repository.upsertEpisode(
           seriesDbId,
           episode,
           details
@@ -399,7 +113,7 @@ async function importSeries(
         const option
         of details.watch_options || []
       ) {
-        upsertWatchOption(
+        await repository.upsertWatchOption(
           episodeDbId,
           details.provider,
           option
@@ -595,6 +309,5 @@ if (require.main === module) {
 module.exports = {
   importSeries,
   runImportJob,
-  getProvider,
-  reconcileMissingEpisodes
+  getProvider
 };
