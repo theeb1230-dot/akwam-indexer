@@ -75,7 +75,7 @@ async function executePlayback(
     await resolve(params);
 
   const plan =
-    health.ranked(
+    await health.ranked(
       resolved.playback_plan || []
     );
 
@@ -86,7 +86,7 @@ async function executePlayback(
 
   for (const candidate of plan) {
     if (
-      health.circuitOpen(
+      await health.circuitOpen(
         candidate
       )
     ) {
@@ -117,7 +117,7 @@ async function executePlayback(
         );
 
       const storedHealth =
-        health.recordResult(
+        await health.recordResult(
           candidate,
           result,
           options.circuit || {}
