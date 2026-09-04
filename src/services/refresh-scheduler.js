@@ -16,13 +16,13 @@ function dueSeries(options = {}) {
   `).all(cutoff, limit);
 }
 
-function enqueueDueRefreshJobs(options = {}) {
+async function enqueueDueRefreshJobs(options = {}) {
   const rows = dueSeries(options);
   let queued = 0;
   let deduplicated = 0;
 
   for (const row of rows) {
-    const result = jobs.enqueueUnique({
+    const result = await jobs.enqueueUnique({
       type: "refresh",
       provider: row.provider,
       provider_series_id: row.provider_series_id,
