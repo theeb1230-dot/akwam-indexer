@@ -1,23 +1,22 @@
-const db = require("../db/schema");
 const jobs = require("./job-manager");
+const {
+  createRefreshSeriesRepository
+} = require("../repositories/refresh-series-repository");
 
-function dueSeries(options = {}) {
+async function dueSeries(options = {}) {
   const now = options.now || new Date();
   const ttlMs = Number(options.ttlMs || process.env.REFRESH_TTL_MS || 21600000);
   const cutoff = new Date(now.getTime() - ttlMs).toISOString();
   const limit = Math.max(1, Math.min(200, Number(options.limit || 20)));
+  const repository =
+    options.repository ||
+    createRefreshSeriesRepository(options.env || process.env);
 
-  return db.prepare(`
-    SELECT id, provider, provider_series_id, title, updated_at
-    FROM series
-    WHERE datetime(updated_at) <= datetime(?)
-    ORDER BY updated_at ASC, id ASC
-    LIMIT ?
-  `).all(cutoff, limit);
+  return repository.dueSeries({ cutoff, limit });
 }
 
 async function enqueueDueRefreshJobs(options = {}) {
-  const rows = dueSeries(options);
+  const rows = await dueSeries(options);
   let queued = 0;
   let deduplicated = 0;
 
