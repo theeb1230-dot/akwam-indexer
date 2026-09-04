@@ -18,6 +18,19 @@ function fakePool() {
       if (text.startsWith("SELECT id FROM canonical_episodes")) {
         return { rowCount: params[0] === 9150 ? 1 : 0, rows: params[0] === 9150 ? [{ id: 9150 }] : [] };
       }
+      if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE ps.id")) {
+        return {
+          rowCount: 1,
+          rows: [{
+            id: 44,
+            provider: "fixture",
+            watch_id: "watch-1",
+            quality: "720p",
+            playback_type: "resolver",
+            provider_episode_id: "episode-1"
+          }]
+        };
+      }
       if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE pc.canonical_episode_id")) {
         return {
           rowCount: 1,
@@ -85,19 +98,6 @@ function fakePool() {
       if (text.includes("SET state = 'unavailable'")) {
         sessions.get(params[0]).state = "unavailable";
         return { rowCount: 1, rows: [] };
-      }
-      if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE ps.id")) {
-        return {
-          rowCount: 1,
-          rows: [{
-            id: 44,
-            provider: "fixture",
-            watch_id: "watch-1",
-            quality: "720p",
-            playback_type: "resolver",
-            provider_episode_id: "episode-1"
-          }]
-        };
       }
       if (text.startsWith("SELECT po.id, po.quality, po.status")) {
         return { rowCount: 0, rows: [] };
