@@ -86,3 +86,6 @@ code{color:var(--accent-2)}
   .episode-row{grid-template-columns:auto 1fr}
   .episode-flags{grid-column:2}
 }
+
+.install-hint{max-width:360px;padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.6}
+@supports(padding:max(0px)){body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}}
