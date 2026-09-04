@@ -18,14 +18,19 @@
 
 حاليًا `api` و`all` و`refresh-worker` و`health-worker` منفذة. تعتمد الـWorkers على Queue دائمة وLease وHeartbeat واستعادة بعد الانقطاع. Health Worker يميز الوصول عن التشغيل المثبت ويستخدم Chromium للـEmbed. يبقى `playback-worker` مغلقًا حتى يكتمل عقده؛ لا نعلن خدمة وهمية على أنها جاهزة.
 
-## التوزيع المستهدف
+## التوزيع المستهدف — Zero Cost Multi-Host
 
-- Cloud Run يشغّل Public API.
-- Oracle A1 أو VM مصرح وثابت العنوان يشغّل Chromium والمهام الثقيلة.
-- PostgreSQL يكون مصدر الحقيقة المشترك.
-- PostgreSQL Queue/Locks أولًا؛ Redis يضاف فقط عند حاجة مقاسة.
+السياسة الحاكمة حاليًا: لا مورد مدفوع ولا خدمة تسمح بتجاوز مجاني تلقائيًا.
 
-راجع [ADR-001](ADR-001-DISTRIBUTED-RUNTIME.md).
+- **Koyeb Free**: مرشح للـPublic API الخفيف.
+- **Oracle Cloud Always Free**: Health/Refresh workers والمهام الثقيلة وChromium، مع إمكانية توزيع الأدوار على أكثر من VM مجانية.
+- **Neon Free PostgreSQL**: مصدر الحقيقة المشترك بين الاستضافات عندما تلائم حصته حجم المشروع.
+- **GitHub Actions**: CI والبوابات والاختبارات المجدولة، وليس قاعدة بيانات أو API دائم.
+- Cloud Run ليس المسار الافتراضي لأن تجاوز Free Tier قد ينتج تكلفة، وهو مخالف لسياسة المشروع الحالية.
+
+تبقى الصورة البرمجية واحدة، وتوزع الأدوار عبر `THEEB_ROLE`. فشل استضافة واحدة لا يجب أن يفرض نقل الكود أو تغيير Provider logic.
+
+راجع [ADR-001](ADR-001-DISTRIBUTED-RUNTIME.md) و[ZERO_COST_HOSTING_AR.md](ZERO_COST_HOSTING_AR.md).
 
 ترحيل قاعدة الإنتاج موثق في [ADR-002](ADR-002-POSTGRESQL-MIGRATION.md). وجود `DATABASE_URL` وحده لا يعني اكتمال الترحيل؛ كل Repository يجب أن يجتاز اختبارات التكافؤ قبل تفعيل PostgreSQL في Runtime.
 
