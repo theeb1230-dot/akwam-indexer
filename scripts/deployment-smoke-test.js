@@ -25,6 +25,24 @@ function deploymentBaseUrl(env = process.env) {
   return url;
 }
 
+async function readText(base, path, options = {}) {
+  const timeoutMs = Number(options.timeoutMs || 10000);
+  const response = await fetch(new URL(path, `${base.href}/`), {
+    signal: AbortSignal.timeout(timeoutMs),
+    headers: { accept: "text/html,application/json;q=0.9,*/*;q=0.1" },
+    redirect: "error"
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw Object.assign(new Error(`HTTP_${response.status}: ${path}`), {
+      code: `HTTP_${response.status}`,
+      path,
+      body
+    });
+  }
+  return { response, body };
+}
+
 async function readJson(base, path, options = {}) {
   const timeoutMs = Number(options.timeoutMs || 10000);
   const response = await fetch(new URL(path, `${base.href}/`), {
@@ -55,21 +73,26 @@ async function smokeTest(env = process.env, options = {}) {
   const base = deploymentBaseUrl(env);
   const live = await readJson(base, "/livez", options);
   const ready = await readJson(base, "/readyz", options);
-  const root = await readJson(base, "/", options);
+  const api = await readJson(base, "/api", options);
+  const web = await readText(base, "/", options);
 
   if (live.status !== "alive") throw new Error("LIVENESS_CONTRACT_FAILED");
   if (ready.status !== "ready") throw new Error("READINESS_CONTRACT_FAILED");
-  if (root.name !== "Theeb Engine") throw new Error("ROOT_CONTRACT_FAILED");
-  if (env.THEEB_EXPECTED_VERSION && root.version !== env.THEEB_EXPECTED_VERSION) {
+  if (api.name !== "Theeb Engine") throw new Error("API_METADATA_CONTRACT_FAILED");
+  if (!/ذيب العرب/.test(web.body) || !/app\.webmanifest/.test(web.body)) {
+    throw new Error("WEB_ROOT_CONTRACT_FAILED");
+  }
+  if (env.THEEB_EXPECTED_VERSION && api.version !== env.THEEB_EXPECTED_VERSION) {
     throw new Error("DEPLOYED_VERSION_MISMATCH");
   }
 
   return {
     status: "passed",
     base_url: base.origin,
-    version: root.version,
-    providers: Array.isArray(root.providers) ? root.providers.length : null,
-    database: ready.database
+    version: api.version,
+    providers: Array.isArray(api.providers) ? api.providers.length : null,
+    database: ready.database,
+    web: "theeb-arab-pwa"
   };
 }
 
@@ -85,4 +108,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { deploymentBaseUrl, readJson, smokeTest };
+module.exports = { deploymentBaseUrl, readText, readJson, smokeTest };
