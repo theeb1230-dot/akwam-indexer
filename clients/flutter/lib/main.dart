@@ -254,7 +254,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
 
   String _episodeLabel(TheebEpisode episode) {
     if (episode.title != null) return episode.title!;
-    return 'الحلقة ' + (episode.episodeNumber ?? episode.id).toString();
+    return 'الحلقة ${episode.episodeNumber ?? episode.id}';
   }
 
   @override
@@ -289,16 +289,9 @@ class _SeriesScreenState extends State<SeriesScreen> {
                             onTap: () => _openEpisode(episode),
                             title: Text(_episodeLabel(episode)),
                             subtitle: Text(
-                              'الموسم ' +
-                                  episode.seasonNumber.toString() +
-                                  ' • ' +
-                                  (episode.watchAvailable
-                                      ? 'مشاهدة'
-                                      : 'لا مشاهدة') +
-                                  ' • ' +
-                                  (episode.downloadAvailable
-                                      ? 'تحميل'
-                                      : 'لا تحميل'),
+                              'الموسم ${episode.seasonNumber} • '
+                              '${episode.watchAvailable ? 'مشاهدة' : 'لا مشاهدة'} • '
+                              '${episode.downloadAvailable ? 'تحميل' : 'لا تحميل'}',
                             ),
                           ),
                         ),
@@ -406,11 +399,8 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
   }
 
   Future<void> _openDownload(DownloadOption option) async {
-    final path = '/v1/episodes/' +
-        widget.episodeId.toString() +
-        '/download-options/' +
-        Uri.encodeComponent(option.id) +
-        '/open';
+    final path = '/v1/episodes/${widget.episodeId}/download-options/'
+        '${Uri.encodeComponent(option.id)}/open';
     final opened = await widget.opener(widget.baseUri.resolve(path));
     if (!opened && mounted) {
       setState(() => _error = 'تعذر فتح خيار التحميل.');
@@ -440,7 +430,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 8),
-                      Text('الموسم ' + episode.seasonNumber.toString()),
+                      Text('الموسم ${episode.seasonNumber}'),
                       const SizedBox(height: 20),
                       const Text(
                         'اختر الإجراء بنفسك. لا يبدأ تشغيل أو تحميل تلقائيًا.',
@@ -480,14 +470,12 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
                           FilledButton(
                             onPressed: _openWatch,
                             child: Text(
-                              'فتح المشاهدة • ' +
-                                  _session!.playback!.quality,
+                              'فتح المشاهدة • ${_session!.playback!.quality}',
                             ),
                           )
                         else
                           Text(
-                            'حالة جلسة المشاهدة: ' +
-                                _session!.state.name,
+                            'حالة جلسة المشاهدة: ${_session!.state.name}',
                           ),
                       ],
                       if (_downloads != null) ...[
