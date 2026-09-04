@@ -18,18 +18,32 @@ function fakePool() {
       if (text.startsWith("SELECT id FROM canonical_episodes")) {
         return { rowCount: params[0] === 9150 ? 1 : 0, rows: params[0] === 9150 ? [{ id: 9150 }] : [] };
       }
+      if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE pc.canonical_episode_id")) {
+        return {
+          rowCount: 1,
+          rows: [{
+            id: 44,
+            provider: "fixture",
+            watch_id: "watch-1",
+            quality: "720p",
+            playback_type: "resolver",
+            provider_episode_id: "episode-1"
+          }]
+        };
+      }
       if (text.startsWith("INSERT INTO playback_sessions")) {
         sessions.set(params[0], {
           id: params[0],
           canonical_episode_id: params[1],
-          state: "planning",
-          requested_quality: params[2],
-          client_platform: params[3],
-          client_version: params[4],
+          state: params[2],
+          requested_quality: params[3],
+          client_platform: params[4],
+          client_version: params[5],
+          selected_candidate_id: params[6],
           plan_version: 1,
-          created_at: params[5],
-          updated_at: params[6],
-          expires_at: params[7]
+          created_at: params[7],
+          updated_at: params[8],
+          expires_at: params[9]
         });
         return { rowCount: 1, rows: [] };
       }
@@ -72,6 +86,19 @@ function fakePool() {
         sessions.get(params[0]).state = "unavailable";
         return { rowCount: 1, rows: [] };
       }
+      if (text.startsWith("SELECT pc.id, pc.provider, pc.watch_id") && text.includes("WHERE ps.id")) {
+        return {
+          rowCount: 1,
+          rows: [{
+            id: 44,
+            provider: "fixture",
+            watch_id: "watch-1",
+            quality: "720p",
+            playback_type: "resolver",
+            provider_episode_id: "episode-1"
+          }]
+        };
+      }
       if (text.startsWith("SELECT po.id, po.quality, po.status")) {
         return { rowCount: 0, rows: [] };
       }
@@ -93,8 +120,14 @@ test("PostgreSQL playback session repository matches the public contract", async
     client: { platform: "web", version: "1.0.0" }
   }, { id, now });
 
-  assert.equal(created.state, "planning");
-  assert.equal(created.playback, null);
+  assert.equal(created.state, "ready");
+  assert.match(created.playback.uri, /\/v1\/playback\/sessions\//);
+
+  const handoff = await sessions.mediaHandoff(id);
+  assert.equal(
+    handoff.uri,
+    "/play/fixture/watch-1/episode-1?quality=720p"
+  );
 
   assert.deepEqual(await sessions.recordFeedback(id, {
     event_id: "frame-1",
