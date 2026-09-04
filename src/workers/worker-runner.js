@@ -1,15 +1,8 @@
 const os = require("node:os");
 const jobs = require("../services/job-manager");
 
-function delay(ms, signal) {
-  return new Promise(resolve => {
-    if (signal?.aborted) return resolve();
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timer);
-      resolve();
-    }, { once: true });
-  });
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function workerId(role) {
@@ -78,15 +71,8 @@ async function runWorker(options) {
 
   while (!signal?.aborted) {
     const handled = await runOnce({ ...options, workerId: id });
-    if (!handled) await delay(pollMs, signal);
+    if (!handled) await delay(pollMs);
   }
-
-  console.log(JSON.stringify({
-    level: "info",
-    event: "worker_stopped",
-    role: options.role,
-    worker_id: id
-  }));
 }
 
 module.exports = {

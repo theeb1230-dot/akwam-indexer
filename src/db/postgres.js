@@ -1,34 +1,6 @@
 const { Pool } = require("pg");
-const fs = require("node:fs");
 
 let pool;
-
-function databaseUrl(env = process.env) {
-  if (env.DATABASE_URL && env.DATABASE_URL_FILE) {
-    const error = new Error("DATABASE_URL_SOURCE_AMBIGUOUS");
-    error.code = "DATABASE_URL_SOURCE_AMBIGUOUS";
-    throw error;
-  }
-  if (env.DATABASE_URL_FILE) {
-    const stat = fs.statSync(env.DATABASE_URL_FILE);
-    if (!stat.isFile() || stat.size > 16384) {
-      const error = new Error("INVALID_DATABASE_URL_FILE");
-      error.code = "INVALID_DATABASE_URL_FILE";
-      throw error;
-    }
-  }
-  const value = env.DATABASE_URL || (
-    env.DATABASE_URL_FILE
-      ? fs.readFileSync(env.DATABASE_URL_FILE, "utf8").trim()
-      : ""
-  );
-  if (!value) {
-    const error = new Error("DATABASE_URL_REQUIRED");
-    error.code = "DATABASE_URL_REQUIRED";
-    throw error;
-  }
-  return value;
-}
 
 function sslConfiguration(env = process.env) {
   const mode = String(env.PGSSLMODE || "require").toLowerCase();
@@ -42,9 +14,15 @@ function sslConfiguration(env = process.env) {
 }
 
 function getPool(env = process.env) {
+  if (!env.DATABASE_URL) {
+    const error = new Error("DATABASE_URL_REQUIRED");
+    error.code = "DATABASE_URL_REQUIRED";
+    throw error;
+  }
+
   if (!pool) {
     pool = new Pool({
-      connectionString: databaseUrl(env),
+      connectionString: env.DATABASE_URL,
       ssl: sslConfiguration(env),
       max: Number(env.PG_POOL_MAX || 10),
       idleTimeoutMillis: Number(env.PG_IDLE_TIMEOUT_MS || 30000),
@@ -79,7 +57,6 @@ async function closePool() {
 }
 
 module.exports = {
-  databaseUrl,
   sslConfiguration,
   getPool,
   withTransaction,

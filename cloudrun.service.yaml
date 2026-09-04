@@ -1,0 +1,26 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: theeb-api
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "1"
+    spec:
+      containerConcurrency: 40
+      timeoutSeconds: 30
+      containers:
+        - image: THEEB_IMAGE
+          env:
+            - name: THEEB_ROLE
+              value: api
+            - name: NODE_ENV
+              value: production
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi

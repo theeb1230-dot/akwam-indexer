@@ -5,9 +5,7 @@ const DRIVERS = Object.freeze({
 
 function databaseDriver(env = process.env) {
   const configured = String(env.DATABASE_DRIVER || "").trim().toLowerCase();
-  const inferred = (env.DATABASE_URL || env.DATABASE_URL_FILE)
-    ? DRIVERS.POSTGRES
-    : DRIVERS.SQLITE;
+  const inferred = env.DATABASE_URL ? DRIVERS.POSTGRES : DRIVERS.SQLITE;
   const driver = configured || inferred;
 
   if (!Object.values(DRIVERS).includes(driver)) {
@@ -16,7 +14,7 @@ function databaseDriver(env = process.env) {
     throw error;
   }
 
-  if (driver === DRIVERS.POSTGRES && !env.DATABASE_URL && !env.DATABASE_URL_FILE) {
+  if (driver === DRIVERS.POSTGRES && !env.DATABASE_URL) {
     const error = new Error("DATABASE_URL_REQUIRED");
     error.code = "DATABASE_URL_REQUIRED";
     throw error;

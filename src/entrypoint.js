@@ -15,17 +15,19 @@ function start(env = process.env) {
   switch (role) {
     case RUNTIME_ROLES.ALL:
     case RUNTIME_ROLES.API:
-      return require("./server").startServer();
+      return require(
+        "./server"
+      );
 
     case RUNTIME_ROLES.REFRESH_WORKER:
       return require(
         "./workers/refresh-worker"
-      ).startRefreshWorker({ signal: env.THEEB_SIGNAL });
+      ).startRefreshWorker();
 
     case RUNTIME_ROLES.HEALTH_WORKER:
       return require(
         "./workers/health-worker"
-      ).startHealthWorker({ signal: env.THEEB_SIGNAL });
+      ).startHealthWorker();
 
     default:
       throw new Error(
@@ -35,19 +37,8 @@ function start(env = process.env) {
 }
 
 if (require.main === module) {
-  const controller = new AbortController();
-  const { installShutdownHandlers } = require("./runtime/shutdown");
-
   Promise.resolve()
-    .then(() => {
-      const runtime = start({ ...process.env, THEEB_SIGNAL: controller.signal });
-      installShutdownHandlers({
-        controller,
-        server: runtime && typeof runtime.close === "function" ? runtime : null,
-        completion: runtime && typeof runtime.then === "function" ? runtime : null
-      });
-      return runtime;
-    })
+    .then(() => start())
     .catch(error => {
     console.error(
       JSON.stringify({

@@ -27,5 +27,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate Lucky E1 E2 E3 E5 E7
+      - name: Resolve Lucky E1-E7 and capture evidence
+        env:
+          LIVE_REPORT_PATH: artifacts/live-playback/report.json
         run: npm run live:test
+
+      - name: Enforce semantic E1-E7 playback matrix
+        if: always()
+        run: npm run gate:live-matrix -- artifacts/live-playback/report.json
+
+      - name: Upload live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-playback-evidence
+          path: artifacts/live-playback/
+          if-no-files-found: error
+          retention-days: 14

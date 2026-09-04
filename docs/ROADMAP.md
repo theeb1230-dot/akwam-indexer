@@ -1,5 +1,7 @@
 # Roadmap
 
+> بوابات الإصدار الذهبي الحتمية موثقة في [GOLDEN_RELEASE_GATES.md](./GOLDEN_RELEASE_GATES.md). نجاح البوابات غير الحية لا يُعد إثباتًا لتشغيل المصادر الخارجية.
+
 ## المرحلة السادسة — PostgreSQL Migration
 
 - مخطط PostgreSQL مبدئي بدون تخزين Direct URLs المؤقتة.
