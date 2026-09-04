@@ -45,3 +45,46 @@ test("PostgreSQL active dedupe uses the partial constraint", async () => {
   assert.equal(result.job.id, "existing");
   assert.match(pool.calls[0].sql, /ON CONFLICT \(dedupe_key\)/);
 });
+
+
+test("PostgreSQL lifecycle supports progress, retry, cancellation and terminal states", async () => {
+  const row = {
+    id: "job-2",
+    type: "refresh",
+    status: "running",
+    total: 2,
+    completed: 1,
+    failed: 0,
+    progress: 50,
+    current_item: null,
+    result: null,
+    errors: [],
+    payload: { reason: "scheduled" },
+    cancel_requested: false,
+    attempts: 1,
+    max_attempts: 3
+  };
+  const pool = fakePool([
+    { rows: [{ ...row, completed: 2, progress: 100 }], rowCount: 1 },
+    { rows: [{ id: "job-2" }], rowCount: 1 },
+    { rows: [{ ...row, cancel_requested: true }], rowCount: 1 },
+    { rows: [{ ...row, status: "cancelled", cancel_requested: true, result: { reason: "user" } }], rowCount: 1 }
+  ]);
+  const repository = new PostgresJobRepository(pool);
+
+  const progressed = await repository.episodeCompleted("job-2");
+  assert.equal(progressed.completed, 2);
+  assert.equal(progressed.progress, 100);
+
+  assert.equal(await repository.requeue("job-2", "worker-a", 1000), true);
+
+  const requested = await repository.requestCancel("job-2");
+  assert.equal(requested.cancel_requested, true);
+
+  const cancelled = await repository.cancel("job-2", { reason: "user" });
+  assert.equal(cancelled.status, "cancelled");
+  assert.deepEqual(cancelled.result, { reason: "user" });
+
+  assert.match(pool.calls[1].sql, /available_at = NOW\(\) \+ \(\$3 \* INTERVAL '1 millisecond'\)/);
+  assert.match(pool.calls[3].sql, /status = 'cancelled'/);
+});

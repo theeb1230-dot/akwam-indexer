@@ -12,11 +12,11 @@ async function refreshAll(job) {
     FROM series ORDER BY id ASC
   `).all();
 
-  jobs.start(job.id, series.length);
+  await jobs.start(job.id, series.length);
   const results = [];
 
   for (const item of series) {
-    jobs.setCurrentEpisode(job.id, {
+    await jobs.setCurrentEpisode(job.id, {
       library_series_id: item.id,
       provider: item.provider,
       provider_series_id: item.provider_series_id,
@@ -29,16 +29,16 @@ async function refreshAll(job) {
         item.provider_series_id
       );
       results.push(result);
-      jobs.episodeCompleted(job.id);
+      await jobs.episodeCompleted(job.id);
     } catch (error) {
-      jobs.episodeFailed(job.id, {
+      await jobs.episodeFailed(job.id, {
         library_series_id: item.id,
         message: error.message
       });
     }
   }
 
-  jobs.complete(job.id, {
+  await jobs.complete(job.id, {
     series_count: series.length,
     results
   });
@@ -58,9 +58,9 @@ async function handleRefreshJob(job) {
 
 function startRefreshWorker(options = {}) {
   const schedulerMs = Number(process.env.REFRESH_SCHEDULER_MS || 60000);
-  const timer = setInterval(() => {
+  const timer = setInterval(async () => {
     try {
-      enqueueDueRefreshJobs();
+      await enqueueDueRefreshJobs();
     } catch (error) {
       console.error(JSON.stringify({
         level: "error",
@@ -71,7 +71,7 @@ function startRefreshWorker(options = {}) {
   }, schedulerMs);
 
   timer.unref?.();
-  enqueueDueRefreshJobs();
+  void enqueueDueRefreshJobs().catch(error => console.error(JSON.stringify({ level: "error", event: "refresh_schedule_failed", error: error.message })));
 
   return runWorker({
     role: "refresh-worker",

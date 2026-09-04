@@ -26,7 +26,9 @@ async function runClaimedJob(job, options) {
   const heartbeatMs = Math.max(1000, Math.floor(leaseMs / 3));
 
   const timer = setInterval(() => {
-    store.heartbeat(job.id, options.workerId, leaseMs);
+    Promise.resolve(store.heartbeat(job.id, options.workerId, leaseMs)).catch(error => {
+      console.error(JSON.stringify({ level: "error", event: "job_heartbeat_failed", job_id: job.id, error: error.message }));
+    });
   }, heartbeatMs);
 
   timer.unref?.();
@@ -34,7 +36,7 @@ async function runClaimedJob(job, options) {
   try {
     await options.handle(job);
   } catch (error) {
-    const current = store.get(job.id);
+    const current = await store.get(job.id);
 
     if (current && current.attempts < current.max_attempts) {
       const retryDelay = Math.min(
@@ -42,9 +44,9 @@ async function runClaimedJob(job, options) {
         1000 * (2 ** Math.max(0, current.attempts - 1))
       );
 
-      store.requeue(job.id, options.workerId, retryDelay);
+      await store.requeue(job.id, options.workerId, retryDelay);
     } else {
-      store.fail(job.id, error);
+      await store.fail(job.id, error);
     }
   } finally {
     clearInterval(timer);
@@ -53,7 +55,7 @@ async function runClaimedJob(job, options) {
 
 async function runOnce(options) {
   const store = options.jobs || jobs;
-  const job = store.claimNext(
+  const job = await store.claimNext(
     options.workerId,
     options.types,
     { leaseMs: options.leaseMs }

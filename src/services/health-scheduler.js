@@ -31,13 +31,13 @@ function dueEpisodes(options = {}) {
   `).all(now.toISOString(), limit);
 }
 
-function enqueueDueHealthJobs(options = {}) {
+async function enqueueDueHealthJobs(options = {}) {
   const rows = dueEpisodes(options);
   const queued = [];
   let deduplicated = 0;
 
   for (const row of rows) {
-    const result = jobs.enqueueUnique({
+    const result = await jobs.enqueueUnique({
       type: "health-check",
       dedupe_key: `health:episode:${row.canonical_episode_id}`,
       payload: {
