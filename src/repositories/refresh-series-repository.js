@@ -13,6 +13,14 @@ class SqliteRefreshSeriesRepository {
       LIMIT ?
     `).all(cutoff, limit);
   }
+
+  async listAllSeries() {
+    return this.db.prepare(`
+      SELECT id, provider, provider_series_id, title
+      FROM series
+      ORDER BY id ASC
+    `).all();
+  }
 }
 
 class PostgresRefreshSeriesRepository {
@@ -37,6 +45,25 @@ class PostgresRefreshSeriesRepository {
       ORDER BY ps.updated_at ASC, ps.id ASC
       LIMIT $2
     `, [cutoff, limit]);
+    return result.rows.map(row => ({
+      ...row,
+      id: Number(row.id)
+    }));
+  }
+
+  async listAllSeries() {
+    const result = await this.pool.query(`
+      SELECT
+        ps.canonical_series_id AS id,
+        ps.provider,
+        ps.provider_series_id,
+        COALESCE(ps.provider_title, cs.title) AS title
+      FROM provider_series ps
+      JOIN canonical_series cs
+        ON cs.id = ps.canonical_series_id
+      WHERE ps.active = TRUE
+      ORDER BY ps.id ASC
+    `);
     return result.rows.map(row => ({
       ...row,
       id: Number(row.id)
