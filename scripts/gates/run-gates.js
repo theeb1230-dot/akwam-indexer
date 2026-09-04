@@ -26,9 +26,21 @@ function run(options = {}) {
     fs.mkdirSync(outputDirectory, { recursive: true });
     fs.writeFileSync(path.join(outputDirectory, `${gate}.stdout.log`), stdout);
     fs.writeFileSync(path.join(outputDirectory, `${gate}.stderr.log`), stderr);
+    const status = child.status === 0 && !child.error ? "passed" : "failed";
+    if (status === "failed") {
+      console.error(JSON.stringify({
+        gate,
+        status,
+        exit_code: child.status,
+        signal: child.signal || null,
+        error: child.error?.message || null,
+        stdout,
+        stderr
+      }));
+    }
     results.push({
       gate,
-      status: child.status === 0 && !child.error ? "passed" : "failed",
+      status,
       duration_ms: Date.now() - started,
       exit_code: child.status,
       signal: child.signal || null,
