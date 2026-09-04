@@ -9,12 +9,18 @@ test("Android Flutter build pipeline remains wired to a real APK artifact", () =
   const pubspec = fs.readFileSync(path.join(root, "clients/flutter/pubspec.yaml"), "utf8");
   const main = fs.readFileSync(path.join(root, "clients/flutter/lib/main.dart"), "utf8");
 
-  assert.match(workflow, /flutter-android:/);
-  assert.match(workflow, /flutter build apk --debug/);
-  assert.match(workflow, /theeb-arab-android-debug/);
-  assert.match(workflow, /app-debug\.apk/);
-  assert.match(pubspec, /name: theeb_arab/);
-  assert.match(pubspec, /path: \.\.\/dart/);
-  assert.match(main, /ذيب العرب/);
-  assert.equal(main.includes("TheebApiClient(_transport)"), true);
+  const checks = {
+    flutterJob: workflow.includes("flutter-android:"),
+    apkBuild: workflow.includes("flutter build apk --debug"),
+    artifactName: workflow.includes("theeb-arab-android-debug"),
+    apkPath: workflow.includes("app-debug.apk"),
+    appName: pubspec.includes("name: theeb_arab"),
+    sharedClientPath: pubspec.includes("path: ../dart"),
+    arabicBrand: main.includes("ذيب العرب"),
+    apiClientUsage: main.includes("TheebApiClient(_transport)")
+  };
+
+  for (const [name, passed] of Object.entries(checks)) {
+    assert.equal(passed, true, `Android build contract failed: ${name}`);
+  }
 });
