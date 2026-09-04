@@ -1,4 +1,6 @@
-const db = require("../db/schema");
+const {
+  createEpisodeHealthRepository
+} = require("../repositories/episode-health-repository");
 const jobs = require("../services/job-manager");
 const {
   executePlayback
@@ -37,33 +39,17 @@ function safeCandidate(candidate) {
   };
 }
 
-function storeEpisodeHealth(job, status, options = {}) {
-  const episodeId = Number(job.payload.canonical_episode_id);
-  const failed = status === "PLAYBACK_VERIFIED" ? 0 : 1;
+async function storeEpisodeHealth(job, status, options = {}) {
+  const repository =
+    options.repository ||
+    createEpisodeHealthRepository(options.env || process.env);
 
-  db.prepare(`
-    INSERT INTO episode_health_schedule (
-      canonical_episode_id, last_status, last_checked_at,
-      next_check_at, last_job_id, consecutive_failures, updated_at
-    ) VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(canonical_episode_id)
-    DO UPDATE SET
-      last_status = excluded.last_status,
-      last_checked_at = CURRENT_TIMESTAMP,
-      next_check_at = excluded.next_check_at,
-      last_job_id = excluded.last_job_id,
-      consecutive_failures = CASE
-        WHEN excluded.last_status = 'PLAYBACK_VERIFIED' THEN 0
-        ELSE episode_health_schedule.consecutive_failures + 1
-      END,
-      updated_at = CURRENT_TIMESTAMP
-  `).run(
-    episodeId,
+  await repository.storeEpisodeHealth({
+    episodeId: Number(job.payload.canonical_episode_id),
     status,
-    nextCheck(status, options),
-    job.id,
-    failed
-  );
+    nextCheckAt: nextCheck(status, options),
+    jobId: job.id
+  });
 }
 
 async function executeHealthCheck(job, options = {}) {
@@ -106,7 +92,7 @@ async function executeHealthCheck(job, options = {}) {
     }
   }
 
-  storeEpisodeHealth(job, status, options);
+  await storeEpisodeHealth(job, status, options);
   await jobs.complete(job.id, {
     status,
     selected_source: safeCandidate(selected),
