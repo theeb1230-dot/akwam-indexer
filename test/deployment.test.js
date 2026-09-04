@@ -18,7 +18,7 @@ test("production validation requires PostgreSQL and verified TLS", () => {
     DATABASE_URL: "postgresql://user:password@db.example/theeb",
     PGSSLMODE: "verify-full",
     POSTGRES_RUNTIME_PARITY: "verified"
-  }), { role: "api", database: "postgres", tls: "verified" });
+  }), { role: "api", database: "postgres", tls: "verified", zero_cost_only: false, deployment_target: null });
 
   assert.throws(() => validate({
     NODE_ENV: "production",
@@ -41,6 +41,28 @@ test("deployment templates contain probes and secret references without credenti
   assert.match(api, /run\.googleapis\.com\/execution-environment: gen2/);
   assert.doesNotMatch(`${api}\n${migration}`, /postgresql:\/\//);
   assert.doesNotMatch(`${api}\n${migration}`, /:latest(?:\s|$)/);
+});
+
+
+
+test("zero-cost mode accepts only explicitly free deployment targets", () => {
+  const base = {
+    NODE_ENV: "production",
+    THEEB_ROLE: "api",
+    DATABASE_DRIVER: "postgres",
+    DATABASE_URL: "postgresql://user:password@db.example/theeb",
+    PGSSLMODE: "verify-full",
+    POSTGRES_RUNTIME_PARITY: "verified",
+    THEEB_ZERO_COST_ONLY: "true"
+  };
+
+  assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "koyeb-free" }).zero_cost_only, true);
+  assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "oracle-always-free" }).deployment_target, "oracle-always-free");
+  assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "cloudflare-workers-free" }).deployment_target, "cloudflare-workers-free");
+  assert.throws(() => validate({ ...base, THEEB_DEPLOYMENT_TARGET: "cloud-run" }), error =>
+    error.details.includes("NON_ZERO_COST_TARGET_REJECTED"));
+  assert.throws(() => validate(base), error =>
+    error.details.includes("ZERO_COST_DEPLOYMENT_TARGET_REQUIRED"));
 });
 
 test("production validation rejects implicit all, unimplemented roles and weak TLS policy", () => {
@@ -96,7 +118,7 @@ test("PostgreSQL credentials can be injected through a mounted secret file", t =
 test("container context and worker units exclude secrets and harden credentials", () => {
   const root = path.join(__dirname, "..");
   const ignored = fs.readFileSync(path.join(root, ".dockerignore"), "utf8");
-  const units = ["theeb-health-worker.service", "theeb-refresh-worker.service"]
+  const units = ["theeb-api.service", "theeb-health-worker.service", "theeb-refresh-worker.service"]
     .map(file => fs.readFileSync(path.join(root, "deploy/oracle", file), "utf8"))
     .join("\n");
   assert.match(ignored, /^\.env\.\*$/m);
