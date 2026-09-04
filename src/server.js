@@ -30,6 +30,8 @@ const canonicalRouter = require("./routes/canonical");
 const playbackRouter = require("./routes/playback");
 const downloadRouter = require("./routes/download");
 const v1Router = require("./routes/v1");
+const adminRouter = require("./routes/admin");
+const observability = require("./middleware/observability");
 
 const app = express();
 const security = securityConfig();
@@ -37,6 +39,7 @@ const security = securityConfig();
 app.set("trust proxy", security.trustProxy);
 app.disable("x-powered-by");
 app.use(requestContext);
+app.use(observability);
 app.use(errorEnvelope);
 app.use(rateLimiter(security));
 app.use(authentication(security));
@@ -645,6 +648,8 @@ app.use(
   "/api/playback",
   playbackRouter
 );
+
+app.use("/internal/admin", adminRouter);
 
 app.use(
   "/api/library",

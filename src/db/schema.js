@@ -313,40 +313,6 @@ CREATE TABLE IF NOT EXISTS playback_candidates (
     ON DELETE CASCADE
 );
 
-/* ============================================================
- * DOWNLOAD CANDIDATES
- *
- * Download discovery is deliberately separate from playback.
- * Only stable provider locators are persisted. A direct media URL
- * is resolved live after the user explicitly chooses an option.
- * ============================================================
- */
-
-CREATE TABLE IF NOT EXISTS download_candidates (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  canonical_episode_id INTEGER NOT NULL,
-  provider_episode_id INTEGER NOT NULL,
-  candidate_key TEXT NOT NULL UNIQUE,
-  provider TEXT NOT NULL,
-  download_id TEXT,
-  quality TEXT,
-  format TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
-  locator_json TEXT NOT NULL,
-  metadata_json TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(canonical_episode_id)
-    REFERENCES canonical_episodes(id)
-    ON DELETE CASCADE,
-  FOREIGN KEY(provider_episode_id)
-    REFERENCES provider_episodes(id)
-    ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_download_candidates_episode
-  ON download_candidates(canonical_episode_id, status);
-
 CREATE TABLE IF NOT EXISTS playback_health (
   candidate_key TEXT PRIMARY KEY,
   provider TEXT NOT NULL,
@@ -391,57 +357,6 @@ CREATE TABLE IF NOT EXISTS playback_verification (
 
 CREATE INDEX IF NOT EXISTS idx_playback_verification_health
 ON playback_verification(health_state, checked_at);
-
-/* ============================================================
- * CLIENT PLAYBACK SESSIONS
- *
- * The public client contract stores internal identifiers only. It never
- * persists a temporary direct media URL and never exposes provider locators
- * to Flutter.
- * ============================================================
- */
-
-CREATE TABLE IF NOT EXISTS playback_sessions (
-  id TEXT PRIMARY KEY,
-  canonical_episode_id INTEGER NOT NULL,
-  state TEXT NOT NULL DEFAULT 'planning',
-  requested_quality TEXT NOT NULL DEFAULT 'auto',
-  client_platform TEXT NOT NULL,
-  client_version TEXT,
-  selected_candidate_id INTEGER,
-  plan_version INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  expires_at TEXT NOT NULL,
-  FOREIGN KEY(canonical_episode_id)
-    REFERENCES canonical_episodes(id)
-    ON DELETE CASCADE,
-  FOREIGN KEY(selected_candidate_id)
-    REFERENCES playback_candidates(id)
-    ON DELETE SET NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_playback_sessions_episode
-ON playback_sessions(canonical_episode_id, created_at);
-
-CREATE TABLE IF NOT EXISTS playback_session_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT NOT NULL,
-  event_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  position_seconds REAL,
-  error_code TEXT,
-  details_json TEXT,
-  occurred_at TEXT NOT NULL,
-  received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(session_id, event_id),
-  FOREIGN KEY(session_id)
-    REFERENCES playback_sessions(id)
-    ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_playback_session_events_type
-ON playback_session_events(session_id, event_type, occurred_at);
 
 CREATE TABLE IF NOT EXISTS runtime_jobs (
   id TEXT PRIMARY KEY,
@@ -952,11 +867,6 @@ const stats = {
   playback_candidates:
     db.prepare(
       "SELECT COUNT(*) AS count FROM playback_candidates"
-    ).get().count,
-
-  download_candidates:
-    db.prepare(
-      "SELECT COUNT(*) AS count FROM download_candidates"
     ).get().count
 };
 

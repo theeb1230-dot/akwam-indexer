@@ -1,29 +1,5 @@
 # API
 
-## Client API v1 (Flutter / TV / Web)
-
-العقد الثابت للتطبيق موثّق في `contracts/openapi-v1.json`، ويوجد عميل Dart خفيف في
-`clients/dart/lib/theeb_api_contract.dart`. العميل يعرف المحتوى الموحّد فقط؛ لا يعرف
-Provider أو `watch_id` أو iframe أو رابط CDN.
-
-- `GET /v1/search?q=...`
-- `GET /v1/series/:id`
-- `GET /v1/series/:id/episodes`
-- `GET /v1/episodes/:id`
-- `POST /v1/playback/sessions`
-- `GET /v1/playback/sessions/:id`
-- `POST /v1/playback/sessions/:id/feedback`
-- `GET /v1/episodes/:id/download-options`
-
-جلسة التشغيل تبدأ بـ`planning`، ولا تصبح `ready` لمجرد وجود مرشح أو استجابة HTTP 200.
-التغذية الراجعة تقبل أحداثًا محددة وقابلة لإعادة الإرسال بأمان عبر `event_id`.
-تفاصيلها ذات حقول محصورة وحجم ومعدل محدودين، وتُعامل ساعة العميل كمدخل غير موثوق؛
-أي وقت يبتعد أكثر من خمس دقائق يُطبّع إلى وقت الاستلام في الخادم.
-خيارات التحميل منفصلة تمامًا عن جلسة المشاهدة، ولا يبدأ التحميل بمجرد عرض الخيارات.
-
-مسارات `/api/*` الحالية باقية خلال فترة الانتقال لضمان التوافق الخلفي، لكنها ليست عقد
-التطبيق طويل الأجل.
-
 ## Background jobs
 
 - `GET /api/import/jobs` — list durable jobs.
@@ -71,43 +47,6 @@ Queued jobs cancel immediately. Running import/refresh/health jobs observe the c
 `GET /play/:provider/:watchId/:episodeId?quality=720p`
 
 يحل المصدر عند الطلب ويدعم طلبات Range عندما يسمح المصدر بذلك. لا تعتمد على بقاء الرابط الخارجي المباشر صالحًا.
-
-## التحميل
-
-`GET /v1/episodes/:id/download-options`
-
-يعيد خيارات التحميل للحلقة الـCanonical المحددة. التحميل منفصل تمامًا عن
-`playback_plan`، ولا يختار المحرك خيارًا أو يبدأ تحميلًا تلقائيًا. كل خيار يحمل
-`requires_user_selection: true`، وعلى التطبيق انتظار اختيار المستخدم.
-
-لا يظهر الرابط المؤقت في استجابة قائمة الخيارات ولا يُحفظ في قاعدة البيانات.
-قاعدة البيانات تحفظ فقط locator ثابتًا مثل provider وepisode ID وdownload ID
-والجودة والصيغة. حل رابط الاختيار النهائي يتم في مسار تنفيذ منفصل بعد اختيار
-المستخدم، وليس أثناء عرض القائمة.
-
-الاستجابة العامة لا تكشف اسم Provider أو Provider Episode ID أو locator
-الداخلي. يعرض التطبيق `id` المعتم، الجودة، الصيغة، الحجم إن توفر،
-وحالة الخيار. النوع `external_download_page` يعني صفحة تحميل خارجية وليس ملفًا
-مباشرًا؛ لذلك تكون `is_direct_file: false` و`requires_external_navigation: true`.
-
-```json
-{
-  "download_option_count": 1,
-  "automatic_download": false,
-  "action_required": "user_selection",
-  "download_options": [
-    {
-      "id": "opaque-sha256-id",
-      "type": "download_file",
-      "quality": "1080p",
-      "format": "mp4",
-      "status": "unknown",
-      "requires_user_selection": true,
-      "is_direct_file": true
-    }
-  ]
-}
-```
 
 ## أخطاء شائعة
 
