@@ -1,4 +1,4 @@
-const CACHE = "theeb-arab-shell-v1";
+const CACHE = "theeb-arab-shell-v2";
 const SHELL = [
   "/",
   "/app.webmanifest",

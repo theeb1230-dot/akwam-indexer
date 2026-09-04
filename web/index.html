@@ -12,37 +12,45 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand">
+      <a class="brand brand-link" href="/" aria-label="ذيب العرب">
         <div class="brand-mark" aria-hidden="true">ذ</div>
         <div>
           <h1>ذيب العرب</h1>
           <p>بحث موحد، مشاهدة وتحميل باختيارك</p>
         </div>
-      </div>
+      </a>
       <button id="installButton" class="ghost" hidden>تثبيت التطبيق</button>
     </header>
 
     <main>
-      <section class="hero">
-        <p class="eyebrow">THEEB ARAB</p>
-        <h2>مكتبتك في واجهة واحدة.</h2>
-        <p>ابحث في الفهرس الموحد ثم اختر بنفسك بين المشاهدة أو التحميل. لا تشغيل تلقائي ولا تنزيل تلقائي.</p>
-        <form id="searchForm" class="search-box" role="search">
-          <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="ابحث عن مسلسل أو فيلم…" aria-label="بحث">
-          <button type="submit">بحث</button>
-        </form>
+      <section id="homeView">
+        <section class="hero">
+          <p class="eyebrow">THEEB ARAB</p>
+          <h2>مكتبتك في واجهة واحدة.</h2>
+          <p>ابحث في الفهرس الموحد ثم اختر بنفسك بين المشاهدة أو التحميل. لا تشغيل تلقائي ولا تنزيل تلقائي.</p>
+          <form id="searchForm" class="search-box" role="search">
+            <input id="searchInput" name="q" type="search" autocomplete="off" placeholder="ابحث عن مسلسل أو فيلم…" aria-label="بحث">
+            <button type="submit">بحث</button>
+          </form>
+        </section>
+
+        <section class="status-row" aria-live="polite">
+          <span id="apiStatus" class="status-chip">جاري فحص الخدمة…</span>
+          <span id="resultCount" class="muted"></span>
+        </section>
+
+        <section id="results" class="grid" aria-label="نتائج البحث"></section>
+
+        <section id="emptyState" class="empty-state">
+          <h3>ابدأ بالبحث</h3>
+          <p>اكتب اسم المحتوى وسيتم جلب النتائج من واجهة <code>/v1</code> الموحدة.</p>
+        </section>
       </section>
 
-      <section class="status-row" aria-live="polite">
-        <span id="apiStatus" class="status-chip">جاري فحص الخدمة…</span>
-        <span id="resultCount" class="muted"></span>
-      </section>
-
-      <section id="results" class="grid" aria-label="نتائج البحث"></section>
-
-      <section id="emptyState" class="empty-state">
-        <h3>ابدأ بالبحث</h3>
-        <p>اكتب اسم المحتوى وسيتم جلب النتائج من واجهة <code>/v1</code> الموحدة.</p>
+      <section id="detailView" class="detail-view" hidden>
+        <button id="backButton" class="ghost back-button" type="button">رجوع</button>
+        <section id="seriesDetail"></section>
+        <section id="episodeDetail" hidden></section>
       </section>
     </main>
   </div>
@@ -59,6 +67,14 @@
         <a class="primary-action" href="#">عرض التفاصيل</a>
       </div>
     </article>
+  </template>
+
+  <template id="episodeTemplate">
+    <button class="episode-row" type="button">
+      <span class="episode-number"></span>
+      <span class="episode-title"></span>
+      <span class="episode-flags"></span>
+    </button>
   </template>
 
   <script src="/assets/app.js" defer></script>
