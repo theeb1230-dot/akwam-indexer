@@ -22,7 +22,10 @@ test("runtime SQLite imports stay behind approved repository boundaries", () => 
 
   for (const file of walk(root)) {
     const source = fs.readFileSync(file, "utf8");
-    if (!source.includes('require("../db/schema")')) continue;
+    const importsSqlite =
+      source.includes('require("../db/schema")') ||
+      source.includes('require("./db/schema")');
+    if (!importsSqlite) continue;
 
     const name = relative(file);
     const approved =
@@ -41,6 +44,7 @@ test("runtime SQLite imports stay behind approved repository boundaries", () => 
 
 test("client-facing and worker runtime modules contain no direct SQLite dependency", () => {
   const protectedFiles = [
+    "src/server.js",
     "src/routes/v1.js",
     "src/routes/canonical.js",
     "src/routes/library.js",
@@ -58,7 +62,7 @@ test("client-facing and worker runtime modules contain no direct SQLite dependen
     const source = fs.readFileSync(path.join(process.cwd(), name), "utf8");
     assert.doesNotMatch(
       source,
-      /require\(["']\.\.\/db\/schema["']\)/,
+      /require\(["'](?:\.\.\/db\/schema|\.\/db\/schema)["']\)/,
       `${name} must use a repository contract instead of SQLite directly`
     );
   }
