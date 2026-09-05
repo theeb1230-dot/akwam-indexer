@@ -149,6 +149,61 @@ test("admin authentication supports file secrets and fails closed on ambiguity",
   assert.equal(ambiguous.body.error, "ADMIN_API_DISABLED");
 });
 
+
+test("request context emits baseline browser security headers", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    const res = response();
+    let continued = false;
+    requestContext(
+      {
+        secure: true,
+        headers: {},
+      },
+      res,
+      () => { continued = true; }
+    );
+
+    assert.equal(continued, true);
+    assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
+    assert.equal(res.headers["Referrer-Policy"], "no-referrer");
+    assert.equal(res.headers["X-Frame-Options"], "DENY");
+    assert.equal(res.headers["Cross-Origin-Opener-Policy"], "same-origin");
+    assert.equal(
+      res.headers["Permissions-Policy"],
+      "camera=(), microphone=(), geolocation=()"
+    );
+    assert.equal(
+      res.headers["Strict-Transport-Security"],
+      "max-age=31536000; includeSubDomains"
+    );
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
+test("HSTS is never emitted on insecure requests", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    const res = response();
+    requestContext(
+      {
+        secure: false,
+        headers: {},
+      },
+      res,
+      () => {}
+    );
+    assert.equal(res.headers["Strict-Transport-Security"], undefined);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test("CORS origins are normalized and invalid entries fail closed", () => {
   assert.deepEqual(
     corsOriginList("https://app.example, https://app.example, http://localhost:3000"),
