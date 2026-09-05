@@ -32,7 +32,7 @@
 - Android: بناء APK debug ورفعه كـartifact مثبت فعليًا في CI. التطبيق يغطي الآن البحث → تفاصيل المسلسل → الحلقات → اختيار مشاهدة أو تحميل صريح، بدون autoplay أو automatic download.
 - Android TV: بوابة CI المخصصة نجحت فعليًا وتنتج APK debug مستقلًا بتهيئة Leanback وعدم اشتراط اللمس، مع تمرير `android_tv` في playback contract.
 - iOS: أضيف مسار CI على macOS لبناء تطبيق Flutter بدون توقيع وتغليفه كـIPA unsigned، مع تمرير `ios` في playback contract. لا يُدّعى أنه قابل للتثبيت على جهاز فعلي قبل التوقيع.
-- تحديث/توسيع اختبارات Fixtures المحلية بحيث تغطي دورة API→Job→Worker→Repository بدون الاعتماد على المواقع الحية.
+- Fixtures المحلية: أضيف اختبار E2E حقيقي يغطي API→Job queue→Worker lease/claim→Importer→Repository→Library API على SQLite مؤقتة، بدون أي اعتماد على المواقع الحية.
 - توحيد أخطاء Providers والمهلات وإلغاء الطلبات.
 - ترتيب خيارات التشغيل حسب الصحة والجودة والمنطقة: مكتمل في الـexecutor؛ الصحة/التحقق/النوع/الجودة/المنطقة تدخل في الدرجة، مع ترتيب حتمي عند التعادل.
 - Fallback تلقائي وآمن بين المصادر: health ranking يسبق التنفيذ، وأول جولة أصبحت متنوعة بين Providers قبل secondary servers مع سقف محاولات bounded.
