@@ -15,6 +15,7 @@ const {
   errorEnvelope,
   errorHandler,
   inputGuard,
+  publicClientRequest,
   rateLimiter,
   requestContext,
   validProviderTarget
@@ -150,6 +151,24 @@ test("admin authentication supports file secrets and fails closed on ambiguity",
   assert.equal(ambiguous.body.error, "ADMIN_API_DISABLED");
 });
 
+
+test("public client API allowlist is explicit while legacy and admin routes remain protected", () => {
+  assert.equal(publicClientRequest({ method: "GET", path: "/livez" }), true);
+  assert.equal(publicClientRequest({ method: "GET", path: "/readyz" }), true);
+  assert.equal(publicClientRequest({ method: "GET", path: "/api" }), true);
+  assert.equal(publicClientRequest({ method: "GET", path: "/v1/search" }), true);
+  assert.equal(publicClientRequest({ method: "GET", path: "/v1/series/1" }), true);
+  assert.equal(publicClientRequest({ method: "GET", path: "/v1/series/1/episodes" }), true);
+  assert.equal(publicClientRequest({ method: "GET", path: "/v1/episodes/1/download-options" }), true);
+  assert.equal(publicClientRequest({ method: "POST", path: "/v1/playback/sessions" }), true);
+  assert.equal(publicClientRequest({ method: "POST", path: "/v1/playback/sessions/session-1/feedback" }), true);
+
+  assert.equal(publicClientRequest({ method: "POST", path: "/api/import/akwam" }), false);
+  assert.equal(publicClientRequest({ method: "GET", path: "/api/providers" }), false);
+  assert.equal(publicClientRequest({ method: "GET", path: "/internal/admin/metrics" }), false);
+  assert.equal(publicClientRequest({ method: "DELETE", path: "/v1/playback/sessions/session-1" }), false);
+  assert.equal(publicClientRequest({ method: "POST", path: "/v1/search" }), false);
+});
 
 test("request context emits baseline browser security headers", () => {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -304,7 +323,7 @@ test("public PWA shell is served before API authentication", () => {
   const v1Index = source.indexOf('app.use("/v1", v1Router)');
   assert.ok(staticIndex >= 0, "static middleware must exist");
   assert.ok(authIndex > staticIndex, "PWA shell must be reachable before Bearer auth");
-  assert.ok(v1Index > authIndex, "versioned API must remain behind Bearer auth");
+  assert.ok(v1Index > authIndex, "versioned client API stays behind the authentication middleware so only explicit public routes can bypass it");
   for (const asset of [
     "web/app.webmanifest",
     "web/service-worker.js",
