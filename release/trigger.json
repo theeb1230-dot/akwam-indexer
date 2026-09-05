@@ -9,6 +9,6 @@
     "theeb-arab-ios-unsigned.ipa"
   ],
   "note": "Merging this file to main triggers Client Release Artifacts and publishes the verified triplet to GitHub Releases.",
-  "retry": 2,
-  "reason": "Retry after moving localhost/example placeholder rejection to application-owned source, fixing iOS non-distribution signing validation, and using runtime release evidence before publication."
+  "retry": 3,
+  "reason": "Retry after excluding intentional test fixtures from production placeholder scan."
 }
