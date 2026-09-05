@@ -1,4 +1,5 @@
 const express = require("express");
+const logger = require("../observability/logger");
 const {
   createCanonicalReadRepository
 } = require("../repositories/canonical-read-repository");
@@ -9,12 +10,12 @@ function createCanonicalRouter(options = {}) {
     options.repository ||
     createCanonicalReadRepository(options.env || process.env);
 
-  router.get("/series", async (_req, res) => {
+  router.get("/series", async (req, res) => {
     try {
       const items = await repository.listSeries();
       res.json({ count: items.length, items });
     } catch (error) {
-      console.error(error);
+      logger.error("canonical_series_failed", { request_id: req.requestId, error_code: error.code || "CANONICAL_SERIES_FAILED" });
       res.status(500).json({
         error: "CANONICAL_SERIES_FAILED",
         message: error.message
@@ -37,7 +38,7 @@ function createCanonicalRouter(options = {}) {
         episodes: result.episodes
       });
     } catch (error) {
-      console.error(error);
+      logger.error("canonical_episodes_failed", { request_id: req.requestId, error_code: error.code || "CANONICAL_EPISODES_FAILED" });
       res.status(500).json({
         error: "CANONICAL_EPISODES_FAILED",
         message: error.message
@@ -60,7 +61,7 @@ function createCanonicalRouter(options = {}) {
         fallback_plan: result.fallbackPlan
       });
     } catch (error) {
-      console.error(error);
+      logger.error("canonical_playback_failed", { request_id: req.requestId, error_code: error.code || "CANONICAL_PLAYBACK_FAILED" });
       res.status(500).json({
         error: "CANONICAL_PLAYBACK_FAILED",
         message: error.message

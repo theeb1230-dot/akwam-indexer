@@ -1,5 +1,6 @@
 const express =
   require("express");
+const logger = require("../observability/logger");
 
 const {
   resolveSeries
@@ -85,10 +86,10 @@ router.get(
           });
       }
 
-      console.error(
-        "Series resolve error:",
-        error
-      );
+      logger.error("series_resolve_failed", {
+        request_id: req.requestId,
+        error_code: error.code || "SERIES_RESOLVE_FAILED"
+      });
 
       return res
         .status(500)

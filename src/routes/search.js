@@ -1,4 +1,5 @@
 const express = require("express");
+const logger = require("../observability/logger");
 
 const {
   searchAll
@@ -83,10 +84,10 @@ router.get(
           : {})
       });
     } catch (error) {
-      console.error(
-        "Live search error:",
-        error
-      );
+      logger.error("live_search_failed", {
+        request_id: req.requestId,
+        error_code: error.code || "LIVE_SEARCH_FAILED"
+      });
 
       return res.status(500).json({
         error:
