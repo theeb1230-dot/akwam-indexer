@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "source_of_truth": "Release classification is fail-closed. PASS requires evidence tied to the candidate commit/tag.",
+  "levels": {
+    "experimental": {
+      "label": "Experimental",
+      "requirements": {
+        "repo_ci": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "real_https_api": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "readiness_search_smoke": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "no_placeholder_artifacts": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "app_runtime_search_smoke": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "watch_download_separation": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "postgres_runtime_path": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "no_critical_blocker": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "artifact_triplet_same_commit": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "artifact_sha256": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "version_build_parity": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        }
+      }
+    },
+    "beta": {
+      "label": "Beta/Usable",
+      "requirements": {
+        "core_e2e_real_environment": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "watch_e2e": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "download_e2e": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "timeout_retry_cancellation": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "postgres_parity_no_sqlite_leakage": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "android_runtime_smoke": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "android_tv_runtime_smoke": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "ios_runtime_smoke": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "tv_manifest_dpad_focus": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "no_critical_high_bugs": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "security_baseline": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "performance_baseline": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        }
+      }
+    },
+    "golden": {
+      "label": "Golden",
+      "requirements": {
+        "release_builds": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "signed_android_mobile": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "signed_android_tv": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "signed_provisioned_ios": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "device_e2e_matrix": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "stress_load_soak_recovery": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "memory_leak_performance": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "full_security_review": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "postgres_production_parity": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "backup_restore_readiness_observability_failover": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "no_critical_high_or_critical_todos": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "release_install_docs": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        }
+      }
+    },
+    "complete": {
+      "label": "Complete/Stable",
+      "requirements": {
+        "full_product_scope": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "cross_platform_contract": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "fallback_paths_e2e": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "resilience_upgrade_migration": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "extended_stability": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "no_open_regressions": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "complete_operations_docs": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "final_triplet_install_runtime": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "release_workflows_green": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        }
+      }
+    }
+  }
+}
