@@ -1,6 +1,10 @@
 name: Client Release Artifacts
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "release/trigger.json"
   workflow_dispatch:
     inputs:
       api_base_url:
@@ -25,7 +29,9 @@ permissions:
   contents: write
 
 env:
-  THEEB_INSTALLABLE_API_BASE_URL: ${{ inputs.api_base_url }}
+  THEEB_INSTALLABLE_API_BASE_URL: ${{ inputs.api_base_url || 'https://theeb-arab-api.onrender.com' }}
+  THEEB_RELEASE_LEVEL: ${{ inputs.release_level || 'experimental' }}
+  THEEB_RELEASE_TAG: ${{ inputs.release_tag || 'v0.1.1-experimental.1' }}
 
 jobs:
   validate-api:
@@ -40,6 +46,8 @@ jobs:
           node-version: 22
       - name: Use Dart
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+      - name: Install and test repository before release
+        run: npm ci && npm test
       - name: Validate public API readiness and unauthenticated search
         run: node scripts/validate-installable-api-url.js
       - name: Run real Dart client search smoke
@@ -333,7 +341,7 @@ jobs:
         run: node scripts/validate-client-artifact-metadata.js metadata
       - name: Require exact artifact triplet and supported classification
         env:
-          RELEASE_LEVEL: ${{ inputs.release_level }}
+          RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: |
           test -s release/theeb-arab-android.apk
           test -s release/theeb-arab-android-tv.apk
@@ -346,15 +354,19 @@ jobs:
           fi
       - name: Enforce cumulative release readiness matrix
         env:
-          THEEB_RELEASE_LEVEL: ${{ inputs.release_level }}
+          THEEB_RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: node scripts/validate-release-readiness.js
       - name: Generate checksums and release manifest
         env:
-          RELEASE_LEVEL: ${{ inputs.release_level }}
+          RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: |
           cd release
           sha256sum theeb-arab-android.apk theeb-arab-android-tv.apk theeb-arab-ios-unsigned.ipa > SHA256SUMS.txt
           node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],metadata:["android-mobile-metadata.json","android-tv-metadata.json","ios-metadata.json"],ios_signing:"UNSIGNED",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
+      - name: Materialize runtime Experimental release evidence
+        run: node scripts/create-experimental-release-evidence.js release metadata
+      - name: Validate runtime Experimental readiness
+        run: node -e 'const fs=require("fs"); const {validateReleaseLevel}=require("./scripts/validate-release-readiness"); validateReleaseLevel("experimental",JSON.parse(fs.readFileSync("release/runtime-release-readiness.json","utf8")));'
       - name: Upload release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -362,6 +374,7 @@ jobs:
           path: |
             release/SHA256SUMS.txt
             release/release-manifest.json
+            release/runtime-release-readiness.json
             metadata/*.json
           if-no-files-found: error
           retention-days: 30
@@ -395,7 +408,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
-          RELEASE_LEVEL: ${{ inputs.release_level }}
+          RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: |
           TAG="${RELEASE_TAG_INPUT:-experimental-${GITHUB_RUN_NUMBER}}"
           gh release create "$TAG" release/* \
