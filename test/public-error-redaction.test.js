@@ -9,7 +9,11 @@ const publicResponseFiles = [
   "src/routes/canonical.js",
   "src/routes/refresh.js",
   "src/routes/refresh-all.js",
-  "src/routes/play.js"
+  "src/routes/play.js",
+  "src/routes/search.js",
+  "src/routes/resolve.js",
+  "src/routes/episode-resolve.js",
+  "src/routes/playback.js"
 ];
 
 test("public API responses do not expose raw exception messages", () => {
@@ -30,4 +34,14 @@ test("public failure responses keep user-facing Arabic guidance", () => {
       assert.match(source, /[\u0600-\u06FF]/, file + " should contain Arabic failure guidance");
     }
   }
+});
+
+
+test("PWA never renders raw exception messages", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "web/assets/app.js"), "utf8");
+  assert.doesNotMatch(
+    source,
+    /error\.message/,
+    "web/assets/app.js must not render raw exception messages"
+  );
 });
