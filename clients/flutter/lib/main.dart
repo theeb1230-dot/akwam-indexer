@@ -19,6 +19,25 @@ const TheebPlatform kTheebPlatform = kTheebTarget == 'tv'
 Future<bool> defaultOpenUri(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);
 
+String friendlyClientError(Object error) {
+  final text = error.toString();
+  if (text.contains('THEEB_API_BASE_URL')) {
+    return 'إعداد خادم ذيب العرب غير مكتمل. ثبّت نسخة مهيأة بخادم API صالح.';
+  }
+  if (text.contains('SocketException') ||
+      text.contains('Failed host lookup') ||
+      text.contains('Connection refused')) {
+    return 'تعذر الاتصال بخادم ذيب العرب. تحقق من اتصال الإنترنت ثم أعد المحاولة.';
+  }
+  if (text.contains('TimeoutException') || text.contains('timed out')) {
+    return 'استغرق اتصال الخادم وقتًا أطول من المتوقع. أعد المحاولة.';
+  }
+  if (text.contains('UNAUTHORIZED') || text.contains('HTTP_401')) {
+    return 'الخدمة رفضت الطلب. تحقق من إعدادات الخادم ثم أعد المحاولة.';
+  }
+  return 'تعذر إكمال الطلب الآن. أعد المحاولة بعد قليل.';
+}
+
 void main() {
   runApp(const TheebArabApp());
 }
@@ -74,6 +93,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<TheebSeries> _items = const [];
   String? _error;
   bool _loading = false;
+  bool _configured = true;
 
   @override
   void initState() {
@@ -84,10 +104,15 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    final config = TheebClientConfig.fromEnvironment();
-    _ownedTransport = HttpTheebTransport(baseUri: config.baseUri);
-    _api = TheebApiClient(_ownedTransport!);
-    _baseUri = config.baseUri;
+    try {
+      final config = TheebClientConfig.fromEnvironment();
+      _ownedTransport = HttpTheebTransport(baseUri: config.baseUri);
+      _api = TheebApiClient(_ownedTransport!);
+      _baseUri = config.baseUri;
+    } catch (error) {
+      _configured = false;
+      _error = friendlyClientError(error);
+    }
   }
 
   @override
@@ -98,6 +123,13 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _search() async {
+    if (!_configured) {
+      setState(() {
+        _error =
+            'إعداد خادم ذيب العرب غير مكتمل. يلزم تثبيت نسخة مهيأة بخادم صالح.';
+      });
+      return;
+    }
     final query = _controller.text.trim();
     if (query.isEmpty) return;
     setState(() {
@@ -110,7 +142,7 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() => _items = items);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyClientError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -171,9 +203,20 @@ class _SearchScreenState extends State<SearchScreen> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.redAccent),
+                  child: Column(
+                    children: [
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _loading || !_configured ? null : _search,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('إعادة المحاولة'),
+                      ),
+                    ],
                   ),
                 ),
               const SizedBox(height: 12),
@@ -244,7 +287,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyClientError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -359,7 +402,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       setState(() => _episode = episode);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyClientError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -382,7 +425,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       setState(() => _session = session);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyClientError(error));
     } finally {
       if (mounted) setState(() => _watchLoading = false);
     }
@@ -409,7 +452,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       setState(() => _downloads = options);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = friendlyClientError(error));
     } finally {
       if (mounted) setState(() => _downloadLoading = false);
     }
