@@ -1,0 +1,52 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const {
+  parseInstallableBase,
+  isPrivateAddress
+} = require("../scripts/validate-installable-api-url");
+
+test("installable API config accepts only remote HTTPS production-like URLs", () => {
+  assert.equal(
+    parseInstallableBase("https://api.theeb.example.sa").toString(),
+    "https://api.theeb.example.sa/"
+  );
+});
+
+test("installable API config rejects placeholders and local targets", () => {
+  const invalid = [
+    "",
+    "not-a-url",
+    "http://api.theeb.sa/",
+    "https://example.invalid/",
+    "https://example.com/",
+    "https://localhost/",
+    "https://127.0.0.1/",
+    "https://0.0.0.0/",
+    "https://staging.theeb.sa/",
+    "https://test.theeb.sa/",
+    "https://user:pass@api.theeb.sa/",
+    "https://api.theeb.sa/?mode=test"
+  ];
+
+  for (const value of invalid) {
+    assert.throws(() => parseInstallableBase(value), { name: "Error" }, value);
+  }
+});
+
+test("installable API DNS policy rejects private and loopback addresses", () => {
+  for (const address of [
+    "127.0.0.1",
+    "10.0.0.1",
+    "172.16.0.1",
+    "192.168.1.10",
+    "169.254.1.1",
+    "::1",
+    "fd00::1"
+  ]) {
+    assert.equal(isPrivateAddress(address), true, address);
+  }
+
+  assert.equal(isPrivateAddress("1.1.1.1"), false);
+  assert.equal(isPrivateAddress("2606:4700:4700::1111"), false);
+});
