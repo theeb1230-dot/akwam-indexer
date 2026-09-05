@@ -4,6 +4,7 @@ const logger = require("../observability/logger");
 
 const ERROR_SCHEMA_VERSION = "1.0";
 const ERROR_MESSAGES = Object.freeze({
+  CORS_ORIGIN_DENIED: "The request origin is not allowed.",
   DIRECT_SOURCE_NOT_FOUND: "No direct source is currently available.",
   IMPORT_ALREADY_RUNNING: "An import for this series is already running.",
   INTERNAL_ERROR: "An internal error occurred.",
@@ -66,6 +67,51 @@ function errorEnvelope(req, res, next) {
     });
   };
   next();
+}
+
+function appendVary(res, value) {
+  const current = String(res.getHeader?.("Vary") || "");
+  const values = current.split(",").map(item => item.trim()).filter(Boolean);
+  if (!values.includes(value)) values.push(value);
+  res.setHeader("Vary", values.join(", "));
+}
+
+function corsPolicy(config) {
+  const allowed = new Set(config.corsOrigins || []);
+  return (req, res, next) => {
+    const rawOrigin = String(req.headers?.origin || "");
+    if (!rawOrigin) return next();
+
+    let origin;
+    try {
+      origin = new URL(rawOrigin).origin;
+    } catch {
+      return res.status(403).json({ error: "CORS_ORIGIN_DENIED" });
+    }
+
+    const host = String(req.get?.("host") || req.headers?.host || "");
+    const protocol = String(req.protocol || "http");
+    const sameOrigin = host && origin === protocol + "://" + host;
+
+    if (!sameOrigin && !allowed.has(origin)) {
+      return res.status(403).json({ error: "CORS_ORIGIN_DENIED" });
+    }
+
+    appendVary(res, "Origin");
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Authorization, Content-Type, X-Request-Id"
+    );
+    res.setHeader("Access-Control-Max-Age", "600");
+
+    if (req.method === "OPTIONS") {
+      res.statusCode = 204;
+      return res.end();
+    }
+    next();
+  };
 }
 
 function bearerToken(header) {
@@ -222,6 +268,7 @@ function errorHandler(error, req, res, _next) {
 
 module.exports = {
   authentication,
+  corsPolicy,
   bearerToken,
   errorEnvelope,
   errorHandler,
