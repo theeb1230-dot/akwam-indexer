@@ -1,5 +1,6 @@
 const express =
   require("express");
+const logger = require("../observability/logger");
 
 const {
   resolveEpisode
@@ -22,7 +23,9 @@ router.get(
     if (!query) {
       return res.status(400).json({
         error:
-          "SEARCH_QUERY_REQUIRED"
+          "SEARCH_QUERY_REQUIRED",
+        message:
+          "اكتب عبارة بحث للمتابعة."
       });
     }
 
@@ -53,15 +56,22 @@ router.get(
           ? 404
           : 400;
 
+      logger.warn("episode_resolve_failed", {
+        request_id: req.requestId,
+        error_code: error.code || "EPISODE_RESOLVE_FAILED"
+      });
+
       return res.status(
         status
       ).json({
         error:
           error.code ||
-          error.message,
+          "EPISODE_RESOLVE_FAILED",
 
         message:
-          error.message
+          status === 404
+            ? "لم نجد الحلقة المطلوبة."
+            : "تعذر تحديد الحلقة المطلوبة. تحقق من البيانات وحاول مرة أخرى."
       });
     }
   }
