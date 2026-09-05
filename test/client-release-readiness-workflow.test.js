@@ -18,7 +18,14 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "release-manifest.json",
     "theeb-arab-release-evidence",
     "CURRENT_WORKFLOW_ONLY_SUPPORTS_EXPERIMENTAL_UNSIGNED_IOS",
-    "iOS IPA is UNSIGNED"
+    "iOS IPA is UNSIGNED",
+    "Verify Android package identity, version and signature",
+    "Verify Android TV package identity, version, signature and TV manifest",
+    "Verify iOS bundle identity, version and unsigned IPA structure",
+    "node scripts/validate-client-artifact-metadata.js metadata",
+    "android-mobile-metadata.json",
+    "android-tv-metadata.json",
+    "ios-metadata.json"
   ]) {
     assert.equal(workflow.includes(required), true, required);
   }
