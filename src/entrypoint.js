@@ -1,3 +1,4 @@
+const logger = require("./observability/logger");
 const {
   RUNTIME_ROLES,
   getRuntimeRole,
@@ -49,19 +50,10 @@ if (require.main === module) {
       return runtime;
     })
     .catch(error => {
-    console.error(
-      JSON.stringify({
-        level: "fatal",
-        event:
-          "runtime_start_failed",
-        role:
-          process.env.THEEB_ROLE ||
-          RUNTIME_ROLES.ALL,
-        error:
-          error.code ||
-          error.message
-      })
-    );
+    logger.error("runtime_start_failed", {
+      role: process.env.THEEB_ROLE || RUNTIME_ROLES.ALL,
+      error_code: error.code || "RUNTIME_START_FAILED"
+    });
 
       process.exitCode = 1;
     });
