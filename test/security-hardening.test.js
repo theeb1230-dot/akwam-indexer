@@ -19,7 +19,9 @@ const {
   validProviderTarget
 } = require("../src/middleware/security");
 const {
+  boundedTimeout,
   enforceResponseSize,
+  normalizeRequestError,
   pinPublicHost,
   privateAddress,
   safeGet,
@@ -325,6 +327,47 @@ test("SSRF matrix blocks private, mapped, reserved and mixed DNS answers", () =>
       { address: "127.0.0.1", family: 4 }
     ]),
     /SSRF_PRIVATE_ADDRESS_BLOCKED/
+  );
+});
+
+
+test("safe request timeouts and cancellation use stable error codes", async () => {
+  assert.equal(boundedTimeout(undefined), 20000);
+  assert.equal(boundedTimeout(15000), 15000);
+  assert.throws(() => boundedTimeout(999), /INVALID_REQUEST_TIMEOUT/);
+  assert.throws(() => boundedTimeout(60001), /INVALID_REQUEST_TIMEOUT/);
+
+  assert.equal(normalizeRequestError({ code: "ECONNABORTED" }).code, "REQUEST_TIMEOUT");
+  assert.equal(normalizeRequestError({ code: "ETIMEDOUT" }).code, "REQUEST_TIMEOUT");
+  assert.equal(normalizeRequestError({ code: "ERR_CANCELED" }).code, "REQUEST_CANCELLED");
+  assert.equal(normalizeRequestError({ name: "AbortError" }).code, "REQUEST_CANCELLED");
+
+  await assert.rejects(
+    () => safeGet("https://provider.test/", {}, {
+      lookup: async () => [{ address: "8.8.8.8", family: 4 }],
+      request: async (_url, config) => {
+        assert.equal(config.timeout, 20000);
+        const error = new Error("socket took too long");
+        error.code = "ECONNABORTED";
+        throw error;
+      }
+    }),
+    error => error.code === "REQUEST_TIMEOUT"
+  );
+
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    () => safeGet("https://provider.test/", { signal: controller.signal }, {
+      lookup: async () => [{ address: "8.8.8.8", family: 4 }],
+      request: async (_url, config) => {
+        assert.equal(config.signal.aborted, true);
+        const error = new Error("cancelled");
+        error.code = "ERR_CANCELED";
+        throw error;
+      }
+    }),
+    error => error.code === "REQUEST_CANCELLED"
   );
 });
 
