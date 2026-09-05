@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: theeb-arab-api
+    runtime: docker
+    plan: free
+    repo: https://github.com/theeb1230-dot/akwam-indexer
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    renderSubdomainPolicy: enabled
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: THEEB_ROLE
+        value: api
+      - key: THEEB_ZERO_COST_ONLY
+        value: "true"
+      - key: THEEB_DEPLOYMENT_TARGET
+        value: render-free
+      - key: DATABASE_DRIVER
+        value: postgres
+      - key: DATABASE_URL
+        sync: false
+      - key: PGSSLMODE
+        value: verify-full
+      - key: POSTGRES_RUNTIME_PARITY
+        value: verified
+      - key: PG_POOL_MAX
+        value: "3"
+      - key: PG_CONNECT_TIMEOUT_MS
+        value: "5000"
+      - key: SHUTDOWN_TIMEOUT_MS
+        value: "25000"
+      - key: THEEB_API_TOKEN
+        generateValue: true
