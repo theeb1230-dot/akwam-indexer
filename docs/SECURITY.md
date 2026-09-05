@@ -7,13 +7,26 @@
   rejects `THEEB_AUTH_REQUIRED=false`; unauthenticated mode is local-only.
 - Store the token in the hosting provider's secret manager. Do not put it in
   Git, Docker image layers, logs, query strings, or Flutter source code.
-- Clients send `Authorization: Bearer <token>` over verified HTTPS.
+- Installable Flutter clients never embed the production Bearer token. The
+  explicit public-client surface consists only of health metadata and the
+  allowlisted `/v1` search/catalog/playback/download routes required by the
+  product. Legacy provider/import/library APIs and internal admin routes remain
+  authenticated. New methods and paths are protected by default until added to
+  the public allowlist deliberately.
 - Keep `THEEB_TRUST_PROXY_HOPS=0` unless the API is behind a known, controlled
   number of reverse proxies that replace forwarding headers. Configure the
   exact hop count (normally `1`), never boolean `true`; otherwise forged
   `X-Forwarded-For` values can bypass IP rate limits.
 - Rotate tokens by replacing the secret and restarting instances. Session and
   account authentication can replace this baseline without changing routes.
+
+## Client delivery gate
+
+Normal CI must not create or upload installable APK/IPA outputs without a real
+API. The manual client-release workflow requires a public HTTPS API, public DNS,
+a successful `/readyz` check, and an unauthenticated Search smoke using the real
+Dart client before any artifact is built. This mirrors the installed app rather
+than validating with a secret the app does not possess.
 
 ## Network retrieval rules
 

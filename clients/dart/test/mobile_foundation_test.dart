@@ -17,6 +17,19 @@ Future<void> main() async {
   final config = TheebClientConfig(baseUri: Uri.parse('http://127.0.0.1:8080/'));
   expect(config.clientVersion == '0.1.0', 'client version');
 
+  TheebClientConfig.validateInstallableBaseUri(
+    Uri.parse('https://api.theeb.sa/'),
+  );
+  var installableRejected = false;
+  try {
+    TheebClientConfig.validateInstallableBaseUri(
+      Uri.parse('https://example.invalid/'),
+    );
+  } catch (_) {
+    installableRejected = true;
+  }
+  expect(installableRejected, 'installable placeholder API must be rejected');
+
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   final base = Uri.parse('http://127.0.0.1:' + server.port.toString() + '/');
   unawaited(() async {
