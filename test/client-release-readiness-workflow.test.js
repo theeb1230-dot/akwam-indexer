@@ -22,7 +22,7 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "release-manifest.json",
     "theeb-arab-release-evidence",
     "CURRENT_WORKFLOW_ONLY_SUPPORTS_EXPERIMENTAL_UNSIGNED_IOS",
-    "iOS IPA is UNSIGNED",
+    "iOS IPA is UNSIGNED/ADHOC",
     "Verify Android package identity, version and signature",
     "Verify Android TV package identity, version, signature and TV manifest",
     "Verify iOS bundle identity, version and unsigned IPA structure",
@@ -42,6 +42,10 @@ test("client release workflow is fail-closed on classification and evidence", ()
   assert.match(workflow, /needs: \[release-readiness\]/);
   assert.match(workflow, /THEEB_RELEASE_TAG:.*v0\.1\.1-experimental\.1/);
   assert.match(workflow, /npm ci && npm test/);
+  assert.match(workflow, /PLACEHOLDER_FOUND_IN_APPLICATION_SOURCE/);
+  assert.doesNotMatch(workflow, /Enforce cumulative release readiness matrix/);
+  assert.match(workflow, /RELEASE_TAG_INPUT:.*env\.THEEB_RELEASE_TAG/);
+  assert.match(workflow, /IOS_IPA_HAS_DISTRIBUTION_IDENTITY/);
 });
 
 test("release readiness source-of-truth contains all four cumulative levels", () => {
