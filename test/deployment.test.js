@@ -6,7 +6,7 @@ const { validate } = require("../scripts/validate-production-config");
 const { deploymentBaseUrl } = require("../scripts/deployment-smoke-test");
 const { cryptoSafeEqual } = require("../scripts/verify-postgres-backup");
 const { databaseUrl } = require("../src/db/postgres");
-const { installShutdownHandlers } = require("../src/runtime/shutdown");
+const { installShutdownHandlers, shutdownTimeoutMs } = require("../src/runtime/shutdown");
 const { backup } = require("../scripts/backup-postgres");
 const { app, runtimeState, startServer } = require("../src/server");
 
@@ -44,8 +44,6 @@ test("deployment templates contain probes and secret references without credenti
   const oracleEnv = fs.readFileSync(path.join(root, "deploy/oracle/theeb-api.env.example"), "utf8");
   assert.match(oracleEnv, /^POSTGRES_RUNTIME_PARITY=verified$/m);
 });
-
-
 
 test("zero-cost mode accepts only explicitly free deployment targets", () => {
   const base = {
@@ -190,6 +188,20 @@ test("backup keeps database credentials out of process arguments and emits evide
   assert.equal(manifest.format, "pg_dump-custom");
 });
 
+test("graceful shutdown timeout uses bounded fail-closed configuration", () => {
+  const processRef = { env: {} };
+  assert.equal(shutdownTimeoutMs({}, processRef), 25000);
+  assert.equal(shutdownTimeoutMs({ timeoutMs: 1000 }, processRef), 1000);
+  assert.equal(shutdownTimeoutMs({ timeoutMs: 120000 }, processRef), 120000);
+  assert.equal(shutdownTimeoutMs({}, { env: { SHUTDOWN_TIMEOUT_MS: "30000" } }), 30000);
+  for (const timeoutMs of [0, 999, 120001, -1, 1.5, "nope"]) {
+    assert.throws(
+      () => shutdownTimeoutMs({ timeoutMs }, processRef),
+      error => error.code === "INVALID_SHUTDOWN_TIMEOUT_MS"
+    );
+  }
+});
+
 test("graceful shutdown force-closes connections after its budget", async () => {
   let forced = false;
   const processRef = {
@@ -208,9 +220,18 @@ test("graceful shutdown force-closes connections after its budget", async () => 
     processRef,
     server,
     completion: neverCompletes,
-    timeoutMs: 5
+    timeoutMs: 1000
   });
-  await shutdown("SIGTERM");
+  const originalSetTimeout = global.setTimeout;
+  global.setTimeout = callback => {
+    queueMicrotask(callback);
+    return { unref() {} };
+  };
+  try {
+    await shutdown("SIGTERM");
+  } finally {
+    global.setTimeout = originalSetTimeout;
+  }
   assert.equal(forced, true);
   assert.equal(processRef.exitCode, 1);
 });
