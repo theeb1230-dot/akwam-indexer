@@ -3,19 +3,24 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-test("iOS Flutter build pipeline produces a separate unsigned IPA artifact", () => {
+test("iOS delivery pipeline creates unsigned IPA only after verified API gate", () => {
   const root = process.cwd();
-  const workflow = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+  const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+  const release = fs.readFileSync(path.join(root, ".github/workflows/client-release.yml"), "utf8");
   const main = fs.readFileSync(path.join(root, "clients/flutter/lib/main.dart"), "utf8");
 
   const checks = {
-    iosJob: workflow.includes("flutter-ios:"),
-    macRunner: workflow.includes("runs-on: macos-latest"),
-    iosScaffold: workflow.includes("flutter create --platforms=ios"),
-    noCodesign: workflow.includes("flutter build ios --release --no-codesign"),
-    iosTarget: workflow.includes("--dart-define=THEEB_TARGET=ios"),
-    ipaPackage: workflow.includes("theeb-arab-ios-unsigned.ipa"),
-    artifactName: workflow.includes("theeb-arab-ios-unsigned"),
+    iosCiJob: ci.includes("flutter-ios:"),
+    macRunner: ci.includes("runs-on: macos-latest"),
+    normalCiBundleOnly: ci.includes("Compile non-installable Flutter iOS bundle"),
+    normalCiNoIpaUpload: !ci.includes("name: theeb-arab-ios-unsigned"),
+    releaseIosJob: release.includes("ios:"),
+    releaseNoCodesign: release.includes("flutter build ios --release --no-codesign"),
+    releaseIosTarget: release.includes("--dart-define=THEEB_TARGET=ios"),
+    releaseInstallableFlag: release.includes("THEEB_INSTALLABLE_BUILD=true"),
+    releaseIpaPackage: release.includes("theeb-arab-ios-unsigned.ipa"),
+    releaseArtifactName: release.includes("name: theeb-arab-ios-unsigned"),
+    artifactPlaceholderScan: release.includes("PLACEHOLDER_FOUND_IN_IOS_ARTIFACT"),
     platformContract: main.includes("TheebPlatform.ios")
   };
 

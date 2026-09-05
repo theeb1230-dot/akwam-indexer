@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:theeb_client/http_theeb_transport.dart';
 import 'package:theeb_client/theeb_api_contract.dart';
@@ -6,6 +9,22 @@ import 'package:theeb_client/theeb_client_config.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 typedef UriOpener = Future<bool> Function(Uri uri);
+
+String userFacingError(Object error) {
+  if (error is SocketException) {
+    return 'تعذر الاتصال بخدمة ذيب العرب. تحقق من الإنترنت ثم أعد المحاولة.';
+  }
+  if (error is TimeoutException) {
+    return 'استغرق الاتصال وقتًا أطول من المتوقع. أعد المحاولة بعد قليل.';
+  }
+  if (error is HttpException) {
+    return 'تعذر إكمال الطلب حاليًا. أعد المحاولة بعد قليل.';
+  }
+  if (error is ArgumentError) {
+    return 'إعداد الاتصال بالتطبيق غير صالح. يلزم تحديث النسخة قبل الاستخدام.';
+  }
+  return 'حدث خطأ غير متوقع. أعد المحاولة.';
+}
 
 const String kTheebTarget =
     String.fromEnvironment('THEEB_TARGET', defaultValue: 'android');
@@ -110,7 +129,7 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() => _items = items);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -171,9 +190,19 @@ class _SearchScreenState extends State<SearchScreen> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.redAccent),
+                  child: Column(
+                    children: [
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: _loading ? null : _search,
+                        child: const Text('إعادة المحاولة'),
+                      ),
+                    ],
                   ),
                 ),
               const SizedBox(height: 12),
@@ -244,7 +273,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -359,7 +388,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       setState(() => _episode = episode);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -382,7 +411,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       setState(() => _session = session);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _watchLoading = false);
     }
@@ -409,7 +438,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       setState(() => _downloads = options);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _downloadLoading = false);
     }
