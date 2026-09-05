@@ -26,8 +26,11 @@ test("database readiness selects PostgreSQL without importing SQLite", async t =
     "utf8"
   );
   assert.doesNotMatch(source, /require\(["']\.\/db\/schema["']\)/);
-  assert.match(source, /await jobs\.getAll\(\)/);
-  assert.match(source, /await jobs\.create\(/);
+  const queueStart = source.indexOf("async function queueImport");
+  const queueEnd = source.indexOf("/*\n * =========================================================\n * ROOT", queueStart);
+  const queueSource = source.slice(queueStart, queueEnd);
+  assert.doesNotMatch(queueSource, /jobs\.getAll\(\)/);
+  assert.match(queueSource, /jobs\.enqueueUnique\(/);
   assert.match(source, /await jobs\.get\(/);
   assert.match(source, /await jobs\.requestCancel\(/);
 });

@@ -146,29 +146,6 @@ function getProviderOrRespond(
   return providers.get(name);
 }
 
-async function getRunningImport(
-  provider,
-  providerSeriesId
-) {
-  const target =
-    String(providerSeriesId);
-
-  const allJobs = await jobs.getAll();
-  return allJobs.find(job => {
-      return (
-        job.type === "import" &&
-        job.provider === provider &&
-        String(
-          job.provider_series_id
-        ) === target &&
-        (
-          job.status === "queued" ||
-          job.status === "running"
-        )
-      );
-    });
-}
-
 async function queueImport(
   providerName,
   providerSeriesId,
@@ -217,38 +194,26 @@ async function queueImport(
     return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
   }
 
-  const existing =
-    await getRunningImport(
-      provider,
-      seriesId
-    );
+  const dedupeKey = "import:" + provider + ":" + seriesId;
+  const queued = await jobs.enqueueUnique({
+    type: "import",
+    provider,
+    provider_series_id: seriesId,
+    dedupe_key: dedupeKey
+  });
 
-  if (existing) {
+  if (!queued.created) {
+    const existing = queued.job;
     return res.status(409).json({
-      error:
-        "IMPORT_ALREADY_RUNNING",
-
-      message:
-        "An import for this series is already running.",
-
-      job_id:
-        existing.id,
-
-      status:
-        existing.status,
-
-      progress_url:
-        `/api/import/jobs/${existing.id}`
+      error: "IMPORT_ALREADY_RUNNING",
+      message: "An import for this series is already running.",
+      job_id: existing.id,
+      status: existing.status,
+      progress_url: `/api/import/jobs/${existing.id}`
     });
   }
 
-  const job =
-    await jobs.create({
-      type: "import",
-      provider,
-      provider_series_id:
-        seriesId
-    });
+  const job = queued.job;
 
   if (shouldExecuteJobsInline()) {
     setImmediate(() => {
