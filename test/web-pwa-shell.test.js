@@ -38,8 +38,8 @@ test("Theeb Arab PWA shell has required installable assets", () => {
   assert.match(app, /serviceWorker\.register/);
 
   const worker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
-  assert.match(worker, /theeb-arab-shell-v6/);
-  assert.match(worker, /url\.pathname\.startsWith\("\/v1\/"\)/);
+  assert.match(worker, /theeb-arab-shell-v7/);
+  assert.match(worker, /SHELL_PATHS\.has\(url\.pathname\)/);
 });
 
 test("server serves web shell and keeps API metadata off root", () => {

@@ -20,6 +20,6 @@ test("Theeb Arab brand contract stays aligned with PWA metadata and theme", () =
   assert.match(html, /href="\/brand\.json"/);
   assert.match(css, /--accent:#d8c39a/);
   assert.match(css, /--bg:#0b0b0b/);
-  assert.match(sw, /theeb-arab-shell-v6/);
+  assert.match(sw, /theeb-arab-shell-v7/);
   assert.match(sw, /"\/brand\.json"/);
 });

@@ -1,4 +1,4 @@
-const CACHE = "theeb-arab-shell-v6";
+const CACHE = "theeb-arab-shell-v7";
 const SHELL = [
   "/",
   "/app.webmanifest",
@@ -9,6 +9,7 @@ const SHELL = [
   "/assets/icon-maskable.svg",
   "/offline.html"
 ];
+const SHELL_PATHS = new Set(SHELL);
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
@@ -24,12 +25,28 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
+function offlineFallback(event, error) {
+  if (event.request.mode === "navigate") {
+    return caches.match("/offline.html");
+  }
+  throw error;
+}
+
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const cacheableShell =
+    sameOrigin &&
+    !url.search &&
+    SHELL_PATHS.has(url.pathname);
 
-  if (url.pathname.startsWith("/v1/") || url.pathname.startsWith("/api/")) {
-    event.respondWith(fetch(event.request));
+  // Everything outside the explicit shell allowlist stays network-only.
+  // This includes /api, /v1, /internal/admin, /readyz and /livez.
+  if (!cacheableShell) {
+    event.respondWith(
+      fetch(event.request).catch(error => offlineFallback(event, error))
+    );
     return;
   }
 
@@ -38,16 +55,13 @@ self.addEventListener("fetch", event => {
       if (cached) return cached;
       try {
         const response = await fetch(event.request);
-        if (response.ok && url.origin === self.location.origin) {
+        if (response.ok) {
           const copy = response.clone();
           caches.open(CACHE).then(cache => cache.put(event.request, copy));
         }
         return response;
       } catch (error) {
-        if (event.request.mode === "navigate") {
-          return caches.match("/offline.html");
-        }
-        throw error;
+        return offlineFallback(event, error);
       }
     })
   );

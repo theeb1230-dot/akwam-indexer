@@ -28,6 +28,7 @@
 
 - Web/PWA «ذيب العرب»: مكتمل أساس البحث، تفاصيل السلاسل والحلقات، الفصل الصريح بين المشاهدة والتحميل، installability على الويب/iOS، والـoffline shell.
 - هوية Web/PWA أصبحت موحدة عبر brand contract باسم «ذيب العرب» وثيم ثابت، واختبار المتصفح الفعلي مغطى داخل CI عبر Chromium.
+- PWA cache boundary: service worker يستخدم allowlist صريحة للـshell فقط؛ API/admin/readiness/liveness وكل GET خارج shell تبقى network-only، مع bump للكاش لمسح generations القديمة.
 - المتبقي قبل إعلان Web/PWA مكتملة: تنفيذ نشر مجاني خارجي فعلي وإثباته عبر smoke HTTPS. PWA shell وmanifest/service worker تُخدم قبل Bearer auth، وbootstrap assets الأساسية تستخدم no-cache لإتاحة تحديثات سريعة، بينما API يبقى محميًا؛ الحساب/الاعتمادات الخارجية ما زالت غير متاحة من داخل المستودع.
 - Android: بناء APK debug ورفعه كـartifact مثبت فعليًا في CI. التطبيق يغطي الآن البحث → تفاصيل المسلسل → الحلقات → اختيار مشاهدة أو تحميل صريح، بدون autoplay أو automatic download.
 - Android TV: بوابة CI المخصصة نجحت فعليًا وتنتج APK debug مستقلًا بتهيئة Leanback وعدم اشتراط اللمس، مع تمرير `android_tv` في playback contract.
