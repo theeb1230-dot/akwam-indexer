@@ -5,14 +5,20 @@ class TheebClientConfig {
   });
 
   factory TheebClientConfig.fromEnvironment() {
-    const raw = String.fromEnvironment(
-      'THEEB_API_BASE_URL',
-      defaultValue: 'http://127.0.0.1:8080/',
-    );
+    const raw = String.fromEnvironment('THEEB_API_BASE_URL');
     const installable = bool.fromEnvironment(
       'THEEB_INSTALLABLE_BUILD',
       defaultValue: false,
     );
+    if (raw.trim().isEmpty) {
+      throw ArgumentError.value(
+        raw,
+        'THEEB_API_BASE_URL',
+        installable
+            ? 'Installable builds require a verified API URL'
+            : 'API URL must be configured explicitly',
+      );
+    }
     final uri = Uri.parse(raw);
     if (installable) {
       validateInstallableBaseUri(uri);
