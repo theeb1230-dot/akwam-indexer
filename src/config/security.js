@@ -22,6 +22,35 @@ function boundedInteger(value, fallback, name, maximum) {
   return parsed;
 }
 
+function corsOriginList(value = "") {
+  const items = String(value || "")
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+  const origins = [];
+  for (const item of items) {
+    let parsed;
+    try {
+      parsed = new URL(item);
+    } catch {
+      throw new Error("INVALID_CORS_ORIGIN");
+    }
+    if (
+      !["http:", "https:"].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash
+    ) {
+      throw new Error("INVALID_CORS_ORIGIN");
+    }
+    const origin = parsed.origin;
+    if (!origins.includes(origin)) origins.push(origin);
+  }
+  return origins;
+}
+
 function requestBodyLimit(value = "256kb") {
   const match = /^(\d+)(b|kb|mb)$/i.exec(String(value).trim());
   if (!match) throw new Error("INVALID_REQUEST_BODY_LIMIT");
@@ -52,6 +81,7 @@ function securityConfig(env = process.env) {
     production,
     authRequired,
     apiToken,
+    corsOrigins: corsOriginList(env.THEEB_CORS_ORIGINS),
     // A numeric hop count is deliberately used instead of `true`. Express'
     // boolean trust-proxy mode trusts the entire forwarded chain and lets a
     // caller forge the address used by the rate limiter when the deployment
@@ -81,4 +111,4 @@ function tokensEqual(actual, expected) {
   return crypto.timingSafeEqual(left, right);
 }
 
-module.exports = { requestBodyLimit, securityConfig, tokensEqual };
+module.exports = { corsOriginList, requestBodyLimit, securityConfig, tokensEqual };
