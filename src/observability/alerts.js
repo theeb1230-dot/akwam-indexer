@@ -41,7 +41,6 @@ function alertConfig(env = process.env) {
     ["openCircuitsWarning", "openCircuitsCritical", "INVALID_ALERT_OPEN_CIRCUIT_THRESHOLD_ORDER"]
   ];
   for (const [warningKey, criticalKey, code] of orderedPairs) {
-    if (config.warningKey === config.criticalKey) continue;
     if (config[warningKey] >= config[criticalKey]) {
       const error = new Error(code);
       error.code = code;
