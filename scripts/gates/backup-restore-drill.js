@@ -96,7 +96,7 @@ async function drill(env = process.env) {
     }
 
     const directUrls = await restorePool.query(
-      "SELECT COUNT(*)::int AS count FROM playback_candidates WHERE locator_json::text ~ '(direct_url|resolved_url|download_url)'"
+      "SELECT COUNT(*)::int AS count FROM playback_candidates WHERE locator::text ~ '(direct_url|resolved_url|download_url)'"
     );
 
     if (directUrls.rows[0].count !== 0) {
