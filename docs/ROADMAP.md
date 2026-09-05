@@ -15,7 +15,7 @@
 
 ## المرحلة الخامسة — Background Health & Refresh
 
-- Queue دائمة بدل الذاكرة المحلية.
+- Queue دائمة بدل الذاكرة المحلية، واستيراد السلاسل يستخدم dedupe ذري عبر repository/unique index بدل full-table job scans.
 - ملكية Job عبر Lease وHeartbeat.
 - استعادة آمنة بعد انتهاء Lease.
 - Refresh Worker مستقل مع Retry وBackoff.
