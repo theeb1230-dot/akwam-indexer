@@ -1,0 +1,66 @@
+name: External Deployment Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Public HTTPS base URL of the deployed Theeb API/PWA
+        required: true
+        type: string
+      expected_version:
+        description: Expected API version for this candidate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prove-external-deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      THEEB_BASE_URL: ${{ inputs.base_url }}
+      THEEB_INSTALLABLE_API_BASE_URL: ${{ inputs.base_url }}
+      THEEB_EXPECTED_VERSION: ${{ inputs.expected_version }}
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Use Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+
+      - name: Validate public HTTPS API, DNS, readiness and Search contract
+        run: node scripts/validate-installable-api-url.js
+
+      - name: Validate deployed liveness, readiness, metadata and PWA shell
+        run: npm run deploy:smoke
+
+      - name: Run real Dart client Search smoke against same URL
+        env:
+          THEEB_API_BASE_URL: ${{ inputs.base_url }}
+        run: dart clients/dart/tool/remote_smoke.dart
+
+      - name: Record deployment evidence
+        env:
+          THEEB_EVIDENCE_PATH: artifacts/deployment-evidence/evidence.json
+          THEEB_EVIDENCE_BASE_URL: ${{ inputs.base_url }}
+          THEEB_EVIDENCE_EXPECTED_VERSION: ${{ inputs.expected_version }}
+          THEEB_EVIDENCE_COMMIT: ${{ github.sha }}
+          THEEB_EVIDENCE_RUN_ID: ${{ github.run_id }}
+          THEEB_EVIDENCE_RUN_NUMBER: ${{ github.run_number }}
+          THEEB_EVIDENCE_REPOSITORY: ${{ github.repository }}
+        run: node scripts/write-deployment-evidence.js
+
+      - name: Upload immutable deployment evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-external-deployment-evidence
+          path: artifacts/deployment-evidence/evidence.json
+          if-no-files-found: error
+          retention-days: 30
