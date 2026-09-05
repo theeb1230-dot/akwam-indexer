@@ -83,8 +83,36 @@ jobs:
             echo "CONFIGURED_API_NOT_FOUND_IN_ANDROID_ARTIFACT"
             exit 1
           }
+      - name: Verify Android package identity, version and signature
+        working-directory: clients/flutter
+        run: |
+          APK="build/app/outputs/flutter-apk/app-debug.apk"
+          EXPECTED_ID="$(grep -E 'applicationId = "' android/app/build.gradle.kts | head -1 | sed -E 's/.*applicationId = "([^"]+)".*/\1/')"
+          EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
+          EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
+          EXPECTED_CODE="${EXPECTED_VERSION##*+}"
+          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKANALYZER"
+          test -x "$APKSIGNER"
+          ACTUAL_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          ACTUAL_NAME="$("$APKANALYZER" manifest version-name "$APK")"
+          ACTUAL_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+          test -n "$EXPECTED_ID"
+          test "$ACTUAL_ID" = "$EXPECTED_ID"
+          test "$ACTUAL_NAME" = "$EXPECTED_NAME"
+          test "$ACTUAL_CODE" = "$EXPECTED_CODE"
+          "$APKSIGNER" verify "$APK"
+          node -e 'const fs=require("fs"); const d={platform:"android-mobile",application_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signature_verified:true,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/android-mobile-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage Android artifact
         run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android.apk
+      - name: Upload Android metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-android-metadata
+          path: clients/flutter/build/android-mobile-metadata.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload Android artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -132,8 +160,42 @@ jobs:
             echo "CONFIGURED_API_NOT_FOUND_IN_ANDROID_TV_ARTIFACT"
             exit 1
           }
+      - name: Verify Android TV package identity, version, signature and TV manifest
+        working-directory: clients/flutter
+        run: |
+          APK="build/app/outputs/flutter-apk/app-debug.apk"
+          EXPECTED_ID="$(grep -E 'applicationId = "' android/app/build.gradle.kts | head -1 | sed -E 's/.*applicationId = "([^"]+)".*/\1/')"
+          EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
+          EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
+          EXPECTED_CODE="${EXPECTED_VERSION##*+}"
+          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKANALYZER"
+          test -x "$APKSIGNER"
+          ACTUAL_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          ACTUAL_NAME="$("$APKANALYZER" manifest version-name "$APK")"
+          ACTUAL_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+          MANIFEST="$("$APKANALYZER" manifest print "$APK")"
+          test -n "$EXPECTED_ID"
+          test "$ACTUAL_ID" = "$EXPECTED_ID"
+          test "$ACTUAL_NAME" = "$EXPECTED_NAME"
+          test "$ACTUAL_CODE" = "$EXPECTED_CODE"
+          printf '%s' "$MANIFEST" | grep -F 'android.software.leanback'
+          printf '%s' "$MANIFEST" | grep -F 'android.hardware.touchscreen'
+          printf '%s' "$MANIFEST" | grep -F 'android.intent.category.LEANBACK_LAUNCHER'
+          printf '%s' "$MANIFEST" | grep -F 'android:screenOrientation'
+          printf '%s' "$MANIFEST" | grep -F 'android:banner='
+          "$APKSIGNER" verify "$APK"
+          node -e 'const fs=require("fs"); const d={platform:"android-tv",application_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signature_verified:true,leanback_verified:true,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/android-tv-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage Android TV artifact
         run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android-tv.apk
+      - name: Upload Android TV metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-android-tv-metadata
+          path: clients/flutter/build/android-tv-metadata.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload Android TV artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -185,8 +247,43 @@ jobs:
             echo "CONFIGURED_API_NOT_FOUND_IN_IOS_ARTIFACT"
             exit 1
           }
+      - name: Verify iOS bundle identity, version and unsigned IPA structure
+        working-directory: clients/flutter
+        run: |
+          IPA="build/ios/theeb-arab-ios-unsigned.ipa"
+          rm -rf /tmp/theeb-ios-identity && mkdir -p /tmp/theeb-ios-identity
+          unzip -qq "$IPA" -d /tmp/theeb-ios-identity
+          APP_COUNT="$(find /tmp/theeb-ios-identity/Payload -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')"
+          test "$APP_COUNT" = "1"
+          APP="$(find /tmp/theeb-ios-identity/Payload -maxdepth 1 -type d -name '*.app' | head -1)"
+          INFO="$APP/Info.plist"
+          test -f "$INFO"
+          EXPECTED_ID="$(xcodebuild -project ios/Runner.xcodeproj -scheme Runner -showBuildSettings 2>/dev/null | awk -F ' = ' '/PRODUCT_BUNDLE_IDENTIFIER = /{print $2; exit}')"
+          EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
+          EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
+          EXPECTED_CODE="${EXPECTED_VERSION##*+}"
+          ACTUAL_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
+          ACTUAL_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")"
+          ACTUAL_CODE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")"
+          test -n "$EXPECTED_ID"
+          test "$ACTUAL_ID" = "$EXPECTED_ID"
+          test "$ACTUAL_NAME" = "$EXPECTED_NAME"
+          test "$ACTUAL_CODE" = "$EXPECTED_CODE"
+          test ! -d "$APP/_CodeSignature"
+          if codesign -dv "$APP" >/dev/null 2>&1; then
+            echo "IOS_IPA_UNEXPECTEDLY_SIGNED"
+            exit 1
+          fi
+          node -e 'const fs=require("fs"); const d={platform:"ios",bundle_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signing:"UNSIGNED",payload_app_count:1,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/ios/ios-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage iOS artifact
         run: cp clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa theeb-arab-ios-unsigned.ipa
+      - name: Upload iOS metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-ios-metadata
+          path: clients/flutter/build/ios/ios-metadata.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload iOS artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -217,6 +314,23 @@ jobs:
         with:
           name: theeb-arab-ios-unsigned
           path: release
+      - name: Download Android metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android-metadata
+          path: metadata
+      - name: Download Android TV metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android-tv-metadata
+          path: metadata
+      - name: Download iOS metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-ios-metadata
+          path: metadata
+      - name: Validate cross-platform identity and version parity
+        run: node scripts/validate-client-artifact-metadata.js metadata
       - name: Require exact artifact triplet and supported classification
         env:
           RELEASE_LEVEL: ${{ inputs.release_level }}
@@ -240,7 +354,7 @@ jobs:
         run: |
           cd release
           sha256sum theeb-arab-android.apk theeb-arab-android-tv.apk theeb-arab-ios-unsigned.ipa > SHA256SUMS.txt
-          node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],ios_signing:"UNSIGNED",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
+          node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],metadata:["android-mobile-metadata.json","android-tv-metadata.json","ios-metadata.json"],ios_signing:"UNSIGNED",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
       - name: Upload release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -248,6 +362,7 @@ jobs:
           path: |
             release/SHA256SUMS.txt
             release/release-manifest.json
+            metadata/*.json
           if-no-files-found: error
           retention-days: 30
 

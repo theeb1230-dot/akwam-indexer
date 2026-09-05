@@ -25,3 +25,15 @@
 ## تحديث الأدلة
 
 لا تغيّر حالة إلى PASS إلا عند وجود دليل حقيقي يمكن مراجعته، مثل workflow run ناجح، تقرير E2E، device/runtime smoke، checksum manifest، أو تقرير أمني/أداء مرتبط بالـcommit المرشح. إذا أصبح دليل قديمًا أو لم يعد يخص commit المرشح، أعد الحالة إلى `NOT_VERIFIED`.
+
+
+## Artifact identity evidence
+
+The client release workflow now records platform metadata before a release candidate can pass readiness. The evidence must show:
+
+- Android Mobile applicationId, version name/code, and a verified APK signature.
+- Android TV applicationId, version name/code, a verified APK signature, and manifest evidence for Leanback/TV requirements.
+- iOS bundle identifier, version/build, exactly one `Payload/*.app`, and the explicit `UNSIGNED` state for Experimental.
+- the same commit SHA and the same version/build across all three client artifacts.
+
+The metadata validator rejects commit drift, version drift, unexpected product identifiers, missing Android signature evidence, missing TV manifest evidence, and malformed iOS payload structure. These checks do not replace device runtime smoke; they only prove artifact identity/integrity before runtime evidence is considered.
