@@ -2,28 +2,6 @@
 const dns = require("node:dns").promises;
 const net = require("node:net");
 
-const raw = String(process.env.THEEB_INSTALLABLE_API_BASE_URL || "").trim();
-const token = String(process.env.THEEB_INSTALLABLE_API_TOKEN || "").trim();
-
-function fail(message) {
-  console.error(message);
-  process.exit(1);
-}
-
-if (!raw) fail("THEEB_INSTALLABLE_API_BASE_URL_REQUIRED");
-
-let base;
-try {
-  base = new URL(raw);
-} catch {
-  fail("THEEB_INSTALLABLE_API_BASE_URL_INVALID");
-}
-
-if (base.protocol !== "https:") fail("THEEB_INSTALLABLE_API_HTTPS_REQUIRED");
-if (base.username || base.password) fail("THEEB_INSTALLABLE_API_CREDENTIALS_FORBIDDEN");
-if (base.search || base.hash) fail("THEEB_INSTALLABLE_API_QUERY_FRAGMENT_FORBIDDEN");
-
-const host = base.hostname.toLowerCase();
 const bannedExact = new Set([
   "localhost",
   "0.0.0.0",
@@ -37,12 +15,42 @@ const bannedExact = new Set([
 const bannedSuffixes = [".invalid", ".example", ".test", ".localhost"];
 const suspiciousLabels = new Set(["dev", "development", "test", "testing", "staging", "stage", "example"]);
 
-if (
-  bannedExact.has(host) ||
-  bannedSuffixes.some(suffix => host.endsWith(suffix)) ||
-  host.split(".").some(label => suspiciousLabels.has(label))
-) {
-  fail("THEEB_INSTALLABLE_API_PLACEHOLDER_FORBIDDEN");
+function configError(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+function parseInstallableBase(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) throw configError("THEEB_INSTALLABLE_API_BASE_URL_REQUIRED");
+
+  let base;
+  try {
+    base = new URL(raw);
+  } catch {
+    throw configError("THEEB_INSTALLABLE_API_BASE_URL_INVALID");
+  }
+
+  if (base.protocol !== "https:") throw configError("THEEB_INSTALLABLE_API_HTTPS_REQUIRED");
+  if (base.username || base.password) {
+    throw configError("THEEB_INSTALLABLE_API_CREDENTIALS_FORBIDDEN");
+  }
+  if (base.search || base.hash) {
+    throw configError("THEEB_INSTALLABLE_API_QUERY_FRAGMENT_FORBIDDEN");
+  }
+
+  const host = base.hostname.toLowerCase();
+  if (
+    bannedExact.has(host) ||
+    bannedSuffixes.some(suffix => host.endsWith(suffix)) ||
+    host.split(".").some(label => suspiciousLabels.has(label))
+  ) {
+    throw configError("THEEB_INSTALLABLE_API_PLACEHOLDER_FORBIDDEN");
+  }
+
+  if (!base.pathname.endsWith("/")) base.pathname += "/";
+  return base;
 }
 
 function isPrivateAddress(address) {
@@ -73,47 +81,60 @@ function isPrivateAddress(address) {
   return true;
 }
 
-async function fetchJson(url, { authorization = false } = {}) {
+async function fetchJson(url, token) {
   const headers = { accept: "application/json" };
-  if (authorization && token) headers.authorization = `Bearer ${token}`;
+  if (token) headers.authorization = `Bearer ${token}`;
   const response = await fetch(url, {
     headers,
     redirect: "error",
     signal: AbortSignal.timeout(10000)
   });
   const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`HTTP_${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP_${response.status}`);
   if (!String(response.headers.get("content-type") || "").includes("application/json")) {
     throw new Error("JSON_CONTENT_TYPE_REQUIRED");
   }
   JSON.parse(text || "{}");
 }
 
-(async () => {
-  const records = await dns.lookup(host, { all: true });
-  if (!records.length) fail("THEEB_INSTALLABLE_API_DNS_EMPTY");
+async function validateReachability(base, token = "") {
+  const records = await dns.lookup(base.hostname, { all: true });
+  if (!records.length) throw configError("THEEB_INSTALLABLE_API_DNS_EMPTY");
   if (records.some(record => isPrivateAddress(record.address))) {
-    fail("THEEB_INSTALLABLE_API_PUBLIC_DNS_REQUIRED");
+    throw configError("THEEB_INSTALLABLE_API_PUBLIC_DNS_REQUIRED");
   }
 
-  const normalizedBase = new URL(base.toString());
-  if (!normalizedBase.pathname.endsWith("/")) normalizedBase.pathname += "/";
-
   try {
-    await fetchJson(new URL("readyz", normalizedBase));
+    await fetchJson(new URL("readyz", base), "");
   } catch (error) {
-    fail(`THEEB_INSTALLABLE_API_READINESS_FAILED:${error.message}`);
+    throw configError(`THEEB_INSTALLABLE_API_READINESS_FAILED:${error.message}`);
   }
 
   try {
-    const search = new URL("v1/search", normalizedBase);
+    const search = new URL("v1/search", base);
     search.searchParams.set("q", "theeb-release-smoke");
-    await fetchJson(search, { authorization: true });
+    await fetchJson(search, token);
   } catch (error) {
-    fail(`THEEB_INSTALLABLE_API_SEARCH_SMOKE_FAILED:${error.message}`);
+    throw configError(`THEEB_INSTALLABLE_API_SEARCH_SMOKE_FAILED:${error.message}`);
   }
+}
 
+async function main(env = process.env) {
+  const base = parseInstallableBase(env.THEEB_INSTALLABLE_API_BASE_URL);
+  await validateReachability(base, String(env.THEEB_INSTALLABLE_API_TOKEN || "").trim());
   console.log("THEEB_INSTALLABLE_API_VALIDATED");
-})().catch(error => fail(`THEEB_INSTALLABLE_API_VALIDATION_FAILED:${error.message}`));
+}
+
+if (require.main === module) {
+  main().catch(error => {
+    console.error(error.code || error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  parseInstallableBase,
+  isPrivateAddress,
+  validateReachability,
+  main
+};
