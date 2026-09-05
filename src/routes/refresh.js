@@ -95,7 +95,7 @@ function createRefreshRouter(options = {}) {
       });
       return res.status(500).json({
         error: "REFRESH_FAILED",
-        message: error.message
+        message: "تعذر تحديث المحتوى الآن. حاول مرة أخرى."
       });
     }
   });

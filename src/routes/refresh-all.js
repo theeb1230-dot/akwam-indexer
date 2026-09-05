@@ -92,13 +92,13 @@ function createRefreshAllRouter(options = {}) {
                   library_series_id: series.id,
                   title: series.title,
                   status: "failed",
-                  message: error.message
+                  message: "تعذر تحديث هذا المحتوى."
                 });
 
                 await jobManager.episodeFailed(parentJob.id, {
                   library_series_id: series.id,
                   title: series.title,
-                  message: error.message
+                  message: "تعذر تحديث هذا المحتوى."
                 });
               }
             }
@@ -131,7 +131,7 @@ function createRefreshAllRouter(options = {}) {
       });
       return res.status(500).json({
         error: "REFRESH_ALL_FAILED",
-        message: error.message
+        message: "تعذر تحديث هذا المحتوى."
       });
     }
   });
