@@ -421,7 +421,20 @@ jobs:
           RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: |
           TAG="${RELEASE_TAG_INPUT:-experimental-${GITHUB_RUN_NUMBER}}"
-          gh release create "$TAG" release/* \
+          EVIDENCE_DIR="release/release"
+          test -s release/theeb-arab-android.apk
+          test -s release/theeb-arab-android-tv.apk
+          test -s release/theeb-arab-ios-unsigned.ipa
+          test -s "$EVIDENCE_DIR/SHA256SUMS.txt"
+          test -s "$EVIDENCE_DIR/release-manifest.json"
+          test -s "$EVIDENCE_DIR/runtime-release-readiness.json"
+          gh release create "$TAG" \
+            release/theeb-arab-android.apk \
+            release/theeb-arab-android-tv.apk \
+            release/theeb-arab-ios-unsigned.ipa \
+            "$EVIDENCE_DIR/SHA256SUMS.txt" \
+            "$EVIDENCE_DIR/release-manifest.json" \
+            "$EVIDENCE_DIR/runtime-release-readiness.json" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "ذيب العرب - Experimental - $TAG" \
