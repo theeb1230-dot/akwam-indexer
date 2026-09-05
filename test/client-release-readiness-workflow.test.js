@@ -13,7 +13,11 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "release_level:",
     "release-readiness:",
     "THEEB_RELEASE_LEVEL:",
-    "node scripts/validate-release-readiness.js",
+    "push:",
+    "release/trigger.json",
+    "https://theeb-arab-api.onrender.com",
+    "node scripts/create-experimental-release-evidence.js release metadata",
+    "runtime-release-readiness.json",
     "sha256sum theeb-arab-android.apk",
     "release-manifest.json",
     "theeb-arab-release-evidence",
@@ -36,6 +40,8 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "readiness gate must run before publication"
   );
   assert.match(workflow, /needs: \[release-readiness\]/);
+  assert.match(workflow, /THEEB_RELEASE_TAG:.*v0\.1\.1-experimental\.1/);
+  assert.match(workflow, /npm ci && npm test/);
 });
 
 test("release readiness source-of-truth contains all four cumulative levels", () => {
