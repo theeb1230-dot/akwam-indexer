@@ -31,6 +31,7 @@ test("alerts stay ok with no meaningful samples", () => {
   });
   assert.equal(result.status, "ok");
   assert.deepEqual(result.alerts, []);
+  assert.equal(result.sample.minimum_http_samples_met, false);
 });
 
 test("HTTP 5xx ratio becomes critical after minimum sample size", () => {
@@ -64,6 +65,30 @@ test("open circuit count escalates independently of HTTP volume", () => {
   });
   assert.equal(result.status, "critical");
   assert.equal(result.alerts[0].code, "OPEN_CIRCUITS_HIGH");
+});
+
+test("alert thresholds must preserve warning below critical", () => {
+  assert.throws(
+    () => alertConfig({
+      ALERT_HTTP_ERROR_WARNING_RATIO: "0.2",
+      ALERT_HTTP_ERROR_CRITICAL_RATIO: "0.1"
+    }),
+    error => error.code === "INVALID_ALERT_HTTP_ERROR_THRESHOLD_ORDER"
+  );
+  assert.throws(
+    () => alertConfig({
+      ALERT_HTTP_AVG_LATENCY_WARNING_MS: "4000",
+      ALERT_HTTP_AVG_LATENCY_CRITICAL_MS: "3000"
+    }),
+    error => error.code === "INVALID_ALERT_HTTP_LATENCY_THRESHOLD_ORDER"
+  );
+  assert.throws(
+    () => alertConfig({
+      ALERT_OPEN_CIRCUITS_WARNING: "5",
+      ALERT_OPEN_CIRCUITS_CRITICAL: "5"
+    }),
+    error => error.code === "INVALID_ALERT_OPEN_CIRCUIT_THRESHOLD_ORDER"
+  );
 });
 
 test("alert thresholds reject unsafe configuration", () => {
