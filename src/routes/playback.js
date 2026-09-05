@@ -30,7 +30,9 @@ router.get("/execute", async (req, res) => {
         season:
           req.query.season || 1,
         episode:
-          req.query.episode
+          req.query.episode,
+        region:
+          req.query.region || null
       });
 
     return res.status(
