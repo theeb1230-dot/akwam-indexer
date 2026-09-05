@@ -35,3 +35,24 @@ A deployment is considered proven only when all of the following exist:
 ## Current blocker
 
 External provisioning cannot be completed from repository-only access because it requires a provider account and platform credentials/secrets. Until those are available, the repository can only prove deployment readiness locally and in CI. Do not report a Koyeb URL, Oracle worker, PostgreSQL instance, or subdomain as active without the evidence above.
+
+
+## External deployment evidence workflow
+
+`.github/workflows/external-deployment-evidence.yml` is the only repository workflow that may convert an externally supplied deployment URL into reviewable evidence. It does **not** provision Koyeb, Neon, Oracle, or any other external resource.
+
+The workflow requires a real public HTTPS base URL and expected API version, then verifies:
+
+1. public DNS and HTTPS release URL policy,
+2. `/livez`,
+3. `/readyz`,
+4. `/api` metadata and expected version,
+5. the «ذيب العرب» PWA shell,
+6. the Search API contract,
+7. a real Dart client Search smoke against the same URL.
+
+Only after all checks pass does it emit `artifacts/deployment-evidence/evidence.json`, tied to the candidate commit and GitHub workflow run. A URL alone is not evidence, and a failed or missing workflow run keeps release-readiness entries at `NOT_VERIFIED`.
+
+### Provisioning blocker
+
+The repository still cannot create an external Koyeb service or free PostgreSQL database without provider-account authorization and credentials. This is an external provisioning blocker, not permission to substitute localhost, an ephemeral tunnel, or a placeholder URL for an installable client.
