@@ -1,0 +1,43 @@
+name: Render External Smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  render-external-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      THEEB_BASE_URL: https://theeb-arab-api.onrender.com
+      THEEB_INSTALLABLE_API_BASE_URL: https://theeb-arab-api.onrender.com
+      THEEB_API_BASE_URL: https://theeb-arab-api.onrender.com
+      THEEB_EXPECTED_VERSION: 1.0.0
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Use Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+
+      - name: Warm free Render instance
+        run: |
+          curl --fail --silent --show-error             --retry 8 --retry-all-errors --retry-delay 5             --max-time 30             "$THEEB_BASE_URL/livez" >/dev/null
+
+      - name: Validate public HTTPS API, DNS, readiness and Search contract
+        run: node scripts/validate-installable-api-url.js
+
+      - name: Validate deployed liveness, readiness, metadata and PWA shell
+        run: npm run deploy:smoke
+
+      - name: Run real Dart client Search smoke
+        run: dart clients/dart/tool/remote_smoke.dart
