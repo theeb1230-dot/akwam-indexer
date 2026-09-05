@@ -1,3 +1,4 @@
+const logger = require("../observability/logger");
 const {
   createRefreshSeriesRepository
 } = require("../repositories/refresh-series-repository");
@@ -66,16 +67,12 @@ function startRefreshWorker(options = {}) {
     try {
       await enqueueDueRefreshJobs();
     } catch (error) {
-      console.error(JSON.stringify({
-        level: "error",
-        event: "refresh_schedule_failed",
-        error: error.message
-      }));
+      logger.error("refresh_schedule_failed", { error_code: error?.code || "REFRESH_SCHEDULE_FAILED" });
     }
   }, schedulerMs);
 
   timer.unref?.();
-  void enqueueDueRefreshJobs().catch(error => console.error(JSON.stringify({ level: "error", event: "refresh_schedule_failed", error: error.message })));
+  void enqueueDueRefreshJobs().catch(error => logger.error("refresh_schedule_failed", { error_code: error?.code || "REFRESH_SCHEDULE_FAILED" }));
 
   return runWorker({
     role: "refresh-worker",
