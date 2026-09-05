@@ -9,6 +9,6 @@
     "theeb-arab-ios-unsigned.ipa"
   ],
   "note": "Merging this file to main triggers Client Release Artifacts and publishes the verified triplet to GitHub Releases.",
-  "retry": 5,
-  "reason": "Retry after replacing brittle generated-project bundle-id parsing with the explicit com.theebarab.theebArab release contract."
+  "retry": 6,
+  "reason": "Retry after replacing brittle release directory file-count assertion with exact required artifact checks."
 }

@@ -359,8 +359,9 @@ jobs:
           test -s release/theeb-arab-android.apk
           test -s release/theeb-arab-android-tv.apk
           test -s release/theeb-arab-ios-unsigned.ipa
-          COUNT="$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')"
-          test "$COUNT" = "3"
+          for required in             release/theeb-arab-android.apk             release/theeb-arab-android-tv.apk             release/theeb-arab-ios-unsigned.ipa; do
+            test -f "$required"
+          done
           if [ "$RELEASE_LEVEL" != "experimental" ]; then
             echo "CURRENT_WORKFLOW_ONLY_SUPPORTS_EXPERIMENTAL_UNSIGNED_IOS"
             exit 1
