@@ -47,6 +47,13 @@ const runtimeState = {
 };
 const security = securityConfig();
 
+function setWebAssetHeaders(res, filePath) {
+  const name = path.basename(filePath);
+  if (["index.html", "service-worker.js", "app.webmanifest"].includes(name)) {
+    res.setHeader("Cache-Control", "no-cache");
+  }
+}
+
 app.set("trust proxy", security.trustProxy);
 app.disable("x-powered-by");
 app.use(requestContext);
@@ -56,7 +63,8 @@ app.use(corsPolicy(security));
 app.use(express.static(path.join(process.cwd(), "web"), {
   extensions: ["html"],
   index: "index.html",
-  maxAge: process.env.NODE_ENV === "production" ? "1h" : 0
+  maxAge: process.env.NODE_ENV === "production" ? "1h" : 0,
+  setHeaders: setWebAssetHeaders
 }));
 app.use(rateLimiter(security));
 app.use(authentication(security));
@@ -766,4 +774,4 @@ function startServer(options = {}) {
   return server;
 }
 
-module.exports = { app, runtimeState, startServer };
+module.exports = { app, runtimeState, setWebAssetHeaders, startServer };
