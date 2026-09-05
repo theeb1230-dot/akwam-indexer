@@ -3,6 +3,7 @@ const path = require("node:path");
 const { version: VERSION } = require("../package.json");
 const { createDatabaseReadiness } = require("./db/readiness");
 const { securityConfig } = require("./config/security");
+const { httpServerConfig } = require("./config/http-server");
 const {
   authentication,
   corsPolicy,
@@ -730,6 +731,12 @@ function startServer(options = {}) {
       provider_count: providers.list().length
     });
   });
+
+  const httpConfig = httpServerConfig(options.env || process.env);
+  server.requestTimeout = httpConfig.requestTimeoutMs;
+  server.headersTimeout = httpConfig.headersTimeoutMs;
+  server.keepAliveTimeout = httpConfig.keepAliveTimeoutMs;
+  server.maxRequestsPerSocket = httpConfig.maxRequestsPerSocket;
 
   server.stopAcceptingTraffic = () => {
     runtimeState.shuttingDown = true;
