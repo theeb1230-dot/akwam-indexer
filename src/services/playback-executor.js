@@ -101,7 +101,8 @@ async function executePlayback(
   const healthPolicy = options.health || health;
   const rankedPlan =
     await healthPolicy.ranked(
-      resolved.playback_plan || []
+      resolved.playback_plan || [],
+      { region: params.region || null }
     );
   const plan = providerDiversePlan(rankedPlan);
   const maxAttempts = maxAttemptLimit(options);
@@ -113,6 +114,7 @@ async function executePlayback(
 
   for (const candidate of plan) {
     if (attempts.length >= maxAttempts) break;
+
     if (
       await healthPolicy.circuitOpen(
         candidate
