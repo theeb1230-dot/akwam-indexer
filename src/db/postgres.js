@@ -53,15 +53,43 @@ function sslConfiguration(env = process.env) {
   return { rejectUnauthorized: true };
 }
 
+function boundedInteger(value, fallback, minimum, maximum, code) {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    const error = new Error(code);
+    error.code = code;
+    throw error;
+  }
+  return parsed;
+}
+
+function poolConfiguration(env = process.env) {
+  return Object.freeze({
+    max: boundedInteger(env.PG_POOL_MAX, 10, 1, 100, "INVALID_PG_POOL_MAX"),
+    idleTimeoutMillis: boundedInteger(
+      env.PG_IDLE_TIMEOUT_MS,
+      30000,
+      1000,
+      600000,
+      "INVALID_PG_IDLE_TIMEOUT_MS"
+    ),
+    connectionTimeoutMillis: boundedInteger(
+      env.PG_CONNECT_TIMEOUT_MS,
+      10000,
+      1000,
+      120000,
+      "INVALID_PG_CONNECT_TIMEOUT_MS"
+    ),
+    application_name: env.PG_APP_NAME || "theeb-engine"
+  });
+}
+
 function getPool(env = process.env) {
   if (!pool) {
     pool = new Pool({
       connectionString: databaseUrl(env),
       ssl: sslConfiguration(env),
-      max: Number(env.PG_POOL_MAX || 10),
-      idleTimeoutMillis: Number(env.PG_IDLE_TIMEOUT_MS || 30000),
-      connectionTimeoutMillis: Number(env.PG_CONNECT_TIMEOUT_MS || 10000),
-      application_name: env.PG_APP_NAME || "theeb-engine"
+      ...poolConfiguration(env)
     });
   }
 
@@ -93,6 +121,7 @@ async function closePool() {
 module.exports = {
   databaseUrl,
   sslConfiguration,
+  poolConfiguration,
   getPool,
   withTransaction,
   closePool
