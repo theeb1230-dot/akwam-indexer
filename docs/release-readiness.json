@@ -21,10 +21,6 @@
           "status": "NOT_VERIFIED",
           "evidence": []
         },
-        "app_runtime_search_smoke": {
-          "status": "NOT_VERIFIED",
-          "evidence": []
-        },
         "watch_download_separation": {
           "status": "NOT_VERIFIED",
           "evidence": []
@@ -46,6 +42,10 @@
           "evidence": []
         },
         "version_build_parity": {
+          "status": "NOT_VERIFIED",
+          "evidence": []
+        },
+        "client_runtime_search_smoke": {
           "status": "NOT_VERIFIED",
           "evidence": []
         }
