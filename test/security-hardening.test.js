@@ -226,6 +226,25 @@ test("CORS policy allows same-origin and configured origins but rejects others",
   assert.equal(preflight.headers["Vary"], "Origin");
 });
 
+
+test("public PWA shell is served before API authentication", () => {
+  const source = fs.readFileSync(require.resolve("../src/server"), "utf8");
+  const staticIndex = source.indexOf("app.use(express.static");
+  const authIndex = source.indexOf("app.use(authentication(security))");
+  const v1Index = source.indexOf('app.use("/v1", v1Router)');
+  assert.ok(staticIndex >= 0, "static middleware must exist");
+  assert.ok(authIndex > staticIndex, "PWA shell must be reachable before Bearer auth");
+  assert.ok(v1Index > authIndex, "versioned API must remain behind Bearer auth");
+  for (const asset of [
+    "web/app.webmanifest",
+    "web/service-worker.js",
+    "web/offline.html",
+    "web/index.html"
+  ]) {
+    assert.equal(fs.existsSync(require("node:path").join(__dirname, "..", asset)), true, asset);
+  }
+});
+
 test("Bearer authentication uses exact tokens", () => {
   const config = { authRequired: true, apiToken: "a".repeat(32) };
   const denied = response();
