@@ -94,6 +94,15 @@ test("local fixture covers API -> Job -> Worker -> Repository without live provi
   assert.equal(queued.provider, providerName);
   assert.ok(queued.job_id);
 
+  const duplicateResponse = await fetch(
+    `${base}/api/import/${providerName}/series-1`,
+    { method: "POST" }
+  );
+  assert.equal(duplicateResponse.status, 409);
+  const duplicate = await duplicateResponse.json();
+  assert.equal(duplicate.error, "IMPORT_ALREADY_RUNNING");
+  assert.equal(duplicate.job_id, queued.job_id);
+
   const beforeWorker = await json(
     await fetch(`${base}/api/import/jobs/${queued.job_id}`)
   );
