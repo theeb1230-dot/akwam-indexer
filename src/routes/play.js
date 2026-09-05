@@ -2,6 +2,7 @@ const express = require("express");
 const providers = require("../providers");
 const { safeGet } = require("../services/safe-media-request");
 const { opaqueIdentifier } = require("../middleware/security");
+const logger = require("../observability/logger");
 
 const router = express.Router();
 
@@ -133,7 +134,10 @@ router.get("/play/:provider/:watchId/:episodeId", async (req, res) => {
     }
 
     upstream.data.on("error", err => {
-      console.error("Theeb stream error:", err.message);
+      logger.error("play_stream_failed", {
+        request_id: req.requestId,
+        error_code: err.code || "STREAM_FAILED"
+      });
 
       if (!res.destroyed) {
         res.destroy(err);
@@ -154,11 +158,11 @@ router.get("/play/:provider/:watchId/:episodeId", async (req, res) => {
   } catch (error) {
     const status = error.response?.status || null;
 
-    console.error(
-      "Theeb Play error:",
-      error.message,
-      status || ""
-    );
+    logger.error("play_request_failed", {
+      request_id: req.requestId,
+      error_code: error.code || "THEEB_PLAY_FAILED",
+      upstream_status: status
+    });
 
     if (res.headersSent) {
       return res.end();
