@@ -272,7 +272,7 @@ jobs:
           APP="$(find /tmp/theeb-ios-identity/Payload -maxdepth 1 -type d -name '*.app' | head -1)"
           INFO="$APP/Info.plist"
           test -f "$INFO"
-          EXPECTED_ID="$(xcodebuild -project ios/Runner.xcodeproj -scheme Runner -showBuildSettings 2>/dev/null | awk -F ' = ' '/PRODUCT_BUNDLE_IDENTIFIER = /{print $2; exit}')"
+          EXPECTED_ID="$(grep -E 'PRODUCT_BUNDLE_IDENTIFIER = com\\.theebarab\\.' ios/Runner.xcodeproj/project.pbxproj | head -1 | sed -E 's/.*PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);.*/\\1/')"
           EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
           EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
           EXPECTED_CODE="${EXPECTED_VERSION##*+}"
