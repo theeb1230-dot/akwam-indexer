@@ -17,7 +17,7 @@ function createLibraryRouter(options = {}) {
       logger.error("library_stats_failed", { request_id: req.requestId, error_code: error.code || "LIBRARY_STATS_FAILED" });
       res.status(500).json({
         error: "LIBRARY_STATS_FAILED",
-        message: error.message
+        message: "تعذر قراءة بيانات المكتبة الآن. حاول مرة أخرى."
       });
     }
   });
@@ -37,7 +37,7 @@ function createLibraryRouter(options = {}) {
       logger.error("library_search_failed", { request_id: req.requestId, error_code: error.code || "LIBRARY_SEARCH_FAILED" });
       res.status(500).json({
         error: "LIBRARY_SEARCH_FAILED",
-        message: error.message
+        message: "تعذر قراءة بيانات المكتبة الآن. حاول مرة أخرى."
       });
     }
   });
@@ -50,7 +50,7 @@ function createLibraryRouter(options = {}) {
       logger.error("library_series_failed", { request_id: req.requestId, error_code: error.code || "LIBRARY_SERIES_FAILED" });
       res.status(500).json({
         error: "LIBRARY_SERIES_FAILED",
-        message: error.message
+        message: "تعذر قراءة بيانات المكتبة الآن. حاول مرة أخرى."
       });
     }
   });
@@ -70,7 +70,7 @@ function createLibraryRouter(options = {}) {
       logger.error("library_episodes_failed", { request_id: req.requestId, error_code: error.code || "LIBRARY_EPISODES_FAILED" });
       res.status(500).json({
         error: "LIBRARY_EPISODES_FAILED",
-        message: error.message
+        message: "تعذر قراءة بيانات المكتبة الآن. حاول مرة أخرى."
       });
     }
   });
@@ -86,7 +86,7 @@ function createLibraryRouter(options = {}) {
       logger.error("library_series_details_failed", { request_id: req.requestId, error_code: error.code || "LIBRARY_SERIES_DETAILS_FAILED" });
       res.status(500).json({
         error: "LIBRARY_SERIES_DETAILS_FAILED",
-        message: error.message
+        message: "تعذر قراءة بيانات المكتبة الآن. حاول مرة أخرى."
       });
     }
   });
@@ -102,7 +102,7 @@ function createLibraryRouter(options = {}) {
       logger.error("library_episode_failed", { request_id: req.requestId, error_code: error.code || "LIBRARY_EPISODE_FAILED" });
       res.status(500).json({
         error: "LIBRARY_EPISODE_FAILED",
-        message: error.message
+        message: "تعذر قراءة بيانات المكتبة الآن. حاول مرة أخرى."
       });
     }
   });

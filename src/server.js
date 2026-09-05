@@ -446,8 +446,7 @@ app.get(
         error:
           "PROVIDER_SERIES_FAILED",
 
-        message:
-          error.message
+        message: "تعذر إكمال الطلب بسبب خطأ داخلي. حاول مرة أخرى."
       });
     }
   }
@@ -485,8 +484,7 @@ app.get(
         error:
           "PROVIDER_EPISODE_FAILED",
 
-        message:
-          error.message
+        message: "تعذر إكمال الطلب بسبب خطأ داخلي. حاول مرة أخرى."
       });
     }
   }
@@ -542,8 +540,7 @@ app.get(
         error:
           "PROVIDER_WATCH_FAILED",
 
-        message:
-          error.message
+        message: "تعذر إكمال الطلب بسبب خطأ داخلي. حاول مرة أخرى."
       });
     }
   }

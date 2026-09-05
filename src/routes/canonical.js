@@ -18,7 +18,7 @@ function createCanonicalRouter(options = {}) {
       logger.error("canonical_series_failed", { request_id: req.requestId, error_code: error.code || "CANONICAL_SERIES_FAILED" });
       res.status(500).json({
         error: "CANONICAL_SERIES_FAILED",
-        message: error.message
+        message: "تعذر تحميل بيانات المحتوى الآن. حاول مرة أخرى."
       });
     }
   });
@@ -41,7 +41,7 @@ function createCanonicalRouter(options = {}) {
       logger.error("canonical_episodes_failed", { request_id: req.requestId, error_code: error.code || "CANONICAL_EPISODES_FAILED" });
       res.status(500).json({
         error: "CANONICAL_EPISODES_FAILED",
-        message: error.message
+        message: "تعذر تحميل بيانات المحتوى الآن. حاول مرة أخرى."
       });
     }
   });
@@ -64,7 +64,7 @@ function createCanonicalRouter(options = {}) {
       logger.error("canonical_playback_failed", { request_id: req.requestId, error_code: error.code || "CANONICAL_PLAYBACK_FAILED" });
       res.status(500).json({
         error: "CANONICAL_PLAYBACK_FAILED",
-        message: error.message
+        message: "تعذر تحميل بيانات المحتوى الآن. حاول مرة أخرى."
       });
     }
   });

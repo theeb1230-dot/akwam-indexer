@@ -34,7 +34,7 @@ router.get(
             "SEARCH_QUERY_REQUIRED",
 
           message:
-            "Use /api/resolve?q=..."
+            "اكتب عبارة بحث للمتابعة."
         });
     }
 
@@ -62,7 +62,7 @@ router.get(
               error.code,
 
             message:
-              "More than one work matched. Supply group_key.",
+              "وجدنا أكثر من نتيجة مطابقة. اختر المحتوى المطلوب.",
 
             groups:
               error.groups ||
@@ -79,6 +79,9 @@ router.get(
           .json({
             error:
               error.code,
+
+            message:
+              "لم نجد المحتوى المطلوب.",
 
             groups:
               error.groups ||
@@ -98,7 +101,7 @@ router.get(
             "SERIES_RESOLVE_FAILED",
 
           message:
-            error.message
+            "تعذر تحميل تفاصيل المحتوى الآن. حاول مرة أخرى."
         });
     }
   }

@@ -1,4 +1,5 @@
 const express = require("express");
+const logger = require("../observability/logger");
 const {
   executePlayback
 } = require("../services/playback-executor");
@@ -16,7 +17,9 @@ router.get("/execute", async (req, res) => {
   if (!query) {
     return res.status(400).json({
       error:
-        "SEARCH_QUERY_REQUIRED"
+        "SEARCH_QUERY_REQUIRED",
+      message:
+        "اكتب عبارة بحث للمتابعة."
     });
   }
 
@@ -41,11 +44,16 @@ router.get("/execute", async (req, res) => {
         : 503
     ).json(result);
   } catch (error) {
+    logger.error("playback_execution_failed", {
+      request_id: req.requestId,
+      error_code: error.code || "PLAYBACK_EXECUTION_FAILED"
+    });
+
     return res.status(500).json({
       error:
         "PLAYBACK_EXECUTION_FAILED",
       message:
-        error.message
+        "تعذر تجهيز المشاهدة الآن. حاول مرة أخرى."
     });
   }
 });

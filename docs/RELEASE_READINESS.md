@@ -10,7 +10,7 @@
 
 ## الحالة الحالية
 
-الحالة الحالية **غير مؤهلة حتى Experimental** لأن API HTTPS خارجي حقيقي وruntime smoke للحزم القابلة للتثبيت لم يُثبتا بعد. لذلك المصفوفة تبدأ متحفظة بـ`NOT_VERIFIED` بدل اختراع أدلة من نجاح build داخلي.
+أصبح لدينا API HTTPS خارجي حقيقي على Render مرتبط بقاعدة PostgreSQL في Neon، ونجحت `/livez` و`/readyz` و`/v1/search` وDart client smoke. تبقى مصفوفة المصدر الثابت متحفظة، بينما يولّد Workflow الإصدار مصفوفة أدلة runtime مرتبطة بنفس `GITHUB_SHA` و`GITHUB_RUN_ID` بعد نجاح الاختبارات وفحص الحزم الثلاث. لا يُنشر GitHub Release إلا بعد نجاح هذه الأدلة.
 
 ## الحزم المطلوبة لكل GitHub Release
 
@@ -37,3 +37,13 @@ The client release workflow now records platform metadata before a release candi
 - the same commit SHA and the same version/build across all three client artifacts.
 
 The metadata validator rejects commit drift, version drift, unexpected product identifiers, missing Android signature evidence, missing TV manifest evidence, and malformed iOS payload structure. These checks do not replace device runtime smoke; they only prove artifact identity/integrity before runtime evidence is considered.
+
+
+## أول إصدار يعتمد الـAPI الحقيقي
+
+الإصدار التجريبي الأول يستخدم:
+- API: `https://theeb-arab-api.onrender.com`
+- Flutter client version: `0.1.1+2`
+- GitHub Release tag: `v0.1.1-experimental.1`
+- Android Mobile APK + Android TV APK + iOS unsigned IPA من نفس commit.
+- iOS remains unsigned في هذا التصنيف ولا يُدّعى أنه App Store-signed.

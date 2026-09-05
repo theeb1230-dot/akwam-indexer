@@ -170,7 +170,7 @@ router.get("/play/:provider/:watchId/:episodeId", async (req, res) => {
 
     return res.status(502).json({
       error: "THEEB_PLAY_FAILED",
-      message: error.message,
+      message: "تعذر بدء المشاهدة الآن. جرّب مرة أخرى أو اختر مصدرًا آخر.",
       upstream_status: status
     });
   }
