@@ -11,7 +11,7 @@ function numberEnv(value, fallback, options = {}) {
 }
 
 function alertConfig(env = process.env) {
-  return Object.freeze({
+  const config = {
     minRequests: Math.floor(numberEnv(env.ALERT_MIN_REQUESTS, 20, {
       minimum: 1, maximum: 100000, code: "INVALID_ALERT_MIN_REQUESTS"
     })),
@@ -33,7 +33,22 @@ function alertConfig(env = process.env) {
     openCircuitsCritical: Math.floor(numberEnv(env.ALERT_OPEN_CIRCUITS_CRITICAL, 5, {
       minimum: 1, maximum: 1000, code: "INVALID_ALERT_OPEN_CIRCUITS_CRITICAL"
     }))
-  });
+  };
+
+  const orderedPairs = [
+    ["httpErrorWarningRatio", "httpErrorCriticalRatio", "INVALID_ALERT_HTTP_ERROR_THRESHOLD_ORDER"],
+    ["httpAvgLatencyWarningMs", "httpAvgLatencyCriticalMs", "INVALID_ALERT_HTTP_LATENCY_THRESHOLD_ORDER"],
+    ["openCircuitsWarning", "openCircuitsCritical", "INVALID_ALERT_OPEN_CIRCUIT_THRESHOLD_ORDER"]
+  ];
+  for (const [warningKey, criticalKey, code] of orderedPairs) {
+    if (config.warningKey === config.criticalKey) continue;
+    if (config[warningKey] >= config[criticalKey]) {
+      const error = new Error(code);
+      error.code = code;
+      throw error;
+    }
+  }
+  return Object.freeze(config);
 }
 
 function counterTotal(snapshot, name, predicate = () => true) {
@@ -137,7 +152,8 @@ function evaluateAlerts(options = {}) {
       http_5xx: serverErrors,
       http_error_ratio: Math.round(errorRatio * 10000) / 10000,
       http_avg_latency_ms: averageLatencyMs,
-      open_circuits: circuits.length
+      open_circuits: circuits.length,
+      minimum_http_samples_met: requests >= config.minRequests
     }
   };
 }
