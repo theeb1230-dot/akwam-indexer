@@ -9,6 +9,7 @@ const { databaseUrl } = require("../src/db/postgres");
 const { installShutdownHandlers, shutdownTimeoutMs } = require("../src/runtime/shutdown");
 const { backup } = require("../scripts/backup-postgres");
 const { app, runtimeState, startServer } = require("../src/server");
+const { start } = require("../src/entrypoint");
 
 test("production validation requires PostgreSQL and verified TLS", () => {
   assert.deepEqual(validate({
@@ -59,10 +60,36 @@ test("zero-cost mode accepts only explicitly free deployment targets", () => {
   assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "koyeb-free" }).zero_cost_only, true);
   assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "oracle-always-free" }).deployment_target, "oracle-always-free");
   assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "cloudflare-workers-free" }).deployment_target, "cloudflare-workers-free");
+  assert.equal(validate({ ...base, THEEB_DEPLOYMENT_TARGET: "render-free" }).deployment_target, "render-free");
   assert.throws(() => validate({ ...base, THEEB_DEPLOYMENT_TARGET: "cloud-run" }), error =>
     error.details.includes("NON_ZERO_COST_TARGET_REJECTED"));
   assert.throws(() => validate(base), error =>
     error.details.includes("ZERO_COST_DEPLOYMENT_TARGET_REQUIRED"));
+});
+
+test("production entrypoint enforces validation before starting runtime", () => {
+  assert.throws(() => start({
+    NODE_ENV: "production",
+    THEEB_ROLE: "api",
+    DATABASE_DRIVER: "sqlite",
+    THEEB_ZERO_COST_ONLY: "true",
+    THEEB_DEPLOYMENT_TARGET: "render-free"
+  }), error => error.code === "INVALID_PRODUCTION_CONFIGURATION");
+});
+
+test("Render free blueprint stays bounded, secret-safe, and Experimental-only", () => {
+  const blueprint = fs.readFileSync(path.join(__dirname, "..", "render.yaml"), "utf8");
+  const renderDoc = fs.readFileSync(path.join(__dirname, "..", "deploy/render/README.md"), "utf8");
+  assert.match(blueprint, /plan: free/);
+  assert.match(blueprint, /healthCheckPath: \/readyz/);
+  assert.match(blueprint, /autoDeployTrigger: checksPass/);
+  assert.match(blueprint, /renderSubdomainPolicy: enabled/);
+  assert.match(blueprint, /THEEB_DEPLOYMENT_TARGET[\s\S]*render-free/);
+  assert.match(blueprint, /DATABASE_URL[\s\S]*sync: false/);
+  assert.match(blueprint, /THEEB_API_TOKEN[\s\S]*generateValue: true/);
+  assert.doesNotMatch(blueprint, /postgres(?:ql)?:\/\//i);
+  assert.match(renderDoc, /Experimental release candidate host only/);
+  assert.match(renderDoc, /Never use this target as evidence for Beta\/Golden\/Complete/);
 });
 
 test("production validation rejects implicit all, unimplemented roles and weak TLS policy", () => {
