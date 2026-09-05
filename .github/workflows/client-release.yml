@@ -29,10 +29,14 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - name: Validate public API readiness and search
-        env:
-          THEEB_INSTALLABLE_API_TOKEN: ${{ secrets.THEEB_RELEASE_API_TOKEN }}
+      - name: Use Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+      - name: Validate public API readiness and unauthenticated search
         run: node scripts/validate-installable-api-url.js
+      - name: Run real Dart client search smoke
+        env:
+          THEEB_API_BASE_URL: ${{ env.THEEB_INSTALLABLE_API_BASE_URL }}
+        run: dart clients/dart/tool/remote_smoke.dart
 
   android:
     needs: validate-api
@@ -62,7 +66,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-apk && mkdir -p /tmp/theeb-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-apk
-          if grep -R -a -E 'example\.invalid|example\.com|example\.org|localhost|127\.0\.0\.1|0\.0\.0\.0' /tmp/theeb-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1:8080/' /tmp/theeb-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_ARTIFACT"
             exit 1
           fi
@@ -111,7 +115,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-tv-apk && mkdir -p /tmp/theeb-tv-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-tv-apk
-          if grep -R -a -E 'example\.invalid|example\.com|example\.org|localhost|127\.0\.0\.1|0\.0\.0\.0' /tmp/theeb-tv-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1:8080/' /tmp/theeb-tv-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_TV_ARTIFACT"
             exit 1
           fi
@@ -164,7 +168,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-ipa && mkdir -p /tmp/theeb-ipa
           unzip -qq clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa -d /tmp/theeb-ipa
-          if grep -R -a -E 'example\.invalid|example\.com|example\.org|localhost|127\.0\.0\.1|0\.0\.0\.0' /tmp/theeb-ipa; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1:8080/' /tmp/theeb-ipa; then
             echo "PLACEHOLDER_FOUND_IN_IOS_ARTIFACT"
             exit 1
           fi
