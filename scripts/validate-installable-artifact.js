@@ -42,6 +42,32 @@ function filesUnder(root) {
   return output;
 }
 
+function validateBuffer(buffer, expectedBase, label = "artifact") {
+  let expected;
+  try { expected = new URL(String(expectedBase || "").trim()); }
+  catch { fail("EXPECTED_API_BASE_URL_INVALID"); }
+  if (expected.protocol !== "https:" || forbiddenHost(expected.hostname)) {
+    fail("EXPECTED_API_BASE_URL_NOT_INSTALLABLE");
+  }
+
+  const expectedBytes = Buffer.from(String(expectedBase));
+  const expectedFound = buffer.includes(expectedBytes);
+  const rejected = [];
+  const text = buffer.toString("latin1");
+  for (const raw of text.match(/https?:\\/\\/[^\\s"'<>\\x00-\\x1f]{1,2048}/gi) || []) {
+    let parsed;
+    try { parsed = new URL(raw.replace(/[),.;}\\]]+$/g, "")); }
+    catch { continue; }
+    if (forbiddenHost(parsed.hostname)) {
+      rejected.push({ file: label, host: parsed.hostname });
+    }
+  }
+
+  if (rejected.length) fail("PLACEHOLDER_OR_PRIVATE_ENDPOINT_FOUND", rejected.slice(0, 20));
+  if (!expectedFound) fail("CONFIGURED_API_NOT_FOUND_IN_ARTIFACT");
+  return { status: "passed", expected_origin: expected.origin };
+}
+
 function validateArtifact(root, expectedBase) {
   if (!root || !fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
     fail("ARTIFACT_DIRECTORY_REQUIRED");
@@ -53,27 +79,8 @@ function validateArtifact(root, expectedBase) {
     fail("EXPECTED_API_BASE_URL_NOT_INSTALLABLE");
   }
 
-  const expectedBytes = Buffer.from(String(expectedBase));
-  let expectedFound = false;
-  const rejected = [];
-
-  for (const file of filesUnder(root)) {
-    const buffer = fs.readFileSync(file);
-    if (!expectedFound && buffer.includes(expectedBytes)) expectedFound = true;
-    const text = buffer.toString("latin1");
-    for (const raw of text.match(/https?:\/\/[^\s"'<>\x00-\x1f]{1,2048}/gi) || []) {
-      let parsed;
-      try { parsed = new URL(raw.replace(/[),.;}\]]+$/g, "")); }
-      catch { continue; }
-      if (forbiddenHost(parsed.hostname)) {
-        rejected.push({ file: path.relative(root, file), host: parsed.hostname });
-      }
-    }
-  }
-
-  if (rejected.length) fail("PLACEHOLDER_OR_PRIVATE_ENDPOINT_FOUND", rejected.slice(0, 20));
-  if (!expectedFound) fail("CONFIGURED_API_NOT_FOUND_IN_ARTIFACT");
-  return { status: "passed", expected_origin: expected.origin };
+  const buffers = filesUnder(root).map(file => fs.readFileSync(file));
+  return validateBuffer(Buffer.concat(buffers), expectedBase, path.basename(root));
 }
 
 if (require.main === module) {
@@ -85,4 +92,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { forbiddenHost, validateArtifact };
+module.exports = { forbiddenHost, validateArtifact, validateBuffer };
