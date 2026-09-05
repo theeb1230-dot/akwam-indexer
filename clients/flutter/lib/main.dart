@@ -7,6 +7,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 typedef UriOpener = Future<bool> Function(Uri uri);
 
+const bool kTheebTvBuild =
+    String.fromEnvironment('THEEB_TARGET', defaultValue: 'mobile') == 'tv';
+const TheebPlatform kTheebPlatform =
+    kTheebTvBuild ? TheebPlatform.androidTv : TheebPlatform.android;
+
 Future<bool> defaultOpenUri(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);
 
@@ -45,11 +50,13 @@ class SearchScreen extends StatefulWidget {
     this.api,
     this.baseUri,
     this.opener = defaultOpenUri,
+    this.platform = kTheebPlatform,
   });
 
   final TheebApiClient? api;
   final Uri? baseUri;
   final UriOpener opener;
+  final TheebPlatform platform;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -115,6 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
             baseUri: _baseUri,
             seriesId: item.id,
             opener: widget.opener,
+            platform: widget.platform,
           ),
         ),
       ),
@@ -196,12 +204,14 @@ class SeriesScreen extends StatefulWidget {
     required this.baseUri,
     required this.seriesId,
     required this.opener,
+    required this.platform,
   });
 
   final TheebApiClient api;
   final Uri baseUri;
   final int seriesId;
   final UriOpener opener;
+  final TheebPlatform platform;
 
   @override
   State<SeriesScreen> createState() => _SeriesScreenState();
@@ -246,6 +256,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
             baseUri: widget.baseUri,
             episodeId: episode.id,
             opener: widget.opener,
+            platform: widget.platform,
           ),
         ),
       ),
@@ -309,12 +320,14 @@ class EpisodeScreen extends StatefulWidget {
     required this.baseUri,
     required this.episodeId,
     required this.opener,
+    required this.platform,
   });
 
   final TheebApiClient api;
   final Uri baseUri;
   final int episodeId;
   final UriOpener opener;
+  final TheebPlatform platform;
 
   @override
   State<EpisodeScreen> createState() => _EpisodeScreenState();
@@ -358,7 +371,7 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
       final session = await widget.api.createPlaybackSession(
         CreatePlaybackSessionRequest(
           canonicalEpisodeId: widget.episodeId,
-          platform: TheebPlatform.android,
+          platform: widget.platform,
         ),
       );
       if (!mounted) return;

@@ -6,6 +6,7 @@ import 'package:theeb_client/theeb_api_contract.dart';
 class FakeTransport implements TheebApiTransport {
   final List<String> gets = <String>[];
   final List<String> posts = <String>[];
+  final List<Map<String, Object?>> postBodies = <Map<String, Object?>>[];
 
   @override
   Future<Map<String, Object?>> get(String path) async {
@@ -92,6 +93,7 @@ class FakeTransport implements TheebApiTransport {
     Map<String, Object?> body,
   ) async {
     posts.add(path);
+    postBodies.add(body);
     if (path == '/v1/playback/sessions') {
       return {
         'data': {
@@ -134,6 +136,36 @@ void main() {
     expect(find.text('ذيب العرب'), findsOneWidget);
     expect(find.text('بحث'), findsOneWidget);
     expect(find.text('ابحث عن مسلسل أو فيلم…'), findsOneWidget);
+  });
+
+  testWidgets('Android TV playback requests identify the TV platform', (tester) async {
+    final fake = FakeTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: SearchScreen(
+            api: TheebApiClient(fake),
+            baseUri: Uri.parse('http://127.0.0.1:8080/'),
+            opener: (_) async => true,
+            platform: TheebPlatform.androidTv,
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'Fixture');
+    await tester.tap(find.text('بحث'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fixture Series'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Episode 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مشاهدة'));
+    await tester.pumpAndSettle();
+
+    final client = fake.postBodies.single['client'] as Map<String, Object?>;
+    expect(client['platform'], 'android_tv');
   });
 
   testWidgets('watch and download remain explicit user actions', (tester) async {

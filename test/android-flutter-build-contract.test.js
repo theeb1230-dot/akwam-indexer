@@ -8,6 +8,7 @@ test("Android Flutter build pipeline remains wired to a real APK artifact", () =
   const workflow = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
   const pubspec = fs.readFileSync(path.join(root, "clients/flutter/pubspec.yaml"), "utf8");
   const main = fs.readFileSync(path.join(root, "clients/flutter/lib/main.dart"), "utf8");
+  const tvConfigurator = fs.readFileSync(path.join(root, "clients/flutter/tool/configure_android_tv.dart"), "utf8");
   const brand = fs.readFileSync(path.join(root, "clients/dart/lib/theeb_brand.dart"), "utf8");
 
   const checks = {
@@ -19,7 +20,13 @@ test("Android Flutter build pipeline remains wired to a real APK artifact", () =
     sharedClientPath: pubspec.includes("path: ../dart"),
     arabicBrand: brand.includes("ذيب العرب"),
     sharedBrandUsage: main.includes("TheebBrand.productNameAr"),
-    apiClientUsage: main.includes("TheebApiClient(")
+    apiClientUsage: main.includes("TheebApiClient("),
+    tvJob: workflow.includes("flutter-android-tv:"),
+    tvTarget: workflow.includes("--dart-define=THEEB_TARGET=tv"),
+    tvArtifact: workflow.includes("theeb-arab-android-tv-debug"),
+    leanback: tvConfigurator.includes("android.software.leanback"),
+    noTouchscreenRequirement: tvConfigurator.includes("android.hardware.touchscreen"),
+    tvPlatformContract: main.includes("TheebPlatform.androidTv")
   };
 
   for (const [name, passed] of Object.entries(checks)) {
