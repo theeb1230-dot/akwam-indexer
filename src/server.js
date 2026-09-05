@@ -517,6 +517,13 @@ app.get(
     }
 
     try {
+      if (
+        !validProviderTarget(provider, req.params.watchId) ||
+        !validProviderTarget(provider, req.params.episodeId)
+      ) {
+        return res.status(400).json({ error: "INVALID_PROVIDER_TARGET" });
+      }
+
       const result =
         await provider.getWatchInfo(
           req.params.watchId,
