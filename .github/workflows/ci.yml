@@ -138,16 +138,11 @@ jobs:
       - name: Run Flutter tests
         working-directory: clients/flutter
         run: flutter test
-      - name: Build Android debug APK
+      - name: Compile Android debug APK
         working-directory: clients/flutter
-        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL=https://example.invalid/
-      - name: Upload Android debug APK
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: theeb-arab-android-debug
-          path: clients/flutter/build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
+        run: flutter build apk --debug
+      - name: Guard compile-only artifact policy
+        run: test ! -f clients/flutter/build/app/outputs/flutter-apk/theeb-arab-installable.apk
 
   flutter-android-tv:
     runs-on: ubuntu-latest
@@ -176,16 +171,11 @@ jobs:
       - name: Run Flutter TV tests
         working-directory: clients/flutter
         run: flutter test
-      - name: Build Android TV debug APK
+      - name: Compile Android TV debug APK
         working-directory: clients/flutter
-        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL=https://example.invalid/ --dart-define=THEEB_TARGET=tv
-      - name: Upload Android TV debug APK
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: theeb-arab-android-tv-debug
-          path: clients/flutter/build/app/outputs/flutter-apk/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
+        run: flutter build apk --debug --dart-define=THEEB_TARGET=tv
+      - name: Guard compile-only artifact policy
+        run: test ! -f clients/flutter/build/app/outputs/flutter-apk/theeb-arab-tv-installable.apk
 
   flutter-ios:
     runs-on: macos-latest
@@ -211,20 +201,8 @@ jobs:
       - name: Run Flutter iOS tests
         working-directory: clients/flutter
         run: flutter test
-      - name: Build unsigned iOS app
+      - name: Compile unsigned iOS app
         working-directory: clients/flutter
-        run: flutter build ios --release --no-codesign --dart-define=THEEB_API_BASE_URL=https://example.invalid/ --dart-define=THEEB_TARGET=ios
-      - name: Package unsigned IPA
-        working-directory: clients/flutter
-        run: |
-          mkdir -p build/ios/unsigned/Payload
-          cp -R build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/
-          cd build/ios/unsigned
-          zip -qry ../theeb-arab-ios-unsigned.ipa Payload
-      - name: Upload unsigned iOS IPA
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: theeb-arab-ios-unsigned
-          path: clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa
-          if-no-files-found: error
-          retention-days: 7
+        run: flutter build ios --release --no-codesign --dart-define=THEEB_TARGET=ios
+      - name: Guard compile-only artifact policy
+        run: test ! -f clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa
