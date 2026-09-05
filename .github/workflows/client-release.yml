@@ -1,0 +1,215 @@
+name: Client Release Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: Public production HTTPS API base URL
+        required: true
+        type: string
+      release_tag:
+        description: Optional GitHub release tag
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  THEEB_INSTALLABLE_API_BASE_URL: ${{ inputs.api_base_url }}
+
+jobs:
+  validate-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Use Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Validate public API readiness and search
+        env:
+          THEEB_INSTALLABLE_API_TOKEN: ${{ secrets.THEEB_RELEASE_API_TOKEN }}
+        run: node scripts/validate-installable-api-url.js
+
+  android:
+    needs: validate-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Use Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android platform scaffold
+        working-directory: clients/flutter
+        run: flutter create --platforms=android --org com.theebarab --project-name theeb_arab .
+      - name: Get Flutter dependencies
+        working-directory: clients/flutter
+        run: flutter pub get
+      - name: Analyze and test
+        working-directory: clients/flutter
+        run: flutter analyze && flutter test
+      - name: Build installable Android APK
+        working-directory: clients/flutter
+        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true
+      - name: Validate Android artifact contents
+        run: |
+          rm -rf /tmp/theeb-apk && mkdir -p /tmp/theeb-apk
+          unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-apk
+          if grep -R -a -E 'example\.invalid|example\.com|example\.org|localhost|127\.0\.0\.1|0\.0\.0\.0' /tmp/theeb-apk; then
+            echo "PLACEHOLDER_FOUND_IN_ANDROID_ARTIFACT"
+            exit 1
+          fi
+          grep -R -a -F "$THEEB_INSTALLABLE_API_BASE_URL" /tmp/theeb-apk >/dev/null || {
+            echo "CONFIGURED_API_NOT_FOUND_IN_ANDROID_ARTIFACT"
+            exit 1
+          }
+      - name: Stage Android artifact
+        run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android.apk
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-android
+          path: theeb-arab-android.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  android-tv:
+    needs: validate-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Use Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android platform scaffold
+        working-directory: clients/flutter
+        run: flutter create --platforms=android --org com.theebarab --project-name theeb_arab .
+      - name: Configure Android TV manifest
+        working-directory: clients/flutter
+        run: dart run tool/configure_android_tv.dart
+      - name: Get Flutter dependencies
+        working-directory: clients/flutter
+        run: flutter pub get
+      - name: Analyze and test
+        working-directory: clients/flutter
+        run: flutter analyze && flutter test
+      - name: Build installable Android TV APK
+        working-directory: clients/flutter
+        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true --dart-define=THEEB_TARGET=tv
+      - name: Validate Android TV artifact contents
+        run: |
+          rm -rf /tmp/theeb-tv-apk && mkdir -p /tmp/theeb-tv-apk
+          unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-tv-apk
+          if grep -R -a -E 'example\.invalid|example\.com|example\.org|localhost|127\.0\.0\.1|0\.0\.0\.0' /tmp/theeb-tv-apk; then
+            echo "PLACEHOLDER_FOUND_IN_ANDROID_TV_ARTIFACT"
+            exit 1
+          fi
+          grep -R -a -F "$THEEB_INSTALLABLE_API_BASE_URL" /tmp/theeb-tv-apk >/dev/null || {
+            echo "CONFIGURED_API_NOT_FOUND_IN_ANDROID_TV_ARTIFACT"
+            exit 1
+          }
+      - name: Stage Android TV artifact
+        run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android-tv.apk
+      - name: Upload Android TV artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-android-tv
+          path: theeb-arab-android-tv.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    needs: validate-api
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Use Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate iOS platform scaffold
+        working-directory: clients/flutter
+        run: flutter create --platforms=ios --org com.theebarab --project-name theeb_arab .
+      - name: Get Flutter dependencies
+        working-directory: clients/flutter
+        run: flutter pub get
+      - name: Analyze and test
+        working-directory: clients/flutter
+        run: flutter analyze && flutter test
+      - name: Build unsigned installable iOS app
+        working-directory: clients/flutter
+        run: flutter build ios --release --no-codesign --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true --dart-define=THEEB_TARGET=ios
+      - name: Package unsigned IPA
+        working-directory: clients/flutter
+        run: |
+          mkdir -p build/ios/unsigned/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/
+          cd build/ios/unsigned
+          zip -qry ../theeb-arab-ios-unsigned.ipa Payload
+      - name: Validate iOS artifact contents
+        run: |
+          rm -rf /tmp/theeb-ipa && mkdir -p /tmp/theeb-ipa
+          unzip -qq clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa -d /tmp/theeb-ipa
+          if grep -R -a -E 'example\.invalid|example\.com|example\.org|localhost|127\.0\.0\.1|0\.0\.0\.0' /tmp/theeb-ipa; then
+            echo "PLACEHOLDER_FOUND_IN_IOS_ARTIFACT"
+            exit 1
+          fi
+          grep -R -a -F "$THEEB_INSTALLABLE_API_BASE_URL" /tmp/theeb-ipa >/dev/null || {
+            echo "CONFIGURED_API_NOT_FOUND_IN_IOS_ARTIFACT"
+            exit 1
+          }
+      - name: Stage iOS artifact
+        run: cp clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa theeb-arab-ios-unsigned.ipa
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-ios-unsigned
+          path: theeb-arab-ios-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-release:
+    needs: [android, android-tv, ios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download Android artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android
+          path: release
+      - name: Download Android TV artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android-tv
+          path: release
+      - name: Download iOS artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-ios-unsigned
+          path: release
+      - name: Publish verified client release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+        run: |
+          TAG="${RELEASE_TAG_INPUT:-client-${GITHUB_RUN_NUMBER}}"
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "ذيب العرب - $TAG" \
+            --notes "Verified against $THEEB_INSTALLABLE_API_BASE_URL. API readiness and search smoke passed before build. iOS IPA is unsigned and still requires external signing for installation."
