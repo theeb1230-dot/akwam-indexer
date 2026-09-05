@@ -32,6 +32,8 @@ jobs:
 
       - name: Run tests
         run: npm test
+      - name: Validate release readiness matrix shape
+        run: node scripts/validate-release-readiness.js
 
   container:
     runs-on: ubuntu-latest
