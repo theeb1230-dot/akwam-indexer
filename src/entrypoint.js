@@ -8,6 +8,10 @@ const {
 );
 
 function start(env = process.env) {
+  if (String(env.NODE_ENV || "").toLowerCase() === "production") {
+    require("./config/production").validateProductionConfig(env);
+  }
+
   const role =
     assertImplementedRole(
       getRuntimeRole(env)
