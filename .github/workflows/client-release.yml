@@ -83,7 +83,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-apk && mkdir -p /tmp/theeb-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-apk
-          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1:8080/' /tmp/theeb-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'http://127.0.0.1:8080/' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_ARTIFACT"
             exit 1
           fi
@@ -160,7 +160,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-tv-apk && mkdir -p /tmp/theeb-tv-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-tv-apk
-          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1:8080/' /tmp/theeb-tv-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'http://127.0.0.1:8080/' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-tv-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_TV_ARTIFACT"
             exit 1
           fi
@@ -247,7 +247,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-ipa && mkdir -p /tmp/theeb-ipa
           unzip -qq clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa -d /tmp/theeb-ipa
-          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1:8080/' /tmp/theeb-ipa; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'http://127.0.0.1:8080/' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-ipa; then
             echo "PLACEHOLDER_FOUND_IN_IOS_ARTIFACT"
             exit 1
           fi
