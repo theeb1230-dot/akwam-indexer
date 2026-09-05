@@ -1,4 +1,5 @@
 const express = require("express");
+const logger = require("../observability/logger");
 
 const jobs = require("../services/job-manager");
 const {
@@ -22,7 +23,7 @@ function createRefreshAllRouter(options = {}) {
     options.shouldExecuteJobsInline ||
     shouldExecuteJobsInline;
 
-  router.post("/refresh-all", async (_req, res) => {
+  router.post("/refresh-all", async (req, res) => {
     try {
       const seriesList = await repository.listAllSeries();
 
@@ -108,7 +109,10 @@ function createRefreshAllRouter(options = {}) {
             });
           } catch (error) {
             await jobManager.fail(parentJob.id, error);
-            console.error("Refresh-all failed:", error.message);
+            logger.error("refresh_all_job_failed", {
+              job_id: parentJob.id,
+              error_code: error.code || "REFRESH_ALL_JOB_FAILED"
+            });
           }
         });
       }
@@ -121,7 +125,10 @@ function createRefreshAllRouter(options = {}) {
         progress_url: `/api/import/jobs/${parentJob.id}`
       });
     } catch (error) {
-      console.error(error);
+      logger.error("refresh_all_request_failed", {
+        request_id: req.requestId,
+        error_code: error.code || "REFRESH_ALL_FAILED"
+      });
       return res.status(500).json({
         error: "REFRESH_ALL_FAILED",
         message: error.message
