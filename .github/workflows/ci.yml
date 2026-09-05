@@ -99,6 +99,8 @@ jobs:
   dart-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      THEEB_DELIVERY_API_BASE_URL: ${{ vars.THEEB_API_BASE_URL }}
 
     steps:
       - name: Checkout
@@ -110,13 +112,29 @@ jobs:
       - name: Run client contract tests
         run: dart clients/dart/test/theeb_api_contract_test.dart
       - name: Analyze mobile foundation
-        run: dart analyze clients/dart/lib/http_theeb_transport.dart clients/dart/lib/theeb_client_config.dart clients/dart/lib/theeb_brand.dart clients/dart/test/mobile_foundation_test.dart
+        run: dart analyze clients/dart/lib/http_theeb_transport.dart clients/dart/lib/theeb_client_config.dart clients/dart/lib/theeb_brand.dart clients/dart/test/mobile_foundation_test.dart clients/dart/tool/remote_smoke.dart
       - name: Run mobile foundation tests
         run: dart clients/dart/test/mobile_foundation_test.dart
+      - name: Validate configured delivery API readiness
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
+        run: |
+          READY_URL="${THEEB_DELIVERY_API_BASE_URL%/}/readyz"
+          curl --fail --silent --show-error --max-time 10 "$READY_URL" | grep -q '"status":"ready"'
+      - name: Run Dart client search smoke against delivery API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
+        env:
+          THEEB_API_BASE_URL: ${{ env.THEEB_DELIVERY_API_BASE_URL }}
+        run: dart clients/dart/tool/remote_smoke.dart
+      - name: Confirm delivery artifacts are intentionally disabled without a real API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL == '' }}
+        run: echo "::notice::THEEB_API_BASE_URL repository variable is not configured; no installable mobile artifacts will be produced."
 
   flutter-android:
+    needs: dart-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      THEEB_DELIVERY_API_BASE_URL: ${{ vars.THEEB_API_BASE_URL }}
 
     steps:
       - name: Checkout
@@ -138,20 +156,37 @@ jobs:
       - name: Run Flutter tests
         working-directory: clients/flutter
         run: flutter test
-      - name: Build Android debug APK
+      - name: Build Android debug APK with verified API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         working-directory: clients/flutter
-        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL=https://example.invalid/
+        run: flutter build apk --debug --dart-define="THEEB_API_BASE_URL=$THEEB_DELIVERY_API_BASE_URL"
+      - name: Validate Android artifact API configuration
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
+        run: |
+          rm -rf /tmp/theeb-android && mkdir -p /tmp/theeb-android
+          unzip -q clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-android
+          ! grep -aR -F 'https://example.invalid/' /tmp/theeb-android
+          ! grep -aR -F 'http://127.0.0.1:8080/' /tmp/theeb-android
+          ! grep -aR -F 'https://example.com/' /tmp/theeb-android
+          grep -aR -F "$THEEB_DELIVERY_API_BASE_URL" /tmp/theeb-android >/dev/null
       - name: Upload Android debug APK
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: theeb-arab-android-debug
           path: clients/flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Skip Android artifact without verified API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL == '' }}
+        run: echo "::notice::Android compile checks passed, but installable APK generation is disabled until THEEB_API_BASE_URL is configured and reachable."
 
   flutter-android-tv:
+    needs: dart-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      THEEB_DELIVERY_API_BASE_URL: ${{ vars.THEEB_API_BASE_URL }}
 
     steps:
       - name: Checkout
@@ -176,20 +211,37 @@ jobs:
       - name: Run Flutter TV tests
         working-directory: clients/flutter
         run: flutter test
-      - name: Build Android TV debug APK
+      - name: Build Android TV debug APK with verified API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         working-directory: clients/flutter
-        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL=https://example.invalid/ --dart-define=THEEB_TARGET=tv
+        run: flutter build apk --debug --dart-define="THEEB_API_BASE_URL=$THEEB_DELIVERY_API_BASE_URL" --dart-define=THEEB_TARGET=tv
+      - name: Validate Android TV artifact API configuration
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
+        run: |
+          rm -rf /tmp/theeb-tv && mkdir -p /tmp/theeb-tv
+          unzip -q clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-tv
+          ! grep -aR -F 'https://example.invalid/' /tmp/theeb-tv
+          ! grep -aR -F 'http://127.0.0.1:8080/' /tmp/theeb-tv
+          ! grep -aR -F 'https://example.com/' /tmp/theeb-tv
+          grep -aR -F "$THEEB_DELIVERY_API_BASE_URL" /tmp/theeb-tv >/dev/null
       - name: Upload Android TV debug APK
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: theeb-arab-android-tv-debug
           path: clients/flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Skip Android TV artifact without verified API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL == '' }}
+        run: echo "::notice::Android TV compile checks passed, but installable APK generation is disabled until THEEB_API_BASE_URL is configured and reachable."
 
   flutter-ios:
+    needs: dart-contract
     runs-on: macos-latest
     timeout-minutes: 20
+    env:
+      THEEB_DELIVERY_API_BASE_URL: ${{ vars.THEEB_API_BASE_URL }}
 
     steps:
       - name: Checkout
@@ -211,10 +263,19 @@ jobs:
       - name: Run Flutter iOS tests
         working-directory: clients/flutter
         run: flutter test
-      - name: Build unsigned iOS app
+      - name: Build unsigned iOS app with verified API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         working-directory: clients/flutter
-        run: flutter build ios --release --no-codesign --dart-define=THEEB_API_BASE_URL=https://example.invalid/ --dart-define=THEEB_TARGET=ios
+        run: flutter build ios --release --no-codesign --dart-define="THEEB_API_BASE_URL=$THEEB_DELIVERY_API_BASE_URL" --dart-define=THEEB_TARGET=ios
+      - name: Validate iOS artifact API configuration
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
+        run: |
+          ! grep -aR -F 'https://example.invalid/' clients/flutter/build/ios/iphoneos/Runner.app
+          ! grep -aR -F 'http://127.0.0.1:8080/' clients/flutter/build/ios/iphoneos/Runner.app
+          ! grep -aR -F 'https://example.com/' clients/flutter/build/ios/iphoneos/Runner.app
+          grep -aR -F "$THEEB_DELIVERY_API_BASE_URL" clients/flutter/build/ios/iphoneos/Runner.app >/dev/null
       - name: Package unsigned IPA
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         working-directory: clients/flutter
         run: |
           mkdir -p build/ios/unsigned/Payload
@@ -222,9 +283,13 @@ jobs:
           cd build/ios/unsigned
           zip -qry ../theeb-arab-ios-unsigned.ipa Payload
       - name: Upload unsigned iOS IPA
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: theeb-arab-ios-unsigned
           path: clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa
           if-no-files-found: error
           retention-days: 7
+      - name: Skip iOS artifact without verified API
+        if: ${{ env.THEEB_DELIVERY_API_BASE_URL == '' }}
+        run: echo "::notice::iOS analyze/tests passed, but unsigned IPA generation is disabled until THEEB_API_BASE_URL is configured and reachable."
