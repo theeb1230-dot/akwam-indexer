@@ -700,6 +700,15 @@ test("TLS diagnostics classify certificate rejection without accepting it", () =
   assert.equal(tlsVerificationError(new Error("certificate wording only")), false);
 });
 
+test("HTTP routes never write raw errors directly to console", () => {
+  const root = path.join(__dirname, "..", "src", "routes");
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+    const file = path.join(root, entry.name);
+    assert.doesNotMatch(fs.readFileSync(file, "utf8"), /console\.error\s*\(/, file);
+  }
+});
+
 test("runtime provider traffic cannot bypass the safe request layer", () => {
   const roots = [
     require("node:path").join(__dirname, "..", "src", "providers"),
