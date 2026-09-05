@@ -94,6 +94,6 @@ Queued jobs cancel immediately. Running import/refresh/health jobs observe the c
 
 ## Live Playback Execution
 
-`GET /api/playback/execute?q=Lucky&group_key=series:lucky&season=1&episode=1`
+`GET /api/playback/execute?q=Lucky&group_key=series:lucky&season=1&episode=1&region=SA`
 
-ينفذ الخطة فعلًا بالترتيب الديناميكي، ويتجاوز Circuit Open، ويطبق Retry Policy ويسجل كل محاولة. التحقق من Direct يعني قراءة Media bytes عبر Range. التحقق من Embed يعني وصول صفحة التضمين فقط؛ نجاح تشغيل الفيديو داخل WebView يحتاج لاحقًا Telemetry من تطبيق ذيب.
+ينفذ الخطة فعلًا بالترتيب الديناميكي، ويتجاوز Circuit Open، ويطبق Retry Policy ويسجل كل محاولة. معامل `region` اختياري ويقبل تفضيل منطقة بحرفي ISO مثل `SA`؛ المرشح الذي يعلن دعمه للمنطقة يحصل على أفضلية، والمرشح بلا بيانات منطقة يبقى محايدًا بدل استبعاده. عند تعادل الدرجات يُستخدم `fallback_order` ثم provider/server لضمان ترتيب حتمي. التحقق من Direct يعني قراءة Media bytes عبر Range. التحقق من Embed يعني وصول صفحة التضمين فقط؛ نجاح تشغيل الفيديو داخل WebView يحتاج لاحقًا Telemetry من تطبيق ذيب.

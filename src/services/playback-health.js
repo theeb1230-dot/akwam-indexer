@@ -93,7 +93,29 @@ function withRepository(customRepository) {
     });
   }
 
-  async function scoreCandidate(candidate) {
+  function normalizeRegion(value) {
+    const region = String(value || "").trim().toUpperCase();
+    return /^[A-Z]{2}$/.test(region) ? region : null;
+  }
+
+  function candidateRegions(candidate) {
+    const values = Array.isArray(candidate.regions)
+      ? candidate.regions
+      : candidate.region
+        ? [candidate.region]
+        : [];
+    return [...new Set(values.map(normalizeRegion).filter(Boolean))];
+  }
+
+  function regionScore(candidate, preferredRegion) {
+    const preferred = normalizeRegion(preferredRegion);
+    if (!preferred) return 0;
+    const regions = candidateRegions(candidate);
+    if (!regions.length) return 0;
+    return regions.includes(preferred) ? 12 : -8;
+  }
+
+  async function scoreCandidate(candidate, options = {}) {
     const [health, verification] = await Promise.all([
       getHealth(candidate),
       getPlaybackVerification(candidate)
@@ -123,8 +145,10 @@ function withRepository(customRepository) {
       "360p": 3
     }[String(candidate.quality || "").toLowerCase()] || 0;
 
+    const localityScore = regionScore(candidate, options.region);
+
     if (!health) {
-      return 50 + typeScore + qualityScore + verificationScore -
+      return 50 + typeScore + qualityScore + verificationScore + localityScore -
         Number(candidate.fallback_order || 100) / 10;
     }
 
@@ -132,19 +156,24 @@ function withRepository(customRepository) {
     const successRate = total > 0 ? Number(health.success_count) / total : 0.5;
     const latencyPenalty = Math.min(Number(health.avg_latency_ms || 0) / 250, 20);
 
-    return typeScore + qualityScore + verificationScore + successRate * 50 -
+    return typeScore + qualityScore + verificationScore + localityScore + successRate * 50 -
       latencyPenalty - Number(health.consecutive_failures || 0) * 8;
   }
 
-  async function ranked(candidates) {
+  async function ranked(candidates, options = {}) {
     const items = await Promise.all(
       [...candidates].map(async candidate => ({
         ...candidate,
         playback_verification: await getPlaybackVerification(candidate),
-        health_score: Math.round((await scoreCandidate(candidate)) * 100) / 100
+        health_score: Math.round((await scoreCandidate(candidate, options)) * 100) / 100
       }))
     );
-    return items.sort((a, b) => b.health_score - a.health_score);
+    return items.sort((a, b) => (
+      b.health_score - a.health_score ||
+      Number(a.fallback_order || 100) - Number(b.fallback_order || 100) ||
+      String(a.provider || "").localeCompare(String(b.provider || "")) ||
+      String(a.server || "").localeCompare(String(b.server || ""))
+    ));
   }
 
   return {
@@ -153,7 +182,10 @@ function withRepository(customRepository) {
     circuitOpen,
     recordResult,
     scoreCandidate,
-    ranked
+    ranked,
+    normalizeRegion,
+    candidateRegions,
+    regionScore
   };
 }
 
