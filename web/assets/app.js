@@ -116,7 +116,7 @@ async function openSeries(id) {
     ]);
     renderSeries(seriesBody?.data || {}, episodesBody?.data?.items || []);
   } catch (error) {
-    seriesDetail.innerHTML = `<div class="empty-state"><h3>تعذر تحميل المحتوى</h3><p>${text(error.message)}</p></div>`;
+    seriesDetail.innerHTML = '<div class="empty-state"><h3>تعذر تحميل المحتوى</h3><p>حاول مرة أخرى بعد قليل.</p></div>';
   }
 }
 
@@ -162,7 +162,7 @@ async function openEpisode(id) {
     const body = await request(`/v1/episodes/${encodeURIComponent(id)}`);
     renderEpisode(body?.data || {});
   } catch (error) {
-    episodeDetail.innerHTML = `<div class="empty-state"><h3>تعذر تحميل الحلقة</h3><p>${text(error.message)}</p></div>`;
+    episodeDetail.innerHTML = '<div class="empty-state"><h3>تعذر تحميل الحلقة</h3><p>حاول مرة أخرى بعد قليل.</p></div>';
   }
 }
 
@@ -218,7 +218,7 @@ async function loadWatchOptions(episodeId) {
     card.appendChild(link);
     panel.appendChild(card);
   } catch (error) {
-    panel.innerHTML = `<div class="option-card">${text(error.message)}</div>`;
+    panel.innerHTML = '<div class="option-card">تعذر تجهيز خيارات المشاهدة الآن. حاول مرة أخرى.</div>';
   }
 }
 
@@ -253,7 +253,7 @@ async function loadDownloadOptions(episodeId) {
       panel.appendChild(card);
     }
   } catch (error) {
-    panel.innerHTML = `<div class="option-card">${text(error.message)}</div>`;
+    panel.innerHTML = '<div class="option-card">تعذر تجهيز خيارات التحميل الآن. حاول مرة أخرى.</div>';
   }
 }
 
@@ -272,7 +272,7 @@ form.addEventListener("submit", async event => {
   } catch (error) {
     emptyState.hidden = false;
     emptyState.querySelector("h3").textContent = "تعذر إكمال البحث";
-    emptyState.querySelector("p").textContent = error.message;
+    emptyState.querySelector("p").textContent = "تعذر الاتصال بالخدمة الآن. حاول مرة أخرى.";
     resultCount.textContent = "";
   }
 });
