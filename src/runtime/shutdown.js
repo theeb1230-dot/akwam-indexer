@@ -1,11 +1,22 @@
 const { closePool } = require("../db/postgres");
 
+function shutdownTimeoutMs(options = {}, processRef = process) {
+  const raw = options.timeoutMs ?? processRef.env.SHUTDOWN_TIMEOUT_MS ?? 25000;
+  const timeoutMs = Number(raw);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) {
+    const error = new Error("INVALID_SHUTDOWN_TIMEOUT_MS");
+    error.code = "INVALID_SHUTDOWN_TIMEOUT_MS";
+    throw error;
+  }
+  return timeoutMs;
+}
+
 function installShutdownHandlers(options = {}) {
   const processRef = options.processRef || process;
   const controller = options.controller;
   const server = options.server;
   const completion = options.completion;
-  const timeoutMs = Number(options.timeoutMs || processRef.env.SHUTDOWN_TIMEOUT_MS || 25000);
+  const timeoutMs = shutdownTimeoutMs(options, processRef);
   let stopping;
 
   async function shutdown(signal) {
@@ -72,4 +83,4 @@ function installShutdownHandlers(options = {}) {
   return shutdown;
 }
 
-module.exports = { installShutdownHandlers };
+module.exports = { installShutdownHandlers, shutdownTimeoutMs };
