@@ -36,7 +36,7 @@
 - توحيد أخطاء Providers والمهلات وإلغاء الطلبات.
 - ترتيب خيارات التشغيل حسب الصحة والجودة والمنطقة: مكتمل في الـexecutor؛ الصحة/التحقق/النوع/الجودة/المنطقة تدخل في الدرجة، مع ترتيب حتمي عند التعادل.
 - Fallback تلقائي وآمن بين المصادر: health ranking يسبق التنفيذ، وأول جولة أصبحت متنوعة بين Providers قبل secondary servers مع سقف محاولات bounded.
-- فصل إنشاء التطبيق عن `listen()` لتسهيل اختبارات HTTP.
+- فصل إنشاء التطبيق عن `listen()` لتسهيل اختبارات HTTP: منفذ؛ `app` منفصل و`startServer()` مسؤول عن الاستماع.
 - التسجيل المنظم ومراقبة الصحة: HTTP errors وserver startup وworkers/schedulers تمر عبر logger منقح، والمقاييس المحلية تدعم الآن تقييم alerts محمية للـ5xx/latency/open circuits بدون خدمة مدفوعة. المتبقي تحسين العتبات والتقارير حسب بيانات التشغيل الفعلية.
 
 ## سياسة الاستضافة الصفرية
@@ -49,9 +49,9 @@
 
 ## قبل الإنتاج
 
-- مصادقة وحدود معدل للـAPI.
-- تحقق صارم من عناوين URL ومنع SSRF وDNS rebinding.
-- سياسة CORS واضحة.
+- مصادقة وحدود معدل للـAPI: منفذة مع Bearer token إلزامي في production، trust-proxy bounded، وquota headers.
+- تحقق صارم من عناوين URL ومنع SSRF وDNS rebinding: منفذ عبر safe-media-request مع DNS pinning وإعادة تحقق لكل redirect.
+- سياسة CORS: same-origin مسموح، وأي cross-origin يحتاج allowlist صريحة عبر THEEB_CORS_ORIGINS؛ لا wildcard.
 - تخزين أسرار خارج المستودع.
 - قاعدة بيانات إنتاجية ونسخ احتياطية.
 - نشر على بيئة ذات عنوان ثابت عند حاجة المصادر المصرح بها.

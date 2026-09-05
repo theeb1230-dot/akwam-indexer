@@ -5,6 +5,7 @@ const { createDatabaseReadiness } = require("./db/readiness");
 const { securityConfig } = require("./config/security");
 const {
   authentication,
+  corsPolicy,
   errorEnvelope,
   errorHandler,
   inputGuard,
@@ -51,6 +52,7 @@ app.disable("x-powered-by");
 app.use(requestContext);
 app.use(observability);
 app.use(errorEnvelope);
+app.use(corsPolicy(security));
 app.use(rateLimiter(security));
 app.use(authentication(security));
 
