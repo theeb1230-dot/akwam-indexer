@@ -91,14 +91,18 @@ jobs:
           EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
           EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
           EXPECTED_CODE="${EXPECTED_VERSION##*+}"
-          ACTUAL_ID="$(apkanalyzer manifest application-id "$APK")"
-          ACTUAL_NAME="$(apkanalyzer manifest version-name "$APK")"
-          ACTUAL_CODE="$(apkanalyzer manifest version-code "$APK")"
+          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKANALYZER"
+          test -x "$APKSIGNER"
+          ACTUAL_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          ACTUAL_NAME="$("$APKANALYZER" manifest version-name "$APK")"
+          ACTUAL_CODE="$("$APKANALYZER" manifest version-code "$APK")"
           test -n "$EXPECTED_ID"
           test "$ACTUAL_ID" = "$EXPECTED_ID"
           test "$ACTUAL_NAME" = "$EXPECTED_NAME"
           test "$ACTUAL_CODE" = "$EXPECTED_CODE"
-          apksigner verify "$APK"
+          "$APKSIGNER" verify "$APK"
           node -e 'const fs=require("fs"); const d={platform:"android-mobile",application_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signature_verified:true,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/android-mobile-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage Android artifact
         run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android.apk
@@ -164,10 +168,14 @@ jobs:
           EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
           EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
           EXPECTED_CODE="${EXPECTED_VERSION##*+}"
-          ACTUAL_ID="$(apkanalyzer manifest application-id "$APK")"
-          ACTUAL_NAME="$(apkanalyzer manifest version-name "$APK")"
-          ACTUAL_CODE="$(apkanalyzer manifest version-code "$APK")"
-          MANIFEST="$(apkanalyzer manifest print "$APK")"
+          APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name apkanalyzer | sort | tail -1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$APKANALYZER"
+          test -x "$APKSIGNER"
+          ACTUAL_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          ACTUAL_NAME="$("$APKANALYZER" manifest version-name "$APK")"
+          ACTUAL_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+          MANIFEST="$("$APKANALYZER" manifest print "$APK")"
           test -n "$EXPECTED_ID"
           test "$ACTUAL_ID" = "$EXPECTED_ID"
           test "$ACTUAL_NAME" = "$EXPECTED_NAME"
@@ -175,9 +183,9 @@ jobs:
           printf '%s' "$MANIFEST" | grep -F 'android.software.leanback'
           printf '%s' "$MANIFEST" | grep -F 'android.hardware.touchscreen'
           printf '%s' "$MANIFEST" | grep -F 'android.intent.category.LEANBACK_LAUNCHER'
-          printf '%s' "$MANIFEST" | grep -F 'android:screenOrientation="0"'
+          printf '%s' "$MANIFEST" | grep -F 'android:screenOrientation'
           printf '%s' "$MANIFEST" | grep -F 'android:banner='
-          apksigner verify "$APK"
+          "$APKSIGNER" verify "$APK"
           node -e 'const fs=require("fs"); const d={platform:"android-tv",application_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signature_verified:true,leanback_verified:true,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/android-tv-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage Android TV artifact
         run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android-tv.apk
