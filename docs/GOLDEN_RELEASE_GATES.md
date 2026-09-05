@@ -54,7 +54,9 @@ CI الأساسي لا يتصل بالمصادر الخارجية ولا يدّ�
 3. تنفيذ Live Playback Matrix المنفصلة، نجاح validator الدلالي، وتوثيق commit والوقت والمنطقة والبيئة والنتيجة.
 4. تنفيذ backup/restore drill على نسخة staging وببيانات غير حساسة.
 5. مراجعة أمنية وProduction configuration وعدم وجود أسرار داخل Git.
-6. مراجعة التقرير البشري وعدم الاعتماد على شارة CI وحدها.
+6. أي APK/Android TV APK/IPA مخصص للتجربة أو التسليم يجب أن يُبنى فقط عبر `Client Release Artifacts` بعد URL HTTPS حقيقي، DNS عام، نجاح `/readyz`، وSearch API smoke. يمنع `example.invalid` وlocalhost وعناوين placeholders من الحزم القابلة للتسليم، ويجب فحص محتوى artifact بعد البناء قدر الإمكان.
+7. نجاح compile/build وحده لا يثبت جاهزية Android/TV/iOS. المنصة لا تُعد مكتملة حتى ينجح build + artifact validation + runtime/API smoke على نفس endpoint.
+8. مراجعة التقرير البشري وعدم الاعتماد على شارة CI وحدها.
 
 ## ما يبقى يدويًا ولا تختصره CI
 
@@ -63,3 +65,10 @@ CI الأساسي لا يتصل بالمصادر الخارجية ولا يدّ�
 - Load/soak في staging بميزانية وتزامن يمثلان الحمل المتوقع؛ الـharness المحلي bounded يكشف regressions فقط.
 - مراجعة إعدادات الأسرار، النطاق، TLS، rate limits والتنبيهات قبل إنشاء tag.
 - توقيع موافقة بشرية نهائية. نجاح `gate:golden` لا يغيّر `golden_release_approved` إلى true تلقائيًا.
+
+
+## بوابة حزم العملاء القابلة للتسليم
+
+Workflow `.github/workflows/client-release.yml` منفصلة عن CI العادي. CI الأساسي يثبت أن الكود يُحلل ويُختبر ويُبنى فقط، ولا يرفع APK/IPA قابلة للتسليم بعنوان API تجريبي. Workflow الإصدار اليدوية تتطلب `api_base_url` حقيقيًا وتفشل fail-closed إذا كان العنوان غير HTTPS، محليًا، placeholder، staging/test، أو إذا فشل DNS العام أو readiness أو Search smoke. بعد ذلك فقط تُبنى Android وAndroid TV وiOS unsigned IPA، وتُفحص الحزم بحثًا عن placeholders قبل رفعها ونشر GitHub Release.
+
+إذا لم يوجد Backend HTTPS حقيقي بعد، فهذا blocker صريح وليس سببًا لإنتاج artifact يوصف بأنه صالح للتجربة.
