@@ -29,7 +29,7 @@
 - Web/PWA «ذيب العرب»: مكتمل أساس البحث، تفاصيل السلاسل والحلقات، الفصل الصريح بين المشاهدة والتحميل، installability على الويب/iOS، والـoffline shell.
 - هوية Web/PWA أصبحت موحدة عبر brand contract باسم «ذيب العرب» وثيم ثابت، واختبار المتصفح الفعلي مغطى داخل CI عبر Chromium.
 - المتبقي قبل إعلان Web/PWA مكتملة: تنفيذ نشر مجاني خارجي فعلي وإثباته عبر smoke HTTPS. حزمة الاستعداد والعقد التوثيقي موجودان، لكن الحساب/الاعتمادات الخارجية غير متاحة من داخل المستودع.
-- Android: يوجد الآن Flutter app shell فوق Dart transport/config/brand وعقد `/v1` الموحد، مع CI مهيأة لبناء APK debug ورفعه كـartifact. لا يُعلن نجاح APK حتى تمر بوابة Flutter Android فعليًا.
+- Android: Flutter app shell فوق Dart transport/config/brand وعقد `/v1` الموحد، وبوابة CI على `main` أثبتت فعليًا نجاح التحليل والاختبارات وبناء APK debug ورفع artifact.\n- Android TV: قيد التحقق عبر APK مستقل في CI مع Leanback launcher وعدم اشتراط شاشة لمس. لا يُعلن اكتماله حتى تنجح بوابة `flutter-android-tv` على PR ثم `main`.
 - تحديث/توسيع اختبارات Fixtures المحلية بحيث تغطي دورة API→Job→Worker→Repository بدون الاعتماد على المواقع الحية.
 - توحيد أخطاء Providers والمهلات وإلغاء الطلبات.
 - ترتيب خيارات التشغيل حسب الصحة والجودة والمنطقة.
