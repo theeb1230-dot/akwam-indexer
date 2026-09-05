@@ -183,3 +183,45 @@ jobs:
           path: clients/flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+  flutter-ios:
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate iOS platform scaffold
+        working-directory: clients/flutter
+        run: flutter create --platforms=ios --org com.theebarab --project-name theeb_arab .
+      - name: Get Flutter dependencies
+        working-directory: clients/flutter
+        run: flutter pub get
+      - name: Analyze Flutter iOS app
+        working-directory: clients/flutter
+        run: flutter analyze
+      - name: Run Flutter iOS tests
+        working-directory: clients/flutter
+        run: flutter test
+      - name: Build unsigned iOS app
+        working-directory: clients/flutter
+        run: flutter build ios --release --no-codesign --dart-define=THEEB_API_BASE_URL=https://example.invalid/ --dart-define=THEEB_TARGET=ios
+      - name: Package unsigned IPA
+        working-directory: clients/flutter
+        run: |
+          mkdir -p build/ios/unsigned/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/unsigned/Payload/
+          cd build/ios/unsigned
+          zip -qry ../theeb-arab-ios-unsigned.ipa Payload
+      - name: Upload unsigned iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: theeb-arab-ios-unsigned
+          path: clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7

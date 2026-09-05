@@ -7,10 +7,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 typedef UriOpener = Future<bool> Function(Uri uri);
 
-const bool kTheebTvBuild =
-    String.fromEnvironment('THEEB_TARGET', defaultValue: 'mobile') == 'tv';
-const TheebPlatform kTheebPlatform =
-    kTheebTvBuild ? TheebPlatform.androidTv : TheebPlatform.android;
+const String kTheebTarget =
+    String.fromEnvironment('THEEB_TARGET', defaultValue: 'android');
+const bool kTheebTvBuild = kTheebTarget == 'tv';
+const TheebPlatform kTheebPlatform = kTheebTarget == 'tv'
+    ? TheebPlatform.androidTv
+    : kTheebTarget == 'ios'
+        ? TheebPlatform.ios
+        : TheebPlatform.android;
 
 Future<bool> defaultOpenUri(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);

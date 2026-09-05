@@ -168,6 +168,36 @@ void main() {
     expect(client['platform'], 'android_tv');
   });
 
+  testWidgets('iOS playback requests identify the iOS platform', (tester) async {
+    final fake = FakeTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: SearchScreen(
+            api: TheebApiClient(fake),
+            baseUri: Uri.parse('http://127.0.0.1:8080/'),
+            opener: (_) async => true,
+            platform: TheebPlatform.ios,
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'Fixture');
+    await tester.tap(find.text('بحث'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fixture Series'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Episode 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مشاهدة'));
+    await tester.pumpAndSettle();
+
+    final client = fake.postBodies.single['client'] as Map<String, Object?>;
+    expect(client['platform'], 'ios');
+  });
+
   testWidgets('watch and download remain explicit user actions', (tester) async {
     final fake = FakeTransport();
     final opened = <Uri>[];
