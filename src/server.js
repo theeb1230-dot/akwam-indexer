@@ -53,6 +53,11 @@ app.use(requestContext);
 app.use(observability);
 app.use(errorEnvelope);
 app.use(corsPolicy(security));
+app.use(express.static(path.join(process.cwd(), "web"), {
+  extensions: ["html"],
+  index: "index.html",
+  maxAge: process.env.NODE_ENV === "production" ? "1h" : 0
+}));
 app.use(rateLimiter(security));
 app.use(authentication(security));
 
@@ -74,11 +79,6 @@ app.use(
   })
 );
 app.use(inputGuard(security));
-app.use(express.static(path.join(process.cwd(), "web"), {
-  extensions: ["html"],
-  index: "index.html",
-  maxAge: process.env.NODE_ENV === "production" ? "1h" : 0
-}));
 app.use("/v1", v1Router);
 
 app.get("/livez", (req, res) => {
