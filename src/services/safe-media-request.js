@@ -152,6 +152,28 @@ function enforceResponseSize(response, maximum) {
   return response;
 }
 
+function boundedTimeout(value, fallback = 20_000) {
+  const timeout = Number(value ?? fallback);
+  if (!Number.isSafeInteger(timeout) || timeout < 1_000 || timeout > 60_000) {
+    throw new Error("INVALID_REQUEST_TIMEOUT");
+  }
+  return timeout;
+}
+
+function normalizeRequestError(error) {
+  if (error?.code === "ERR_CANCELED" || error?.name === "AbortError") {
+    const normalized = new Error("REQUEST_CANCELLED");
+    normalized.code = "REQUEST_CANCELLED";
+    return normalized;
+  }
+  if (["ECONNABORTED", "ETIMEDOUT"].includes(error?.code)) {
+    const normalized = new Error("REQUEST_TIMEOUT");
+    normalized.code = "REQUEST_TIMEOUT";
+    return normalized;
+  }
+  return error;
+}
+
 async function safeGet(initialUrl, config = {}, options = {}) {
   const maxRedirects = Number(options.maxRedirects ?? 5);
   const maxResponseBytes = options.maxResponseBytes === null
@@ -163,21 +185,28 @@ async function safeGet(initialUrl, config = {}, options = {}) {
   }
   if (!(maxResponseBytes > 0)) throw new Error("INVALID_MAX_RESPONSE_BYTES");
 
+  const timeout = boundedTimeout(config.timeout, options.defaultTimeoutMs ?? 20_000);
   let current = new URL(initialUrl).toString();
   const request = options.request || ((url, requestConfig) => axios.get(url, requestConfig));
 
   for (let redirect = 0; redirect <= maxRedirects; redirect += 1) {
     const pin = await pinPublicHost(current, { lookup: options.lookup });
     const agentOptions = { keepAlive: false, lookup: pinnedLookup(pin) };
-    const response = await request(current, {
+    let response;
+    try {
+      response = await request(current, {
       ...config,
+      timeout,
       maxRedirects: 0,
       maxContentLength: maxResponseBytes,
       maxBodyLength: maxResponseBytes,
       httpAgent: new http.Agent(agentOptions),
       httpsAgent: new https.Agent(agentOptions),
       validateStatus: status => status >= 200 && status < 400
-    });
+      });
+    } catch (error) {
+      throw normalizeRequestError(error);
+    }
 
     if (response.status < 300 || response.status >= 400) {
       const checked = enforceResponseSize(response, maxResponseBytes);
@@ -200,9 +229,11 @@ async function safeGet(initialUrl, config = {}, options = {}) {
 }
 
 module.exports = {
+  boundedTimeout,
   enforceResponseSize,
   limitedStream,
   privateAddress,
+  normalizeRequestError,
   pinPublicHost,
   safeGet,
   validateResolvedRecords
