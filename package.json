@@ -29,7 +29,8 @@
     "gate:golden": "node scripts/gates/run-gates.js",
     "gate:live-matrix": "node scripts/gates/validate-live-matrix.js",
     "test:postgres-e2e": "node --test test/postgres-runtime-e2e.test.js",
-    "test:web-browser": "node scripts/web-browser-smoke.js"
+    "test:web-browser": "node scripts/web-browser-smoke.js",
+    "test:runtime-fixture": "node --test test/local-runtime-fixture-e2e.test.js"
   },
   "repository": {
     "type": "git",
