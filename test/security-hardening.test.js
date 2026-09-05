@@ -227,6 +227,20 @@ test("CORS policy allows same-origin and configured origins but rejects others",
 });
 
 
+
+test("PWA bootstrap assets bypass long static cache", () => {
+  const { setWebAssetHeaders } = require("../src/server");
+  for (const file of ["index.html", "service-worker.js", "app.webmanifest"]) {
+    const res = response();
+    setWebAssetHeaders(res, "/tmp/web/" + file);
+    assert.equal(res.headers["Cache-Control"], "no-cache", file);
+  }
+
+  const asset = response();
+  setWebAssetHeaders(asset, "/tmp/web/assets/app-icon.svg");
+  assert.equal(asset.headers["Cache-Control"], undefined);
+});
+
 test("public PWA shell is served before API authentication", () => {
   const source = fs.readFileSync(require.resolve("../src/server"), "utf8");
   const staticIndex = source.indexOf("app.use(express.static");
