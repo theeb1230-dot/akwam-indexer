@@ -566,6 +566,20 @@ test("provider URL identifiers are restricted to the registered HTTPS host", () 
   assert.equal(validProviderTarget(provider, "https://user:pass@media.example/1"), false);
 });
 
+test("provider watch route validates both caller-controlled targets before provider resolution", () => {
+  const source = fs.readFileSync(require.resolve("../src/server"), "utf8");
+  const routeStart = source.indexOf('"/api/providers/:provider/watch/:watchId/:episodeId"');
+  const routeEnd = source.indexOf("/*\n * =========================================================\n * IMPORT", routeStart);
+  assert.ok(routeStart >= 0 && routeEnd > routeStart, "provider watch route must exist");
+  const route = source.slice(routeStart, routeEnd);
+  const watchGuard = route.indexOf("validProviderTarget(provider, req.params.watchId)");
+  const episodeGuard = route.indexOf("validProviderTarget(provider, req.params.episodeId)");
+  const providerCall = route.indexOf("provider.getWatchInfo(");
+  assert.ok(watchGuard >= 0, "watchId must be restricted to the provider target boundary");
+  assert.ok(episodeGuard >= 0, "episodeId must be restricted to the provider target boundary");
+  assert.ok(providerCall > watchGuard && providerCall > episodeGuard, "target validation must happen before provider resolution");
+});
+
 test("versioned errors redact upstream messages and secret-shaped details", () => {
   const req = { requestId: "request-1" };
   const res = response();
