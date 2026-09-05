@@ -50,7 +50,7 @@ jobs:
         run: npm ci && npm test
       - name: Reject placeholders in application-owned source
         run: |
-          if grep -R -n -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1' -e 'https://127.0.0.1' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' clients/dart clients/flutter/lib --exclude-dir=build; then
+          if grep -R -n -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1' -e 'https://127.0.0.1' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' clients/dart/lib clients/dart/tool clients/flutter/lib --exclude-dir=build; then
             echo "PLACEHOLDER_FOUND_IN_APPLICATION_SOURCE"
             exit 1
           fi
