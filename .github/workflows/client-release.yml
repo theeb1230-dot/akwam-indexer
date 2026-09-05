@@ -7,6 +7,15 @@ on:
         description: Public production HTTPS API base URL
         required: true
         type: string
+      release_level:
+        description: Release classification requested for this triplet
+        required: true
+        type: choice
+        options:
+          - experimental
+          - beta
+          - golden
+          - complete
       release_tag:
         description: Optional GitHub release tag
         required: false
@@ -186,8 +195,64 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  publish-release:
+  release-readiness:
     needs: [android, android-tv, ios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout readiness policy
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download Android artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android
+          path: release
+      - name: Download Android TV artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android-tv
+          path: release
+      - name: Download iOS artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-ios-unsigned
+          path: release
+      - name: Require exact artifact triplet and supported classification
+        env:
+          RELEASE_LEVEL: ${{ inputs.release_level }}
+        run: |
+          test -s release/theeb-arab-android.apk
+          test -s release/theeb-arab-android-tv.apk
+          test -s release/theeb-arab-ios-unsigned.ipa
+          COUNT="$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          test "$COUNT" = "3"
+          if [ "$RELEASE_LEVEL" != "experimental" ]; then
+            echo "CURRENT_WORKFLOW_ONLY_SUPPORTS_EXPERIMENTAL_UNSIGNED_IOS"
+            exit 1
+          fi
+      - name: Enforce cumulative release readiness matrix
+        env:
+          THEEB_RELEASE_LEVEL: ${{ inputs.release_level }}
+        run: node scripts/validate-release-readiness.js
+      - name: Generate checksums and release manifest
+        env:
+          RELEASE_LEVEL: ${{ inputs.release_level }}
+        run: |
+          cd release
+          sha256sum theeb-arab-android.apk theeb-arab-android-tv.apk theeb-arab-ios-unsigned.ipa > SHA256SUMS.txt
+          node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],ios_signing:"UNSIGNED",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
+      - name: Upload release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-release-evidence
+          path: |
+            release/SHA256SUMS.txt
+            release/release-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    needs: [release-readiness]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -206,14 +271,20 @@ jobs:
         with:
           name: theeb-arab-ios-unsigned
           path: release
+      - name: Download release evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-release-evidence
+          path: release
       - name: Publish verified client release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+          RELEASE_LEVEL: ${{ inputs.release_level }}
         run: |
-          TAG="${RELEASE_TAG_INPUT:-client-${GITHUB_RUN_NUMBER}}"
+          TAG="${RELEASE_TAG_INPUT:-experimental-${GITHUB_RUN_NUMBER}}"
           gh release create "$TAG" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "ذيب العرب - $TAG" \
-            --notes "Verified against $THEEB_INSTALLABLE_API_BASE_URL. API readiness and search smoke passed before build. iOS IPA is unsigned and still requires external signing for installation."
+            --title "ذيب العرب - Experimental - $TAG" \
+            --notes "Classification: Experimental. Commit: $GITHUB_SHA. API: $THEEB_INSTALLABLE_API_BASE_URL. API readiness and real Dart Search smoke passed before build. Android Mobile APK + Android TV APK + iOS IPA were produced from this workflow. The iOS IPA is UNSIGNED and is not directly installable without external signing. SHA-256 checksums and release manifest are attached."
