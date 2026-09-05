@@ -1,4 +1,5 @@
 const express = require("express");
+const logger = require("../observability/logger");
 
 const jobs = require("../services/job-manager");
 const {
@@ -68,7 +69,11 @@ function createRefreshRouter(options = {}) {
             series.provider,
             series.provider_series_id
           ).catch(error => {
-            console.error("Refresh job failed:", error.message);
+            logger.error("refresh_job_failed", {
+              job_id: job.id,
+              provider: series.provider,
+              error_code: error.code || "REFRESH_JOB_FAILED"
+            });
           });
         });
       }
@@ -84,7 +89,10 @@ function createRefreshRouter(options = {}) {
         progress_url: `/api/import/jobs/${job.id}`
       });
     } catch (error) {
-      console.error(error);
+      logger.error("refresh_request_failed", {
+        request_id: req.requestId,
+        error_code: error.code || "REFRESH_FAILED"
+      });
       return res.status(500).json({
         error: "REFRESH_FAILED",
         message: error.message
