@@ -8,8 +8,8 @@ const {
 
 test("installable API config accepts only remote HTTPS production-like URLs", () => {
   assert.equal(
-    parseInstallableBase("https://api.theeb.example.sa").toString(),
-    "https://api.theeb.example.sa/"
+    parseInstallableBase("https://api.theeb.sa").toString(),
+    "https://api.theeb.sa/"
   );
 });
 
