@@ -9,6 +9,6 @@
     "theeb-arab-ios-unsigned.ipa"
   ],
   "note": "Merging this file to main triggers Client Release Artifacts and publishes the verified triplet to GitHub Releases.",
-  "retry": 4,
-  "reason": "Retry after fixing iOS expected bundle identifier extraction from project.pbxproj."
+  "retry": 5,
+  "reason": "Retry after replacing brittle generated-project bundle-id parsing with the explicit com.theebarab.theebArab release contract."
 }
