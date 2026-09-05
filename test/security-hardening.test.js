@@ -152,6 +152,40 @@ test("admin authentication supports file secrets and fails closed on ambiguity",
 });
 
 
+test("authentication lets public client search through while protecting legacy APIs", () => {
+  const config = {
+    authRequired: true,
+    apiToken: "x".repeat(32)
+  };
+
+  let publicContinued = false;
+  authentication(config)(
+    {
+      method: "GET",
+      path: "/v1/search",
+      originalUrl: "/v1/search?q=theeb",
+      headers: {}
+    },
+    response(),
+    () => { publicContinued = true; }
+  );
+  assert.equal(publicContinued, true);
+
+  const protectedResponse = response();
+  authentication(config)(
+    {
+      method: "GET",
+      path: "/api/providers",
+      originalUrl: "/api/providers",
+      headers: {}
+    },
+    protectedResponse,
+    () => assert.fail("legacy provider API must remain authenticated")
+  );
+  assert.equal(protectedResponse.statusCode, 401);
+  assert.equal(protectedResponse.body.error, "UNAUTHORIZED");
+});
+
 test("public client API allowlist is explicit while legacy and admin routes remain protected", () => {
   assert.equal(publicClientRequest({ method: "GET", path: "/livez" }), true);
   assert.equal(publicClientRequest({ method: "GET", path: "/readyz" }), true);
