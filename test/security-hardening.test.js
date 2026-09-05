@@ -8,6 +8,7 @@ const {
   authentication,
   bearerToken,
   errorEnvelope,
+  errorHandler,
   inputGuard,
   rateLimiter,
   validProviderTarget
@@ -22,6 +23,7 @@ const {
 const {
   tlsVerificationError
 } = require("../src/services/tls-diagnostics");
+const logger = require("../src/observability/logger");
 
 function response() {
   return {
@@ -289,6 +291,61 @@ test("versioned errors redact upstream messages and secret-shaped details", () =
     },
     request_id: "request-1"
   });
+});
+
+test("internal HTTP errors log only bounded structured metadata", () => {
+  const originalError = logger.error;
+  let captured;
+  logger.error = (event, fields) => {
+    captured = { event, fields };
+  };
+
+  try {
+    const req = { requestId: "request-12345678" };
+    const res = response();
+    const error = new Error("upstream https://secret.invalid/?token=super-secret");
+    error.code = "UPSTREAM_FAILURE";
+    errorHandler(error, req, res, () => {});
+
+    assert.equal(res.statusCode, 500);
+    assert.equal(res.body.error, "INTERNAL_ERROR");
+    assert.deepEqual(captured, {
+      event: "http_request_failed",
+      fields: {
+        request_id: "request-12345678",
+        error_code: "UPSTREAM_FAILURE",
+        error_name: "Error"
+      }
+    });
+    assert.doesNotMatch(JSON.stringify(captured), /secret\.invalid|super-secret|token=/);
+  } finally {
+    logger.error = originalError;
+  }
+});
+
+test("unsafe error metadata is replaced before logging", () => {
+  const originalError = logger.error;
+  let captured;
+  logger.error = (event, fields) => {
+    captured = { event, fields };
+  };
+
+  try {
+    const res = response();
+    errorHandler(
+      { name: "Error token=abc", code: "https://secret.invalid/?token=abc" },
+      { requestId: "bad request id with spaces" },
+      res,
+      () => {}
+    );
+    assert.deepEqual(captured.fields, {
+      request_id: "unknown",
+      error_code: "UNEXPECTED_ERROR",
+      error_name: "Error"
+    });
+  } finally {
+    logger.error = originalError;
+  }
 });
 
 test("playback streaming uses the redirect-validating safe request layer", () => {
