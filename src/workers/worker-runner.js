@@ -1,5 +1,6 @@
 const os = require("node:os");
 const jobs = require("../services/job-manager");
+const logger = require("../observability/logger");
 
 function delay(ms, signal) {
   return new Promise(resolve => {
@@ -27,7 +28,12 @@ async function runClaimedJob(job, options) {
 
   const timer = setInterval(() => {
     Promise.resolve(store.heartbeat(job.id, options.workerId, leaseMs)).catch(error => {
-      console.error(JSON.stringify({ level: "error", event: "job_heartbeat_failed", job_id: job.id, error: error.message }));
+      logger.error("job_heartbeat_failed", {
+        role: options.role,
+        worker_id: options.workerId,
+        job_id: job.id,
+        error: error.code || error.message
+      });
     });
   }, heartbeatMs);
 
@@ -71,24 +77,20 @@ async function runWorker(options) {
   const pollMs = Number(options.pollMs || 1000);
   const signal = options.signal;
 
-  console.log(JSON.stringify({
-    level: "info",
-    event: "worker_started",
+  logger.info("worker_started", {
     role: options.role,
     worker_id: id
-  }));
+  });
 
   while (!signal?.aborted) {
     const handled = await runOnce({ ...options, workerId: id });
     if (!handled) await delay(pollMs, signal);
   }
 
-  console.log(JSON.stringify({
-    level: "info",
-    event: "worker_stopped",
+  logger.info("worker_stopped", {
     role: options.role,
     worker_id: id
-  }));
+  });
 }
 
 module.exports = {
