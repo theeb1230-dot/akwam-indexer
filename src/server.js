@@ -34,6 +34,7 @@ const downloadRouter = require("./routes/download");
 const v1Router = require("./routes/v1");
 const adminRouter = require("./routes/admin");
 const observability = require("./middleware/observability");
+const logger = require("./observability/logger");
 
 const app = express();
 const databaseReadiness = createDatabaseReadiness();
@@ -246,10 +247,12 @@ async function queueImport(
         provider,
         seriesId
       ).catch(error => {
-        console.error(
-          `[IMPORT ${job.id}]`,
-          error.message
-        );
+        logger.error("import_job_failed", {
+          job_id: job.id,
+          provider,
+          provider_series_id: seriesId,
+          error: error.code || error.message
+        });
       });
     });
   }
@@ -458,10 +461,11 @@ app.get(
 
       res.json(result);
     } catch (error) {
-      console.error(
-        "Provider series error:",
-        error
-      );
+      logger.error("provider_series_failed", {
+        request_id: req.requestId,
+        provider: req.params.provider,
+        error: error.code || error.message
+      });
 
       res.status(500).json({
         error:
@@ -496,10 +500,11 @@ app.get(
 
       res.json(result);
     } catch (error) {
-      console.error(
-        "Provider episode error:",
-        error
-      );
+      logger.error("provider_episode_failed", {
+        request_id: req.requestId,
+        provider: req.params.provider,
+        error: error.code || error.message
+      });
 
       res.status(500).json({
         error:
@@ -545,10 +550,11 @@ app.get(
 
       res.json(result);
     } catch (error) {
-      console.error(
-        "Provider watch error:",
-        error
-      );
+      logger.error("provider_watch_failed", {
+        request_id: req.requestId,
+        provider: req.params.provider,
+        error: error.code || error.message
+      });
 
       res.status(500).json({
         error:
@@ -744,9 +750,13 @@ function startServer(options = {}) {
   const server = app.listen(port, host, () => {
     runtimeState.acceptingTraffic = true;
     runtimeState.startedAt = new Date().toISOString();
-    console.log(`🐺 THEEB ENGINE v${VERSION}`);
-    console.log(`🚀 http://localhost:${port}`);
-    console.log(`🔌 Providers: ${providers.list().join(", ")}`);
+    logger.info("server_started", {
+      version: VERSION,
+      host,
+      port,
+      providers: providers.list(),
+      role: process.env.THEEB_ROLE || "all"
+    });
   });
 
   server.stopAcceptingTraffic = () => {
