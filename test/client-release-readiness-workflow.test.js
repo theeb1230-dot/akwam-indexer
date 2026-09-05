@@ -1,0 +1,51 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+test("client release workflow is fail-closed on classification and evidence", () => {
+  const workflow = fs.readFileSync(
+    path.join(process.cwd(), ".github/workflows/client-release.yml"),
+    "utf8"
+  );
+
+  for (const required of [
+    "release_level:",
+    "release-readiness:",
+    "THEEB_RELEASE_LEVEL:",
+    "node scripts/validate-release-readiness.js",
+    "sha256sum theeb-arab-android.apk",
+    "release-manifest.json",
+    "theeb-arab-release-evidence",
+    "CURRENT_WORKFLOW_ONLY_SUPPORTS_EXPERIMENTAL_UNSIGNED_IOS",
+    "iOS IPA is UNSIGNED"
+  ]) {
+    assert.equal(workflow.includes(required), true, required);
+  }
+
+  assert.equal(
+    workflow.indexOf("release-readiness:") < workflow.indexOf("publish-release:"),
+    true,
+    "readiness gate must run before publication"
+  );
+  assert.match(workflow, /needs: \[release-readiness\]/);
+});
+
+test("release readiness source-of-truth contains all four cumulative levels", () => {
+  const matrix = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), "docs/release-readiness.json"),
+      "utf8"
+    )
+  );
+
+  assert.deepEqual(Object.keys(matrix.levels), [
+    "experimental",
+    "beta",
+    "golden",
+    "complete"
+  ]);
+  for (const level of Object.values(matrix.levels)) {
+    assert.ok(Object.keys(level.requirements).length > 0);
+  }
+});
