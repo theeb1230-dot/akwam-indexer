@@ -17,6 +17,40 @@ Future<void> main() async {
   final config = TheebClientConfig(baseUri: Uri.parse('http://127.0.0.1:8080/'));
   expect(config.clientVersion == '0.1.0', 'client version');
 
+  final productionBase =
+      TheebClientConfig.validateBaseUri('https://api.theeb.example.org');
+  expect(
+    productionBase.href == 'https://api.theeb.example.org/',
+    'production API base must normalize with a trailing slash',
+  );
+
+  for (final invalid in <String>[
+    '',
+    'https://example.invalid/',
+    'https://example.com/',
+    'https://localhost/',
+    'https://127.0.0.1/',
+    'https://0.0.0.0/',
+    'http://api.theeb.example.org/',
+  ]) {
+    var configRejected = false;
+    try {
+      TheebClientConfig.validateBaseUri(invalid);
+    } catch (_) {
+      configRejected = true;
+    }
+    expect(configRejected, 'delivery config must reject $invalid');
+  }
+
+  final localDevelopmentBase = TheebClientConfig.validateBaseUri(
+    'http://127.0.0.1:8080/',
+    allowLocal: true,
+  );
+  expect(
+    localDevelopmentBase.host == '127.0.0.1',
+    'explicit local development mode must remain available to tests',
+  );
+
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   final base = Uri.parse('http://127.0.0.1:' + server.port.toString() + '/');
   unawaited(() async {
