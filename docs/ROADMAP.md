@@ -61,3 +61,4 @@
 - مراجعة قانونية واتفاقات واضحة مع المصادر.
 
 - CI supply-chain hardening: جميع GitHub Actions الخارجية في workflows مثبتة على commit SHA غير قابل للحركة، مع اختبار يمنع الرجوع إلى tags متحركة.
+- Runtime log redaction: مسارات HTTP لا تسجل أخطاء upstream الخام؛ الأخطاء تمر عبر structured logger بمنظومة حقول محدودة لتقليل تسرب URLs/tokens إلى السجلات.
