@@ -1,4 +1,5 @@
 const { createHash, timingSafeEqual } = require("node:crypto");
+const { secretValue } = require("../config/secret");
 
 function equal(a, b) {
   const left = createHash("sha256").update(String(a)).digest();
@@ -7,7 +8,12 @@ function equal(a, b) {
 }
 
 module.exports = function adminAuth(req, res, next) {
-  const expected = process.env.ADMIN_READ_TOKEN;
+  let expected;
+  try {
+    expected = secretValue(process.env, "ADMIN_READ_TOKEN");
+  } catch {
+    return res.status(503).json({ error: "ADMIN_API_DISABLED" });
+  }
   if (!expected || Buffer.byteLength(expected) < 32) {
     return res.status(503).json({ error: "ADMIN_API_DISABLED" });
   }
