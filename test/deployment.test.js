@@ -77,8 +77,9 @@ test("production entrypoint enforces validation before starting runtime", () => 
   }), error => error.code === "INVALID_PRODUCTION_CONFIGURATION");
 });
 
-test("Render free blueprint stays bounded and secret-safe", () => {
+test("Render free blueprint stays bounded, secret-safe, and Experimental-only", () => {
   const blueprint = fs.readFileSync(path.join(__dirname, "..", "render.yaml"), "utf8");
+  const renderDoc = fs.readFileSync(path.join(__dirname, "..", "deploy/render/README.md"), "utf8");
   assert.match(blueprint, /plan: free/);
   assert.match(blueprint, /healthCheckPath: \/readyz/);
   assert.match(blueprint, /autoDeployTrigger: checksPass/);
@@ -87,6 +88,8 @@ test("Render free blueprint stays bounded and secret-safe", () => {
   assert.match(blueprint, /DATABASE_URL[\s\S]*sync: false/);
   assert.match(blueprint, /THEEB_API_TOKEN[\s\S]*generateValue: true/);
   assert.doesNotMatch(blueprint, /postgres(?:ql)?:\/\//i);
+  assert.match(renderDoc, /Experimental release candidate host only/);
+  assert.match(renderDoc, /Never use this target as evidence for Beta\/Golden\/Complete/);
 });
 
 test("production validation rejects implicit all, unimplemented roles and weak TLS policy", () => {
