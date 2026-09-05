@@ -9,6 +9,6 @@
     "theeb-arab-ios-unsigned.ipa"
   ],
   "note": "Merging this file to main triggers Client Release Artifacts and publishes the verified triplet to GitHub Releases.",
-  "retry": 1,
-  "reason": "Retry after narrowing placeholder scan to app-owned invalid endpoints; generic example.com strings from Flutter SDK docs are ignored."
+  "retry": 2,
+  "reason": "Retry after moving localhost/example placeholder rejection to application-owned source, fixing iOS non-distribution signing validation, and using runtime release evidence before publication."
 }

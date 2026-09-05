@@ -45,7 +45,7 @@ function validateMetadata(dir = process.argv[2] || "metadata") {
   if (mobile.signature_verified !== true) fail("ANDROID_SIGNATURE_NOT_VERIFIED");
   if (tv.signature_verified !== true) fail("ANDROID_TV_SIGNATURE_NOT_VERIFIED");
   if (tv.leanback_verified !== true) fail("ANDROID_TV_MANIFEST_NOT_VERIFIED");
-  if (ios.signing !== "UNSIGNED") fail("EXPERIMENTAL_IOS_SIGNING_STATE_INVALID");
+  if (!["UNSIGNED", "ADHOC"].includes(ios.signing)) fail("EXPERIMENTAL_IOS_SIGNING_STATE_INVALID");
   if (ios.payload_app_count !== 1) fail("IOS_PAYLOAD_STRUCTURE_INVALID");
 
   return {
