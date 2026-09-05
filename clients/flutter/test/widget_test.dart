@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:theeb_arab/main.dart';
@@ -118,6 +120,13 @@ class FakeTransport implements TheebApiTransport {
 }
 
 void main() {
+  test('network failures are translated without raw exception details', () {
+    final message = userFacingError(const SocketException('example.invalid'));
+    expect(message, contains('تعذر الاتصال'));
+    expect(message, isNot(contains('SocketException')));
+    expect(message, isNot(contains('example.invalid')));
+  });
+
   testWidgets('Theeb Arab shell renders Arabic search UI', (tester) async {
     final fake = FakeTransport();
     await tester.pumpWidget(
