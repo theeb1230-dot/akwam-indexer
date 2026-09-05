@@ -4,6 +4,7 @@ const metrics = require("../observability/metrics");
 const logger = require("../observability/logger");
 const { redactString } = require("../observability/redact");
 const { createObservabilityRepository } = require("../repositories/observability-repository");
+const { alertConfig, evaluateAlerts } = require("../observability/alerts");
 
 function safeFailure(res, error) {
   logger.error("admin_read_failed", { error_code: error?.code || "ADMIN_STORAGE_UNAVAILABLE" });
@@ -40,6 +41,17 @@ function createAdminRouter(options = {}) {
   router.get("/playback", async (req, res) => {
     try { res.json(await repository.playbackSummary()); }
     catch (error) { safeFailure(res, error); }
+  });
+
+  router.get("/alerts", async (req, res) => {
+    try {
+      const circuits = await repository.openCircuits();
+      res.json(evaluateAlerts({
+        metricsSnapshot: metrics.snapshot(),
+        openCircuits: circuits,
+        config: alertConfig()
+      }));
+    } catch (error) { safeFailure(res, error); }
   });
 
   router.get("/metrics", (req, res) => res.json({ metrics: metrics.snapshot() }));
