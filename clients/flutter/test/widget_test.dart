@@ -118,6 +118,15 @@ class FakeTransport implements TheebApiTransport {
 }
 
 void main() {
+  test('raw socket failures are converted to a safe Arabic message', () {
+    final message = friendlyClientError(
+      Exception("SocketException: Failed host lookup: 'example.invalid'"),
+    );
+    expect(message, contains('تعذر الاتصال بخادم ذيب العرب'));
+    expect(message, isNot(contains('SocketException')));
+    expect(message, isNot(contains('example.invalid')));
+  });
+
   testWidgets('Theeb Arab shell renders Arabic search UI', (tester) async {
     final fake = FakeTransport();
     await tester.pumpWidget(
