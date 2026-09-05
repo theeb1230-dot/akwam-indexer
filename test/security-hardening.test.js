@@ -1,9 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { Readable } = require("node:stream");
 
 const { corsOriginList, requestBodyLimit, securityConfig, tokensEqual } = require("../src/config/security");
+const { secretValue } = require("../src/config/secret");
+const adminAuth = require("../src/middleware/admin-auth");
 const {
   authentication,
   bearerToken,
@@ -65,6 +69,83 @@ test("production authentication fails closed without a strong secret", () => {
   assert.throws(() => requestBodyLimit("unlimited"), /INVALID_REQUEST_BODY_LIMIT/);
 });
 
+
+test("API token secret files are bounded and reject ambiguous sources", t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "theeb-token-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+
+  const token = "a".repeat(40);
+  const file = path.join(directory, "api-token");
+  fs.writeFileSync(file, token + "\n", { mode: 0o600 });
+
+  assert.equal(secretValue({ THEEB_API_TOKEN_FILE: file }, "THEEB_API_TOKEN"), token);
+  assert.equal(
+    securityConfig({
+      NODE_ENV: "production",
+      THEEB_API_TOKEN_FILE: file
+    }).apiToken,
+    token
+  );
+  assert.throws(
+    () => secretValue({
+      THEEB_API_TOKEN: token,
+      THEEB_API_TOKEN_FILE: file
+    }, "THEEB_API_TOKEN"),
+    /THEEB_API_TOKEN_SOURCE_AMBIGUOUS/
+  );
+
+  const empty = path.join(directory, "empty");
+  fs.writeFileSync(empty, "");
+  assert.throws(
+    () => secretValue({ THEEB_API_TOKEN_FILE: empty }, "THEEB_API_TOKEN"),
+    /INVALID_THEEB_API_TOKEN_FILE/
+  );
+
+  const oversized = path.join(directory, "oversized");
+  fs.writeFileSync(oversized, "x".repeat(4097));
+  assert.throws(
+    () => secretValue({ THEEB_API_TOKEN_FILE: oversized }, "THEEB_API_TOKEN"),
+    /INVALID_THEEB_API_TOKEN_FILE/
+  );
+});
+
+test("admin authentication supports file secrets and fails closed on ambiguity", t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "theeb-admin-token-"));
+  const file = path.join(directory, "admin-token");
+  const token = "b".repeat(40);
+  fs.writeFileSync(file, token + "\n", { mode: 0o600 });
+
+  const beforeDirect = process.env.ADMIN_READ_TOKEN;
+  const beforeFile = process.env.ADMIN_READ_TOKEN_FILE;
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true });
+    if (beforeDirect === undefined) delete process.env.ADMIN_READ_TOKEN;
+    else process.env.ADMIN_READ_TOKEN = beforeDirect;
+    if (beforeFile === undefined) delete process.env.ADMIN_READ_TOKEN_FILE;
+    else process.env.ADMIN_READ_TOKEN_FILE = beforeFile;
+  });
+
+  delete process.env.ADMIN_READ_TOKEN;
+  process.env.ADMIN_READ_TOKEN_FILE = file;
+
+  let continued = false;
+  adminAuth(
+    { get(name) { return name === "authorization" ? "Bearer " + token : ""; } },
+    response(),
+    () => { continued = true; }
+  );
+  assert.equal(continued, true);
+
+  process.env.ADMIN_READ_TOKEN = token;
+  const ambiguous = response();
+  adminAuth(
+    { get() { return ""; } },
+    ambiguous,
+    () => assert.fail("ambiguous admin token source must fail closed")
+  );
+  assert.equal(ambiguous.statusCode, 503);
+  assert.equal(ambiguous.body.error, "ADMIN_API_DISABLED");
+});
 
 test("CORS origins are normalized and invalid entries fail closed", () => {
   assert.deepEqual(
