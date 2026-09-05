@@ -53,6 +53,6 @@
 - تحقق صارم من عناوين URL ومنع SSRF وDNS rebinding: منفذ عبر safe-media-request مع DNS pinning وإعادة تحقق لكل redirect.
 - سياسة CORS: same-origin مسموح، وأي cross-origin يحتاج allowlist صريحة عبر THEEB_CORS_ORIGINS؛ لا wildcard.
 - تخزين أسرار خارج المستودع: DATABASE_URL وAPI/Admin tokens تدعم mounted `*_FILE` sources مع منع الجمع بين الملف والقيمة المباشرة.
-- قاعدة بيانات إنتاجية ونسخ احتياطية.
+- قاعدة بيانات إنتاجية ونسخ احتياطية: أدوات pg_dump/verify موجودة، وGolden Gates تنفذ الآن restore drill حقيقيًا على PostgreSQL محلية؛ ما يزال إنشاء قاعدة الإنتاج والنسخة الخارجية المنفصلة بحاجة إلى حساب/بيئة خارجية.
 - نشر على بيئة ذات عنوان ثابت عند حاجة المصادر المصرح بها.
 - مراجعة قانونية واتفاقات واضحة مع المصادر.

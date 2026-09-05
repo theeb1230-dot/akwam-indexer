@@ -89,7 +89,7 @@ function run(options = {}) {
   };
   fs.writeFileSync(path.join(outputDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
   const rows = results.map(item => `| ${item.gate} | ${item.status} | ${item.duration_ms} |`).join("\n");
-  fs.writeFileSync(path.join(outputDirectory, "report.md"), `# Theeb Golden Gate Report\n\nDeterministic gates plus an isolated local PostgreSQL migration drill. This report does **not** claim live provider playback, production configuration review, production restore, or Golden approval.\n\n| Gate | Status | Duration (ms) |\n|---|---:|---:|\n${rows}\n`);
+  fs.writeFileSync(path.join(outputDirectory, "report.md"), `# Theeb Golden Gate Report\n\nDeterministic gates plus isolated local PostgreSQL migration and backup/restore drills. This report does **not** claim live provider playback, production configuration review, production restore, or Golden approval.\n\n| Gate | Status | Duration (ms) |\n|---|---:|---:|\n${rows}\n`);
   return report;
 }
 
