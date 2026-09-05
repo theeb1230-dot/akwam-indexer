@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
 const { tokensEqual } = require("../config/security");
+const logger = require("../observability/logger");
 
 const ERROR_SCHEMA_VERSION = "1.0";
 const ERROR_MESSAGES = Object.freeze({
@@ -197,11 +198,22 @@ function inputGuard(config) {
   };
 }
 
+function safeLogValue(value, fallback) {
+  const text = String(value || "");
+  return /^[A-Za-z0-9_.:-]{1,80}$/.test(text) ? text : fallback;
+}
+
 function errorHandler(error, req, res, _next) {
   if (res.headersSent) return res.end();
   const bodyError = error?.type === "entity.too.large";
   const status = bodyError ? 413 : 500;
-  if (!bodyError) console.error(`[${req.requestId}]`, error);
+  if (!bodyError) {
+    logger.error("http_request_failed", {
+      request_id: safeLogValue(req.requestId, "unknown"),
+      error_code: safeLogValue(error?.code, "UNEXPECTED_ERROR"),
+      error_name: safeLogValue(error?.name, "Error")
+    });
+  }
   return res.status(status).json({
     error: bodyError ? "REQUEST_BODY_TOO_LARGE" : "INTERNAL_ERROR",
     message: bodyError ? "Request body exceeds the configured limit." : "An internal error occurred."
