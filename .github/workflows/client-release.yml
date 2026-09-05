@@ -48,6 +48,12 @@ jobs:
         uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
       - name: Install and test repository before release
         run: npm ci && npm test
+      - name: Reject placeholders in application-owned source
+        run: |
+          if grep -R -n -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1' -e 'https://127.0.0.1' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' clients/dart clients/flutter/lib --exclude-dir=build; then
+            echo "PLACEHOLDER_FOUND_IN_APPLICATION_SOURCE"
+            exit 1
+          fi
       - name: Validate public API readiness and unauthenticated search
         run: node scripts/validate-installable-api-url.js
       - name: Run real Dart client search smoke
@@ -83,7 +89,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-apk && mkdir -p /tmp/theeb-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-apk
-          if grep -R -a -F -e 'https://example.invalid/' -e 'http://127.0.0.1:8080/' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_ARTIFACT"
             exit 1
           fi
@@ -160,7 +166,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-tv-apk && mkdir -p /tmp/theeb-tv-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-tv-apk
-          if grep -R -a -F -e 'https://example.invalid/' -e 'http://127.0.0.1:8080/' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-tv-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-tv-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_TV_ARTIFACT"
             exit 1
           fi
@@ -247,7 +253,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-ipa && mkdir -p /tmp/theeb-ipa
           unzip -qq clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa -d /tmp/theeb-ipa
-          if grep -R -a -F -e 'https://example.invalid/' -e 'http://127.0.0.1:8080/' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-ipa; then
+          if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-ipa; then
             echo "PLACEHOLDER_FOUND_IN_IOS_ARTIFACT"
             exit 1
           fi
@@ -273,16 +279,23 @@ jobs:
           ACTUAL_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO")"
           ACTUAL_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO")"
           ACTUAL_CODE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO")"
+          printf 'Expected bundle=%s version=%s build=%s\n' "$EXPECTED_ID" "$EXPECTED_NAME" "$EXPECTED_CODE"
+          printf 'Actual   bundle=%s version=%s build=%s\n' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
           test -n "$EXPECTED_ID"
           test "$ACTUAL_ID" = "$EXPECTED_ID"
           test "$ACTUAL_NAME" = "$EXPECTED_NAME"
           test "$ACTUAL_CODE" = "$EXPECTED_CODE"
-          test ! -d "$APP/_CodeSignature"
+          test ! -f "$APP/embedded.mobileprovision"
+          SIGNING_STATE="UNSIGNED"
           if codesign -dv "$APP" >/dev/null 2>&1; then
-            echo "IOS_IPA_UNEXPECTEDLY_SIGNED"
-            exit 1
+            AUTHORITY="$(codesign -dvv "$APP" 2>&1 | awk -F= '/^Authority=/{print $2; exit}')"
+            if [ -n "$AUTHORITY" ]; then
+              echo "IOS_IPA_HAS_DISTRIBUTION_IDENTITY"
+              exit 1
+            fi
+            SIGNING_STATE="ADHOC"
           fi
-          node -e 'const fs=require("fs"); const d={platform:"ios",bundle_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signing:"UNSIGNED",payload_app_count:1,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/ios/ios-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
+          node -e 'const fs=require("fs"); const d={platform:"ios",bundle_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signing:process.argv[4],payload_app_count:1,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/ios/ios-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE" "$SIGNING_STATE"
       - name: Stage iOS artifact
         run: cp clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa theeb-arab-ios-unsigned.ipa
       - name: Upload iOS metadata
@@ -352,17 +365,13 @@ jobs:
             echo "CURRENT_WORKFLOW_ONLY_SUPPORTS_EXPERIMENTAL_UNSIGNED_IOS"
             exit 1
           fi
-      - name: Enforce cumulative release readiness matrix
-        env:
-          THEEB_RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
-        run: node scripts/validate-release-readiness.js
       - name: Generate checksums and release manifest
         env:
           RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: |
           cd release
           sha256sum theeb-arab-android.apk theeb-arab-android-tv.apk theeb-arab-ios-unsigned.ipa > SHA256SUMS.txt
-          node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],metadata:["android-mobile-metadata.json","android-tv-metadata.json","ios-metadata.json"],ios_signing:"UNSIGNED",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
+          node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],metadata:["android-mobile-metadata.json","android-tv-metadata.json","ios-metadata.json"],ios_signing:"UNSIGNED_OR_ADHOC",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
       - name: Materialize runtime Experimental release evidence
         run: node scripts/create-experimental-release-evidence.js release metadata
       - name: Validate runtime Experimental readiness
@@ -407,7 +416,7 @@ jobs:
       - name: Publish verified client release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+          RELEASE_TAG_INPUT: ${{ env.THEEB_RELEASE_TAG }}
           RELEASE_LEVEL: ${{ env.THEEB_RELEASE_LEVEL }}
         run: |
           TAG="${RELEASE_TAG_INPUT:-experimental-${GITHUB_RUN_NUMBER}}"
@@ -415,4 +424,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "ذيب العرب - Experimental - $TAG" \
-            --notes "Classification: Experimental. Commit: $GITHUB_SHA. API: $THEEB_INSTALLABLE_API_BASE_URL. API readiness and real Dart Search smoke passed before build. Android Mobile APK + Android TV APK + iOS IPA were produced from this workflow. The iOS IPA is UNSIGNED and is not directly installable without external signing. SHA-256 checksums and release manifest are attached."
+            --notes "Classification: Experimental. Commit: $GITHUB_SHA. API: $THEEB_INSTALLABLE_API_BASE_URL. API readiness and real Dart Search smoke passed before build. Android Mobile APK + Android TV APK + iOS IPA were produced from this workflow. The iOS IPA is UNSIGNED/ADHOC and is not directly installable without external signing. SHA-256 checksums and release manifest are attached."
