@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { secretValue } = require("./secret");
 
 function booleanEnv(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
@@ -65,7 +66,7 @@ function requestBodyLimit(value = "256kb") {
 function securityConfig(env = process.env) {
   const production = env.NODE_ENV === "production";
   const authRequired = booleanEnv(env.THEEB_AUTH_REQUIRED, production);
-  const apiToken = String(env.THEEB_API_TOKEN || "");
+  const apiToken = secretValue(env, "THEEB_API_TOKEN");
   const trustProxyHops = env.THEEB_TRUST_PROXY_HOPS === undefined
     ? 0
     : positiveInteger(env.THEEB_TRUST_PROXY_HOPS, 0, "THEEB_TRUST_PROXY_HOPS");

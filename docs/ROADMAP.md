@@ -52,7 +52,7 @@
 - مصادقة وحدود معدل للـAPI: منفذة مع Bearer token إلزامي في production، trust-proxy bounded، وquota headers.
 - تحقق صارم من عناوين URL ومنع SSRF وDNS rebinding: منفذ عبر safe-media-request مع DNS pinning وإعادة تحقق لكل redirect.
 - سياسة CORS: same-origin مسموح، وأي cross-origin يحتاج allowlist صريحة عبر THEEB_CORS_ORIGINS؛ لا wildcard.
-- تخزين أسرار خارج المستودع.
+- تخزين أسرار خارج المستودع: DATABASE_URL وAPI/Admin tokens تدعم mounted `*_FILE` sources مع منع الجمع بين الملف والقيمة المباشرة.
 - قاعدة بيانات إنتاجية ونسخ احتياطية.
 - نشر على بيئة ذات عنوان ثابت عند حاجة المصادر المصرح بها.
 - مراجعة قانونية واتفاقات واضحة مع المصادر.

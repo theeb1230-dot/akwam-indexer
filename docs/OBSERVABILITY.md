@@ -12,7 +12,7 @@ Event IDs are idempotent per session. The server stores its own receipt time, bo
 
 ## Read-only admin API
 
-Set a long random `ADMIN_READ_TOKEN` and use `Authorization: Bearer <token>`. Without a configured token the API fails closed with `503 ADMIN_API_DISABLED`.
+Set a long random `ADMIN_READ_TOKEN` or mount it via `ADMIN_READ_TOKEN_FILE`, then use `Authorization: Bearer <token>`. Supplying both sources is rejected; without a valid configured token the API fails closed with `503 ADMIN_API_DISABLED`.
 
 - `GET /internal/admin/health/providers`
 - `GET /internal/admin/circuits`
