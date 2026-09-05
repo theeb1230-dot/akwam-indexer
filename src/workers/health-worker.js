@@ -1,3 +1,4 @@
+const logger = require("../observability/logger");
 const {
   createEpisodeHealthRepository
 } = require("../repositories/episode-health-repository");
@@ -109,16 +110,12 @@ function startHealthWorker(options = {}) {
     try {
       await enqueueDueHealthJobs();
     } catch (error) {
-      console.error(JSON.stringify({
-        level: "error",
-        event: "health_schedule_failed",
-        error: error.message
-      }));
+      logger.error("health_schedule_failed", { error_code: error?.code || "HEALTH_SCHEDULE_FAILED" });
     }
   }, schedulerMs);
 
   timer.unref?.();
-  void enqueueDueHealthJobs().catch(error => console.error(JSON.stringify({ level: "error", event: "health_schedule_failed", error: error.message })));
+  void enqueueDueHealthJobs().catch(error => logger.error("health_schedule_failed", { error_code: error?.code || "HEALTH_SCHEDULE_FAILED" }));
 
   return runWorker({
     role: "health-worker",
