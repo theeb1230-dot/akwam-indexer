@@ -13,6 +13,30 @@ const {
 const health =
   require("./playback-health");
 
+function providerDiversePlan(candidates) {
+  const primary = [];
+  const secondary = [];
+  const seen = new Set();
+
+  for (const candidate of candidates) {
+    const provider = String(candidate.provider || "");
+    if (provider && !seen.has(provider)) {
+      seen.add(provider);
+      primary.push(candidate);
+    } else {
+      secondary.push(candidate);
+    }
+  }
+
+  return [...primary, ...secondary];
+}
+
+function maxAttemptLimit(options = {}) {
+  const raw = Number(options.maxAttempts || process.env.PLAYBACK_MAX_ATTEMPTS || 12);
+  if (!Number.isFinite(raw)) return 12;
+  return Math.max(1, Math.min(50, Math.floor(raw)));
+}
+
 function resolutionSummary(resolved) {
   return {
     canonical_key:
@@ -74,10 +98,13 @@ async function executePlayback(
   const resolved =
     await resolve(params);
 
-  const plan =
-    await health.ranked(
+  const healthPolicy = options.health || health;
+  const rankedPlan =
+    await healthPolicy.ranked(
       resolved.playback_plan || []
     );
+  const plan = providerDiversePlan(rankedPlan);
+  const maxAttempts = maxAttemptLimit(options);
 
   const resolution =
     resolutionSummary(resolved);
@@ -85,8 +112,9 @@ async function executePlayback(
   const attempts = [];
 
   for (const candidate of plan) {
+    if (attempts.length >= maxAttempts) break;
     if (
-      await health.circuitOpen(
+      await healthPolicy.circuitOpen(
         candidate
       )
     ) {
@@ -108,6 +136,7 @@ async function executePlayback(
     let result;
 
     do {
+      if (attempts.length >= maxAttempts) break;
       attemptNumber++;
 
       result =
@@ -117,7 +146,7 @@ async function executePlayback(
         );
 
       const storedHealth =
-        await health.recordResult(
+        await healthPolicy.recordResult(
           candidate,
           result,
           options.circuit || {}
@@ -187,6 +216,7 @@ async function executePlayback(
 
   return {
     status: "unavailable",
+    attempt_limit_reached: attempts.length >= maxAttempts,
     canonical_key:
       resolved.canonical_key,
     title:
@@ -205,5 +235,7 @@ async function executePlayback(
 
 module.exports = {
   resolutionSummary,
+  providerDiversePlan,
+  maxAttemptLimit,
   executePlayback
 };
