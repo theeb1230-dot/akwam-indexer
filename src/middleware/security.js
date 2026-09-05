@@ -130,12 +130,47 @@ function bearerToken(header) {
   return match?.[1] || "";
 }
 
+function publicClientRequest(req) {
+  const method = String(req.method || "").toUpperCase();
+  const path = String(req.path || "");
+  if (method === "GET" && ["/", "/api", "/livez", "/readyz"].includes(path)) {
+    return true;
+  }
+  if (!path.startsWith("/v1/")) return false;
+
+  if (method === "GET") {
+    return (
+      path === "/v1/search" ||
+      /^\/v1\/series\/[1-9]\d*$/.test(path) ||
+      /^\/v1\/series\/[1-9]\d*\/episodes$/.test(path) ||
+      /^\/v1\/episodes\/[1-9]\d*$/.test(path) ||
+      /^\/v1\/episodes\/[1-9]\d*\/download-options$/.test(path) ||
+      /^\/v1\/episodes\/[1-9]\d*\/download-options\/[^/]+\/open$/.test(path) ||
+      /^\/v1\/playback\/sessions\/[^/]+$/.test(path) ||
+      /^\/v1\/playback\/sessions\/[^/]+\/media$/.test(path)
+    );
+  }
+
+  if (method === "POST") {
+    return (
+      path === "/v1/playback/sessions" ||
+      /^\/v1\/playback\/sessions\/[^/]+\/feedback$/.test(path)
+    );
+  }
+
+  return false;
+}
+
 function authentication(config) {
   return (req, res, next) => {
     if (invalidText(req.originalUrl, 2_048)) {
       return res.status(414).json({ error: "URI_TOO_LONG", message: "Request URI is too long or contains control characters." });
     }
-    if (!config.authRequired || req.method === "OPTIONS" || req.path === "/") return next();
+    if (
+      !config.authRequired ||
+      req.method === "OPTIONS" ||
+      publicClientRequest(req)
+    ) return next();
     const token = bearerToken(req.headers.authorization);
     if (!tokensEqual(token, config.apiToken)) {
       res.setHeader("WWW-Authenticate", "Bearer");
@@ -287,6 +322,7 @@ module.exports = {
   invalidText,
   opaqueIdentifier,
   providerHosts,
+  publicClientRequest,
   rateLimiter,
   requestContext,
   validProviderTarget
