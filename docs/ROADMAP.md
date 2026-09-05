@@ -35,7 +35,7 @@
 - تحديث/توسيع اختبارات Fixtures المحلية بحيث تغطي دورة API→Job→Worker→Repository بدون الاعتماد على المواقع الحية.
 - توحيد أخطاء Providers والمهلات وإلغاء الطلبات.
 - ترتيب خيارات التشغيل حسب الصحة والجودة والمنطقة.
-- Fallback تلقائي وآمن بين المصادر.
+- Fallback تلقائي وآمن بين المصادر: health ranking يسبق التنفيذ، وأول جولة أصبحت متنوعة بين Providers قبل secondary servers مع سقف محاولات bounded.
 - فصل إنشاء التطبيق عن `listen()` لتسهيل اختبارات HTTP.
 - التسجيل المنظم ومراقبة الصحة: HTTP errors وserver startup وworkers/schedulers أصبحت تمر عبر logger منقح ومحدود الحقول مع request IDs/error codes، بدون تسريب رسائل upstream الخام. المتبقي توسيع metrics/alerts التشغيلية بدون خدمة مدفوعة.
 
