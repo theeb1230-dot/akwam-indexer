@@ -15,7 +15,7 @@
 
 ## المرحلة الخامسة — Background Health & Refresh
 
-- Queue دائمة بدل الذاكرة المحلية، واستيراد السلاسل يستخدم dedupe ذري عبر repository/unique index بدل full-table job scans.
+- Queue دائمة بدل الذاكرة المحلية.
 - ملكية Job عبر Lease وHeartbeat.
 - استعادة آمنة بعد انتهاء Lease.
 - Refresh Worker مستقل مع Retry وBackoff.
@@ -52,6 +52,7 @@
 - مصادقة وحدود معدل للـAPI: منفذة مع Bearer token إلزامي في production، trust-proxy bounded، وquota headers.
 - تحقق صارم من عناوين URL ومنع SSRF وDNS rebinding: منفذ عبر safe-media-request مع DNS pinning وإعادة تحقق لكل redirect.
 - سياسة CORS: same-origin مسموح، وأي cross-origin يحتاج allowlist صريحة عبر THEEB_CORS_ORIGINS؛ لا wildcard.
+- HTTP response hardening: nosniff/no-referrer/frame-deny وCOOP وPermissions-Policy مفعلة، وHSTS يرسل فقط في production HTTPS.
 - تخزين أسرار خارج المستودع: DATABASE_URL وAPI/Admin tokens تدعم mounted `*_FILE` sources مع منع الجمع بين الملف والقيمة المباشرة.
 - قاعدة بيانات إنتاجية ونسخ احتياطية: أدوات pg_dump/verify موجودة، وGolden Gates تنفذ الآن restore drill حقيقيًا على PostgreSQL محلية؛ ما يزال إنشاء قاعدة الإنتاج والنسخة الخارجية المنفصلة بحاجة إلى حساب/بيئة خارجية.
 - نشر على بيئة ذات عنوان ثابت عند حاجة المصادر المصرح بها.
