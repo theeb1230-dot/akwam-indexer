@@ -3,10 +3,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const { Readable } = require("node:stream");
 
-const { requestBodyLimit, securityConfig, tokensEqual } = require("../src/config/security");
+const { corsOriginList, requestBodyLimit, securityConfig, tokensEqual } = require("../src/config/security");
 const {
   authentication,
   bearerToken,
+  corsPolicy,
   errorEnvelope,
   errorHandler,
   inputGuard,
@@ -32,7 +33,9 @@ function response() {
     body: null,
     setHeader(name, value) { this.headers[name] = value; },
     status(value) { this.statusCode = value; return this; },
-    json(value) { this.body = value; return this; }
+    json(value) { this.body = value; return this; },
+    getHeader(name) { return this.headers[name]; },
+    end() { this.ended = true; return this; }
   };
 }
 
@@ -60,6 +63,84 @@ test("production authentication fails closed without a strong secret", () => {
   assert.equal(requestBodyLimit("256kb"), "256kb");
   assert.throws(() => requestBodyLimit("2mb"), /INVALID_REQUEST_BODY_LIMIT/);
   assert.throws(() => requestBodyLimit("unlimited"), /INVALID_REQUEST_BODY_LIMIT/);
+});
+
+
+test("CORS origins are normalized and invalid entries fail closed", () => {
+  assert.deepEqual(
+    corsOriginList("https://app.example, https://app.example, http://localhost:3000"),
+    ["https://app.example", "http://localhost:3000"]
+  );
+  assert.throws(() => corsOriginList("https://user:pass@app.example"), /INVALID_CORS_ORIGIN/);
+  assert.throws(() => corsOriginList("https://app.example/path"), /INVALID_CORS_ORIGIN/);
+  assert.deepEqual(
+    securityConfig({ THEEB_CORS_ORIGINS: "https://app.example" }).corsOrigins,
+    ["https://app.example"]
+  );
+});
+
+test("CORS policy allows same-origin and configured origins but rejects others", () => {
+  const middleware = corsPolicy({ corsOrigins: ["https://app.example"] });
+
+  let continued = false;
+  const same = response();
+  middleware(
+    {
+      method: "GET",
+      protocol: "https",
+      headers: { origin: "https://api.example", host: "api.example" },
+      get(name) { return name === "host" ? "api.example" : undefined; }
+    },
+    same,
+    () => { continued = true; }
+  );
+  assert.equal(continued, true);
+  assert.equal(same.headers["Access-Control-Allow-Origin"], "https://api.example");
+
+  continued = false;
+  const allowed = response();
+  middleware(
+    {
+      method: "GET",
+      protocol: "https",
+      headers: { origin: "https://app.example", host: "api.example" },
+      get(name) { return name === "host" ? "api.example" : undefined; }
+    },
+    allowed,
+    () => { continued = true; }
+  );
+  assert.equal(continued, true);
+  assert.equal(allowed.headers["Access-Control-Allow-Origin"], "https://app.example");
+
+  const denied = response();
+  middleware(
+    {
+      method: "GET",
+      protocol: "https",
+      headers: { origin: "https://evil.example", host: "api.example" },
+      get(name) { return name === "host" ? "api.example" : undefined; }
+    },
+    denied,
+    () => assert.fail("disallowed origin must not continue")
+  );
+  assert.equal(denied.statusCode, 403);
+  assert.equal(denied.body.error, "CORS_ORIGIN_DENIED");
+
+  const preflight = response();
+  middleware(
+    {
+      method: "OPTIONS",
+      protocol: "https",
+      headers: { origin: "https://app.example", host: "api.example" },
+      get(name) { return name === "host" ? "api.example" : undefined; }
+    },
+    preflight,
+    () => assert.fail("preflight must terminate in CORS middleware")
+  );
+  assert.equal(preflight.statusCode, 204);
+  assert.equal(preflight.ended, true);
+  assert.equal(preflight.headers["Access-Control-Allow-Methods"], "GET, POST, OPTIONS");
+  assert.equal(preflight.headers["Vary"], "Origin");
 });
 
 test("Bearer authentication uses exact tokens", () => {
