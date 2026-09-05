@@ -55,6 +55,7 @@
 - HTTP response hardening: nosniff/no-referrer/frame-deny وCOOP وPermissions-Policy مفعلة، وHSTS يرسل فقط في production HTTPS.
 - HTTP server hardening: request/header/keep-alive timeouts وmax requests per socket أصبحت bounded وقابلة للضبط مع تحقق fail-closed.
 - تخزين أسرار خارج المستودع: DATABASE_URL وAPI/Admin tokens تدعم mounted `*_FILE` sources مع منع الجمع بين الملف والقيمة المباشرة.
+- إعدادات PostgreSQL runtime: حجم الـpool ومهلات idle/connect أصبحت bounded وتفشل fail-closed عند القيم غير الآمنة بدل تمرير أرقام خام إلى `pg`.
 - قاعدة بيانات إنتاجية ونسخ احتياطية: أدوات pg_dump/verify موجودة، وGolden Gates تنفذ الآن restore drill حقيقيًا على PostgreSQL محلية؛ ما يزال إنشاء قاعدة الإنتاج والنسخة الخارجية المنفصلة بحاجة إلى حساب/بيئة خارجية.
 - نشر على بيئة ذات عنوان ثابت عند حاجة المصادر المصرح بها.
 - مراجعة قانونية واتفاقات واضحة مع المصادر.
