@@ -32,7 +32,7 @@ router.get(
           "SEARCH_QUERY_REQUIRED",
 
         message:
-          "Use /api/search?q=..."
+          "اكتب عبارة بحث للمتابعة."
       });
     }
 
@@ -67,12 +67,6 @@ router.get(
         groups:
           result.groups,
 
-        /*
-         * نخلي التشخيص متاحًا فقط عند الطلب
-         * حتى لا يكبر الرد العادي.
-         *
-         * /api/search?q=Lucky&debug=1
-         */
         ...(String(
           req.query.debug ||
           ""
@@ -94,7 +88,7 @@ router.get(
           "LIVE_SEARCH_FAILED",
 
         message:
-          error.message
+          "تعذر إكمال البحث الآن. حاول مرة أخرى."
       });
     }
   }
