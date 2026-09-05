@@ -40,9 +40,16 @@ test("installable API DNS policy rejects private and loopback addresses", () => 
     "10.0.0.1",
     "172.16.0.1",
     "192.168.1.10",
+    "100.64.0.1",
     "169.254.1.1",
+    "192.0.2.10",
+    "198.18.0.1",
+    "198.51.100.10",
+    "203.0.113.10",
     "::1",
-    "fd00::1"
+    "fd00::1",
+    "2001:db8::1",
+    "::ffff:127.0.0.1"
   ]) {
     assert.equal(isPrivateAddress(address), true, address);
   }
