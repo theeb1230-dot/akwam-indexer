@@ -3,6 +3,7 @@ const {
   createPlaybackSessionRepository
 } = require("../repositories/playback-session-repository");
 const providers = require("../providers");
+const { validProviderTarget } = require("../middleware/security");
 
 const repository = createPlaybackSessionRepository();
 
@@ -190,10 +191,10 @@ function withRepository(customRepository) {
         if (!providers.has(source.provider)) continue;
         const provider = providers.get(source.provider);
         if (!provider || typeof provider.getEpisode !== "function") continue;
+        const target = source.source_url || source.provider_episode_id;
+        if (!validProviderTarget(provider, target)) continue;
         try {
-          const resolved = await provider.getEpisode(
-            source.source_url || source.provider_episode_id
-          );
+          const resolved = await provider.getEpisode(target);
           for (const option of resolved?.watch_options || []) {
             await storage.upsertResolvedWatchOption(source, option);
           }
@@ -306,7 +307,9 @@ function withRepository(customRepository) {
     if (
       ["embed", "external_player"].includes(candidate.playback_type) &&
       locator?.page_url &&
-      /^https:\/\//i.test(locator.page_url)
+      /^https:\/\//i.test(locator.page_url) &&
+      providers.has(candidate.provider) &&
+      validProviderTarget(providers.get(candidate.provider), locator.page_url)
     ) {
       return {
         session_id: id,
