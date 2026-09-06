@@ -36,7 +36,6 @@ function main() {
     real_https_api: [`${baseUrl}readyz`],
     readiness_search_smoke: [`run:${runId}:installable-api-and-search-smoke`],
     no_placeholder_artifacts: [`run:${runId}:artifact-placeholder-scans`],
-    client_runtime_search_smoke: [`run:${runId}:dart-client-search-smoke`],
     watch_download_separation: [`commit:${sha}:contract-tests`],
     postgres_runtime_path: [`${baseUrl}readyz`, `commit:${sha}:postgres-runtime`],
     no_critical_blocker: [`run:${runId}:all-release-jobs-passed`],
