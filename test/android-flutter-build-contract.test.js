@@ -17,7 +17,7 @@ test("Android delivery pipeline separates normal CI from verified installable ar
     normalCiBundleOnly: ci.includes("flutter build bundle"),
     normalCiNoInstallableUpload: !ci.includes("name: theeb-arab-android-debug"),
     releaseApkBuild: release.includes("Build installable Android APK"),
-    releaseApkPath: release.includes("app-debug.apk"),
+    releaseApkPath: release.includes("app-release.apk"),
     releaseArtifactName: release.includes("name: theeb-arab-android"),
     releaseApiRequired: release.includes("THEEB_INSTALLABLE_API_BASE_URL"),
     releaseInstallableFlag: release.includes("THEEB_INSTALLABLE_BUILD=true"),
