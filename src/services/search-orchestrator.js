@@ -1,6 +1,6 @@
 const providers = require("../providers");
 
-const DEFAULT_TIMEOUT = 15000;
+const DEFAULT_TIMEOUT = 6000;
 const MIN_PUBLIC_SCORE = 35;
 
 /*
