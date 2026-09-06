@@ -135,6 +135,98 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  android-runtime-smoke:
+    needs: [android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download Android APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android
+          path: runtime
+      - name: Download Android metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-android-metadata
+          path: runtime
+      - name: Start Android emulator
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort | tail -1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          sudo chmod 666 /dev/kvm || true
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          echo no | "$AVDMANAGER" create avd --force --name theeb-runtime-smoke --package "system-images;android-35;google_apis;x86_64"
+          nohup "$ANDROID_HOME/emulator/emulator" -avd theeb-runtime-smoke -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect >/tmp/theeb-emulator.log 2>&1 &
+          adb wait-for-device
+          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+      - name: Install and exercise real Android app Search UI
+        env:
+          THEEB_RUNTIME_QUERY: Lucky
+        run: |
+          set -euo pipefail
+          APK="runtime/theeb-arab-android.apk"
+          test -s "$APK"
+          PACKAGE="$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("runtime/android-mobile-metadata.json","utf8"));process.stdout.write(d.application_id)')"
+          test -n "$PACKAGE"
+          adb install -r "$APK"
+          adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/tmp/theeb-monkey.log
+          sleep 4
+          adb shell uiautomator dump /sdcard/theeb-before.xml >/dev/null
+          adb pull /sdcard/theeb-before.xml /tmp/theeb-before.xml >/dev/null
+          EDIT_BOUNDS="$(python3 - <<'PY'
+import re, xml.etree.ElementTree as ET
+root=ET.parse('/tmp/theeb-before.xml').getroot()
+for node in root.iter('node'):
+    if node.attrib.get('class') == 'android.widget.EditText':
+        print(node.attrib.get('bounds',''))
+        break
+PY
+)"
+          test -n "$EDIT_BOUNDS"
+          read X Y <<EOF
+$(python3 - "$EDIT_BOUNDS" <<'PY'
+import re,sys
+m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',sys.argv[1])
+if not m: raise SystemExit(1)
+x1,y1,x2,y2=map(int,m.groups())
+print((x1+x2)//2,(y1+y2)//2)
+PY
+)
+EOF
+          adb shell input tap "$X" "$Y"
+          adb shell input text "$THEEB_RUNTIME_QUERY"
+          adb shell input keyevent 66
+          sleep 15
+          adb shell uiautomator dump /sdcard/theeb-after.xml >/dev/null
+          adb pull /sdcard/theeb-after.xml /tmp/theeb-after.xml >/dev/null
+          if grep -q 'تعذر' /tmp/theeb-after.xml; then
+            echo "ANDROID_RUNTIME_SEARCH_RENDERED_ERROR"
+            cat /tmp/theeb-after.xml
+            exit 1
+          fi
+          RESULT_COUNT="$(grep -o "$THEEB_RUNTIME_QUERY" /tmp/theeb-after.xml | wc -l | tr -d ' ')"
+          if [ "$RESULT_COUNT" -lt 2 ]; then
+            echo "ANDROID_RUNTIME_SEARCH_REAL_RESULT_NOT_RENDERED"
+            cat /tmp/theeb-after.xml
+            exit 1
+          fi
+          node -e 'const fs=require("fs"); const resultCount=Number(process.argv[1])-1; const evidence={status:"PASS",commit_sha:process.env.GITHUB_SHA,api_base_url:process.env.THEEB_INSTALLABLE_API_BASE_URL,platforms:["android-mobile"],query:process.env.THEEB_RUNTIME_QUERY,result_count:resultCount,method:"installed-apk-emulator-ui"}; fs.writeFileSync("runtime/client-runtime-smoke.json",JSON.stringify(evidence,null,2)+"\n");' "$RESULT_COUNT"
+      - name: Upload application runtime smoke evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: theeb-arab-client-runtime-smoke
+          path: runtime/client-runtime-smoke.json
+          if-no-files-found: error
+          retention-days: 30
+
   android-tv:
     needs: validate-api
     runs-on: ubuntu-latest
@@ -314,7 +406,7 @@ jobs:
           retention-days: 14
 
   release-readiness:
-    needs: [android, android-tv, ios]
+    needs: [android, android-runtime-smoke, android-tv, ios]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -350,6 +442,11 @@ jobs:
         with:
           name: theeb-arab-ios-metadata
           path: metadata
+      - name: Download application runtime smoke evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: theeb-arab-client-runtime-smoke
+          path: release
       - name: Validate cross-platform identity and version parity
         run: node scripts/validate-client-artifact-metadata.js metadata
       - name: Require exact artifact triplet and supported classification
