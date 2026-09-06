@@ -8,7 +8,8 @@ function normalizeRow(row) {
     "episode_number",
     "episode_count",
     "watch_count",
-    "download_count"
+    "download_count",
+    "resolvable_count"
   ]) {
     if (output[key] != null) output[key] = Number(output[key]);
   }
@@ -60,7 +61,8 @@ class SqliteV1ReadRepository {
       SELECT ce.id, ce.canonical_series_id, ce.season_number,
         ce.episode_number, ce.title, ce.description, ce.image,
         COUNT(DISTINCT CASE WHEN po.can_watch = 1 AND po.status = 'active' THEN po.id END) AS watch_count,
-        COUNT(DISTINCT CASE WHEN po.can_download = 1 AND po.status = 'active' THEN po.id END) AS download_count
+        COUNT(DISTINCT CASE WHEN po.can_download = 1 AND po.status = 'active' THEN po.id END) AS download_count,
+        COUNT(DISTINCT CASE WHEN pe.active = 1 THEN pe.id END) AS resolvable_count
       FROM canonical_episodes ce
       LEFT JOIN provider_episodes pe
         ON pe.canonical_episode_id = ce.id AND pe.active = 1
@@ -77,7 +79,8 @@ class SqliteV1ReadRepository {
       SELECT ce.id, ce.canonical_series_id, ce.season_number,
         ce.episode_number, ce.title, ce.description, ce.image,
         COUNT(DISTINCT CASE WHEN po.can_watch = 1 AND po.status = 'active' THEN po.id END) AS watch_count,
-        COUNT(DISTINCT CASE WHEN po.can_download = 1 AND po.status = 'active' THEN po.id END) AS download_count
+        COUNT(DISTINCT CASE WHEN po.can_download = 1 AND po.status = 'active' THEN po.id END) AS download_count,
+        COUNT(DISTINCT CASE WHEN pe.active = 1 THEN pe.id END) AS resolvable_count
       FROM canonical_episodes ce
       LEFT JOIN provider_episodes pe
         ON pe.canonical_episode_id = ce.id AND pe.active = 1
@@ -136,7 +139,8 @@ class PostgresV1ReadRepository {
       SELECT ce.id, ce.canonical_series_id, ce.season_number,
         ce.episode_number, ce.title, ce.description, ce.image,
         COUNT(DISTINCT CASE WHEN po.can_watch = TRUE AND po.status = 'active' THEN po.id END)::integer AS watch_count,
-        COUNT(DISTINCT CASE WHEN po.can_download = TRUE AND po.status = 'active' THEN po.id END)::integer AS download_count
+        COUNT(DISTINCT CASE WHEN po.can_download = TRUE AND po.status = 'active' THEN po.id END)::integer AS download_count,
+        COUNT(DISTINCT CASE WHEN pe.active = TRUE THEN pe.id END)::integer AS resolvable_count
       FROM canonical_episodes ce
       LEFT JOIN provider_episodes pe
         ON pe.canonical_episode_id = ce.id AND pe.active = TRUE
@@ -153,7 +157,8 @@ class PostgresV1ReadRepository {
       SELECT ce.id, ce.canonical_series_id, ce.season_number,
         ce.episode_number, ce.title, ce.description, ce.image,
         COUNT(DISTINCT CASE WHEN po.can_watch = TRUE AND po.status = 'active' THEN po.id END)::integer AS watch_count,
-        COUNT(DISTINCT CASE WHEN po.can_download = TRUE AND po.status = 'active' THEN po.id END)::integer AS download_count
+        COUNT(DISTINCT CASE WHEN po.can_download = TRUE AND po.status = 'active' THEN po.id END)::integer AS download_count,
+        COUNT(DISTINCT CASE WHEN pe.active = TRUE THEN pe.id END)::integer AS resolvable_count
       FROM canonical_episodes ce
       LEFT JOIN provider_episodes pe
         ON pe.canonical_episode_id = ce.id AND pe.active = TRUE
