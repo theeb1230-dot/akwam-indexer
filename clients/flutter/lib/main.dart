@@ -573,7 +573,6 @@ class EpisodeScreen extends StatefulWidget {
 
 class _EpisodeScreenState extends State<EpisodeScreen> {
   TheebEpisode? _episode;
-  PlaybackSession? _session;
   DownloadOptions? _downloads;
   String? _error;
   bool _loading = true;
@@ -603,7 +602,6 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
     setState(() {
       _watchLoading = true;
       _error = null;
-      _session = null;
     });
     try {
       final session = await widget.api.createPlaybackSession(
@@ -613,7 +611,6 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
         ),
       );
       if (!mounted) return;
-      setState(() => _session = session);
 
       final playback = session.playback;
       if (session.state == PlaybackSessionState.ready && playback != null) {
