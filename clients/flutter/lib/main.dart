@@ -368,15 +368,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                     child: const Text('إضافة'),
                                   );
                                 }
-                                return Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('${_importProgress[key] ?? 0}%'),
-                                    TextButton(
-                                      onPressed: () => _cancelImport(key),
-                                      child: const Text('إلغاء'),
-                                    ),
-                                  ],
+                                return OutlinedButton(
+                                  onPressed: () => _cancelImport(key),
+                                  child: Text('إلغاء ${_importProgress[key] ?? 0}%'),
                                 );
                               },
                             ),
