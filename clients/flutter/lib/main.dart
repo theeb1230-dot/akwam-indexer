@@ -205,7 +205,9 @@ class _SearchScreenState extends State<SearchScreen> {
       }
 
       if (!job.finished || job.status == 'failed' || job.status == 'cancelled') {
-        throw StateError('IMPORT_FAILED');
+        throw StateError(job.errorMessage?.isNotEmpty == true
+            ? job.errorMessage!
+            : 'IMPORT_FAILED');
       }
 
       if (!mounted) return;
@@ -335,7 +337,11 @@ class _SearchScreenState extends State<SearchScreen> {
                           onTap: () => _openSeries(item),
                           title: Text(item.title),
                           subtitle: Text(item.description ?? item.contentType),
-                          trailing: Text(item.episodeCount.toString()),
+                          trailing: Text(
+                            item.contentType == 'movie'
+                                ? 'فيلم'
+                                : '${item.episodeCount} حلقة',
+                          ),
                         ),
                       ),
                     if (_items.isEmpty && _discoveries.isNotEmpty) ...[
@@ -505,10 +511,16 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       ],
                       const SizedBox(height: 18),
                       Text(
-                        'الحلقات',
+                        _series!.contentType == 'movie' ? 'المشاهدة والتحميل' : 'الحلقات',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 8),
+                      if (_episodes.isEmpty)
+                        Text(
+                          _series!.contentType == 'movie'
+                              ? 'لا توجد خيارات مشاهدة أو تحميل جاهزة لهذا الفيلم حاليًا.'
+                              : 'لم تُجلب حلقات لهذا المسلسل بعد.',
+                        ),
                       for (final episode in _episodes)
                         Card(
                           child: ListTile(
