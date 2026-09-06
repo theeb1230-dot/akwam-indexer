@@ -11,6 +11,21 @@ function requireFile(file) {
   }
 }
 
+function loadRuntimeSmokeEvidence(file, expectedSha, expectedBaseUrl) {
+  requireFile(file);
+  const evidence = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (evidence.status !== "PASS") throw new Error("CLIENT_RUNTIME_SEARCH_SMOKE_NOT_PASSED");
+  if (evidence.commit_sha !== expectedSha) throw new Error("CLIENT_RUNTIME_SMOKE_COMMIT_MISMATCH");
+  if (evidence.api_base_url !== expectedBaseUrl) throw new Error("CLIENT_RUNTIME_SMOKE_API_MISMATCH");
+  if (!Array.isArray(evidence.platforms) || evidence.platforms.length === 0) {
+    throw new Error("CLIENT_RUNTIME_SMOKE_PLATFORM_REQUIRED");
+  }
+  if (!Number.isInteger(evidence.result_count) || evidence.result_count <= 0) {
+    throw new Error("CLIENT_RUNTIME_SMOKE_REAL_RESULT_REQUIRED");
+  }
+  return evidence;
+}
+
 function main() {
   const releaseDir = process.argv[2] || "release";
   const metadataDir = process.argv[3] || "metadata";
@@ -29,6 +44,9 @@ function main() {
     .map(name => path.join(metadataDir, name))
     .forEach(requireFile);
 
+  const runtimeSmokeFile = path.join(releaseDir, "client-runtime-smoke.json");
+  const runtimeSmoke = loadRuntimeSmokeEvidence(runtimeSmokeFile, sha, baseUrl);
+
   const matrix = loadMatrix();
   const req = matrix.levels.experimental.requirements;
   const evidence = {
@@ -36,7 +54,11 @@ function main() {
     real_https_api: [`${baseUrl}readyz`],
     readiness_search_smoke: [`run:${runId}:installable-api-and-search-smoke`],
     no_placeholder_artifacts: [`run:${runId}:artifact-placeholder-scans`],
-    client_runtime_search_smoke: [`run:${runId}:dart-client-search-smoke`],
+    client_runtime_search_smoke: [
+      `run:${runId}:client-runtime-smoke`,
+      `platforms:${runtimeSmoke.platforms.join(",")}`,
+      `result_count:${runtimeSmoke.result_count}`
+    ],
     watch_download_separation: [`commit:${sha}:contract-tests`],
     postgres_runtime_path: [`${baseUrl}readyz`, `commit:${sha}:postgres-runtime`],
     no_critical_blocker: [`run:${runId}:all-release-jobs-passed`],
@@ -69,3 +91,5 @@ if (require.main === module) {
     process.exit(1);
   }
 }
+
+module.exports = { loadRuntimeSmokeEvidence };
