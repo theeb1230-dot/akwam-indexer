@@ -2,6 +2,7 @@ const { randomUUID } = require("node:crypto");
 const {
   createPlaybackSessionRepository
 } = require("../repositories/playback-session-repository");
+const providers = require("../providers");
 
 const repository = createPlaybackSessionRepository();
 
@@ -181,7 +182,27 @@ function withRepository(customRepository) {
     if (!Number.isFinite(ttlMs) || ttlMs <= 0) throw new Error("SESSION_TTL_INVALID");
     const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
 
-    const candidate = await storage.selectCandidate(episodeId, quality);
+    let candidate = await storage.selectCandidate(episodeId, quality);
+
+    if (!candidate && typeof storage.providerEpisodeSources === "function") {
+      const sources = await storage.providerEpisodeSources(episodeId);
+      for (const source of sources) {
+        if (!providers.has(source.provider)) continue;
+        const provider = providers.get(source.provider);
+        if (!provider || typeof provider.getEpisode !== "function") continue;
+        try {
+          const resolved = await provider.getEpisode(
+            source.source_url || source.provider_episode_id
+          );
+          for (const option of resolved?.watch_options || []) {
+            await storage.upsertResolvedWatchOption(source, option);
+          }
+        } catch {
+          // A broken provider source must not prevent fallback to other sources.
+        }
+      }
+      candidate = await storage.selectCandidate(episodeId, quality);
+    }
     await storage.createSession({
       id,
       canonical_episode_id: episodeId,
@@ -277,6 +298,21 @@ function withRepository(customRepository) {
 
     const candidate = await storage.selectedCandidate(id);
     if (!candidate) throw new Error("PLAYBACK_SESSION_NOT_ACTIVE");
+
+    const locator = candidate.locator || (
+      candidate.locator_json ? JSON.parse(candidate.locator_json) : null
+    );
+
+    if (
+      ["embed", "external_player"].includes(candidate.playback_type) &&
+      locator?.page_url &&
+      /^https:\/\//i.test(locator.page_url)
+    ) {
+      return {
+        session_id: id,
+        uri: locator.page_url
+      };
+    }
 
     return {
       session_id: id,
