@@ -211,7 +211,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('نتائج من المصادر'), findsOneWidget);
-    expect(find.text('الذئب الوحيد'), findsOneWidget);
+    expect(find.text('الذئب الوحيد'), findsNWidgets(2));
     expect(find.text('إضافة'), findsOneWidget);
 
     await tester.tap(find.text('إضافة'));
