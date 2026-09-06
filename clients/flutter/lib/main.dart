@@ -349,14 +349,38 @@ class _SearchScreenState extends State<SearchScreen> {
                       for (final item in _discoveries)
                         Card(
                           child: ListTile(
+                            leading: SizedBox(
+                              width: 52,
+                              height: 72,
+                              child: item.image == null
+                                  ? const Icon(Icons.movie_outlined)
+                                  : ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.network(
+                                        item.image!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(Icons.broken_image_outlined),
+                                      ),
+                                    ),
+                            ),
                             title: Directionality(
                               textDirection: RegExp(r'[A-Za-z]').hasMatch(item.displayTitle ?? item.title)
                                   ? TextDirection.ltr
                                   : TextDirection.rtl,
-                              child: Text(item.displayTitle ?? item.title),
+                              child: Text(
+                                item.displayTitle ?? item.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             subtitle: Text(
-                              '${item.contentType == 'movie' ? 'فيلم' : 'مسلسل'} • ${item.provider} • تطابق ${item.matchScore}%',
+                              [
+                                item.contentType == 'movie' ? 'فيلم' : 'مسلسل',
+                                if (item.year != null) item.year!,
+                                item.provider,
+                                'تطابق ${item.matchScore}%'
+                              ].join(' • '),
                             ),
                             trailing: Builder(
                               builder: (context) {
