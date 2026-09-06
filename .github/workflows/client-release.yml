@@ -181,26 +181,9 @@ jobs:
           sleep 4
           adb shell uiautomator dump /sdcard/theeb-before.xml >/dev/null
           adb pull /sdcard/theeb-before.xml /tmp/theeb-before.xml >/dev/null
-          EDIT_BOUNDS="$(python3 - <<'PY'
-import re, xml.etree.ElementTree as ET
-root=ET.parse('/tmp/theeb-before.xml').getroot()
-for node in root.iter('node'):
-    if node.attrib.get('class') == 'android.widget.EditText':
-        print(node.attrib.get('bounds',''))
-        break
-PY
-)"
+          EDIT_BOUNDS="$(python3 -c "import xml.etree.ElementTree as ET; root=ET.parse('/tmp/theeb-before.xml').getroot(); print(next((n.attrib.get('bounds','') for n in root.iter('node') if n.attrib.get('class') == 'android.widget.EditText'), ''))")"
           test -n "$EDIT_BOUNDS"
-          read X Y <<EOF
-$(python3 - "$EDIT_BOUNDS" <<'PY'
-import re,sys
-m=re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]',sys.argv[1])
-if not m: raise SystemExit(1)
-x1,y1,x2,y2=map(int,m.groups())
-print((x1+x2)//2,(y1+y2)//2)
-PY
-)
-EOF
+          read X Y <<< "$(python3 -c "import re,sys; m=re.fullmatch(r'\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]',sys.argv[1]); m or sys.exit(1); x1,y1,x2,y2=map(int,m.groups()); print((x1+x2)//2,(y1+y2)//2)" "$EDIT_BOUNDS")"
           adb shell input tap "$X" "$Y"
           adb shell input text "$THEEB_RUNTIME_QUERY"
           adb shell input keyevent 66
