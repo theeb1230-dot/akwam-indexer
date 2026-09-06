@@ -40,7 +40,7 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "readiness gate must run before publication"
   );
   assert.match(workflow, /needs: \[release-readiness\]/);
-  assert.match(workflow, /THEEB_RELEASE_TAG:.*v0\.2\.1-experimental\.1/);
+  assert.match(workflow, /THEEB_RELEASE_TAG:.*v0\.2\.2-experimental\.1/);
   assert.match(workflow, /npm ci && npm test/);
   assert.match(workflow, /PLACEHOLDER_FOUND_IN_APPLICATION_SOURCE/);
   assert.doesNotMatch(workflow, /Enforce cumulative release readiness matrix/);

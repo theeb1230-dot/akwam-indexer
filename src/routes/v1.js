@@ -115,6 +115,7 @@ function createV1Router(options = {}) {
   const inlineJobs = options.inlineJobs ?? shouldExecuteJobsInline();
   const executeClientImports = options.executeClientImports ?? true;
   let activeClientImports = 0;
+  const scheduledClientImports = new Set();
   const maxClientImports = Math.max(1, Math.min(2, Number(options.maxClientImports || process.env.CLIENT_IMPORT_CONCURRENCY || 1)));
   const router = express.Router();
 
@@ -144,6 +145,8 @@ function createV1Router(options = {}) {
         title: String(item.title || ""),
         display_title: baseTitle(item.title) || String(item.title || ""),
         source_url: item.source_url || null,
+        image: item.image || item.poster || null,
+        year: item.year ? String(item.year) : null,
         content_type: item.type === "movie" ? "movie" : "series",
         match_score: Number(item.match_score || 0),
         match_level: String(item.match_level || "weak")
@@ -191,23 +194,25 @@ function createV1Router(options = {}) {
 
     const job = queued.job;
 
-    if (inlineJobs || executeClientImports) {
+    if ((inlineJobs || executeClientImports) && !scheduledClientImports.has(job.id)) {
+      scheduledClientImports.add(job.id);
       setImmediate(async () => {
-        while (activeClientImports >= maxClientImports) {
-          await new Promise(resolve => setTimeout(resolve, 250));
-        }
-        const current = await jobs.get(job.id);
-        if (!current || current.status === "cancelled" || current.status === "completed" ||
-            current.status === "completed_with_errors" || current.status === "failed") {
-          return;
-        }
-        activeClientImports++;
         try {
-          await runImportJob(job.id, providerName, providerSeriesId);
-        } catch {
-          // runImportJob persists terminal failure state.
+          while (activeClientImports >= maxClientImports) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+          }
+          const current = await jobs.get(job.id);
+          if (!current || current.status !== "queued") return;
+          activeClientImports++;
+          try {
+            await runImportJob(job.id, providerName, providerSeriesId);
+          } catch {
+            // runImportJob persists terminal failure state.
+          } finally {
+            activeClientImports--;
+          }
         } finally {
-          activeClientImports--;
+          scheduledClientImports.delete(job.id);
         }
       });
     }
