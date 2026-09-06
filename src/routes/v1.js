@@ -176,6 +176,7 @@ function createV1Router(options = {}) {
     const providerName = String(req.body?.provider || "").trim().toLowerCase();
     const providerSeriesId = String(req.body?.provider_series_id || "").trim();
     const sourceUrl = String(req.body?.source_url || "").trim();
+    const contentType = req.body?.content_type === "movie" ? "movie" : "series";
 
     if (!providerRegistry.has(providerName)) {
       return respondError(res, new Error("DISCOVERY_PROVIDER_INVALID"));
@@ -208,7 +209,8 @@ function createV1Router(options = {}) {
           activeClientImports++;
           try {
             await runImportJob(job.id, providerName, providerSeriesId, {
-              providerTarget: sourceUrl || providerSeriesId
+              providerTarget: sourceUrl || providerSeriesId,
+              contentType
             });
           } catch {
             // runImportJob persists terminal failure state.
