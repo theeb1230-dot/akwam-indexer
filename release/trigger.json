@@ -1,14 +1,14 @@
 {
-  "release_tag": "v0.1.1-experimental.1",
+  "release_tag": "v0.2.0-experimental.1",
   "release_level": "experimental",
   "api_base_url": "https://theeb-arab-api.onrender.com",
-  "flutter_version": "0.1.1+2",
+  "flutter_version": "0.2.0+3",
   "artifacts": [
     "theeb-arab-android.apk",
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "Merging this file to main triggers Client Release Artifacts and publishes the verified triplet to GitHub Releases.",
-  "retry": 7,
-  "reason": "Retry after replacing release/* glob with an explicit publish file list."
+  "note": "Feature release: real provider discovery + user-selected import, explicit watch/download, real Render API, optimized Android/TV release APKs.",
+  "retry": 0,
+  "reason": "New v0.2.0 feature release after live backend deployment and discovery/import integration."
 }
