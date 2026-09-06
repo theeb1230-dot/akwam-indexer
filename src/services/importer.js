@@ -30,9 +30,13 @@ async function importSeries(
   const jobId =
     options.jobId || null;
 
+  const providerTarget =
+    options.providerTarget ||
+    providerSeriesId;
+
   const seriesData =
     await provider.getSeries(
-      providerSeriesId
+      providerTarget
     );
 
   const seriesDbId =
