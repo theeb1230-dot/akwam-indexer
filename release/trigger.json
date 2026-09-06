@@ -8,7 +8,7 @@
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "In-app embedded player, direct watch flow, discovery noise suppression, and zero-episode stale-result filtering.",
-  "retry": 0,
+  "note": "In-app embedded player, direct watch flow, discovery noise suppression, and zero-episode stale-result filtering. Release workflow YAML parser repair applied.",
+  "retry": 1,
   "reason": "User-device regression repair from real Android screenshots; fixes the client and search contracts rather than individual titles."
 }
