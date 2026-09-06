@@ -75,6 +75,53 @@ class QAskProvider {
     }
   }
 
+  extractSeasonNumber(value) {
+    const text = this.cleanText(value);
+    const patterns = [
+      /-s0*(\d+)-e0*\d+/i,
+      /\bs0*(\d+)e0*\d+\b/i,
+      /الموسم\s*0*(\d+)/i,
+      /\bseason\s*0*(\d+)/i
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) return Number(match[1]);
+    }
+    return 1;
+  }
+
+  extractWatchOptions($, pageUrl) {
+    const options = [];
+    const seen = new Set();
+
+    $("iframe[src]").each((_, element) => {
+      const src = this.normalizeUrl($(element).attr("src"));
+      if (!src || seen.has(src)) return;
+      seen.add(src);
+      options.push({
+        watch_id: src,
+        page_url: src,
+        quality: null,
+        type: "embed",
+        can_watch: true,
+        can_download: false
+      });
+    });
+
+    if (!options.length && pageUrl) {
+      options.push({
+        watch_id: pageUrl,
+        page_url: pageUrl,
+        quality: null,
+        type: "external_player",
+        can_watch: true,
+        can_download: false
+      });
+    }
+
+    return options;
+  }
+
   extractSeriesSlug(url) {
     try {
       const pathname =
@@ -401,6 +448,10 @@ class QAskProvider {
             {
               id: url,
               number,
+              season:
+                this.extractSeasonNumber(
+                  `${url} ${$(element).text()}`
+                ),
 
               title:
                 this.cleanText(
@@ -429,6 +480,10 @@ class QAskProvider {
         {
           id: pageUrl,
           number: currentEpisode,
+          season:
+            this.extractSeasonNumber(
+              `${pageUrl} ${this.extractRawTitle($)}`
+            ),
           title:
             `الحلقة ${currentEpisode}`,
           source_url:
@@ -784,6 +839,11 @@ class QAskProvider {
         number:
           episodeNumber,
 
+        season:
+          this.extractSeasonNumber(
+            `${finalUrl} ${title}`
+          ),
+
         title,
 
         description:
@@ -796,7 +856,10 @@ class QAskProvider {
         [],
 
       watch_options:
-        []
+        this.extractWatchOptions(
+          $,
+          finalUrl
+        )
     };
   }
 
