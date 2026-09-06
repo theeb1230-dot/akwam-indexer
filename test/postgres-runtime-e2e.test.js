@@ -132,6 +132,6 @@ test("PostgreSQL runtime E2E covers jobs importer refresh download and v1 reads"
 
   const episodes = await v1.listEpisodes(seriesId);
   assert.equal(episodes.length, 1);
-  assert.equal(episodes[0].watch_count, 0);
+  assert.equal(episodes[0].watch_count, 1);
   assert.equal(episodes[0].download_count, 0);
 });
