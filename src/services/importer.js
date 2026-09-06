@@ -12,6 +12,35 @@ function getProvider(providerName) {
   return providers.get(providerName);
 }
 
+function extractSeasonNumber(episode, details = {}) {
+  const direct = Number(
+    episode?.season ??
+    episode?.season_number ??
+    details?.episode?.season ??
+    details?.episode?.season_number
+  );
+  if (Number.isInteger(direct) && direct > 0) return direct;
+
+  const text = [
+    episode?.title,
+    episode?.source_url,
+    episode?.id,
+    details?.episode?.title,
+    details?.source_url
+  ].filter(Boolean).join(" ");
+
+  for (const pattern of [
+    /الموسم\s*0*(\d+)/i,
+    /\bseason\s*0*(\d+)/i,
+    /-s0*(\d+)-e0*\d+/i,
+    /\bs0*(\d+)e0*\d+\b/i
+  ]) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return 1;
+}
+
 async function importSeries(
   providerName,
   providerSeriesId,
@@ -123,10 +152,18 @@ async function importSeries(
           episode.id
         );
 
+      const normalizedEpisode = {
+        ...episode,
+        season_number: extractSeasonNumber(
+          episode,
+          details
+        )
+      };
+
       const episodeDbId =
         await repository.upsertEpisode(
           seriesDbId,
-          episode,
+          normalizedEpisode,
           details
         );
 
@@ -330,5 +367,6 @@ if (require.main === module) {
 module.exports = {
   importSeries,
   runImportJob,
-  getProvider
+  getProvider,
+  extractSeasonNumber
 };
