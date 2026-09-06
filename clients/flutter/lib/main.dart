@@ -7,6 +7,7 @@ import 'package:theeb_client/theeb_api_contract.dart';
 import 'package:theeb_client/theeb_brand.dart';
 import 'package:theeb_client/theeb_client_config.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 typedef UriOpener = Future<bool> Function(Uri uri);
 
@@ -572,7 +573,6 @@ class EpisodeScreen extends StatefulWidget {
 
 class _EpisodeScreenState extends State<EpisodeScreen> {
   TheebEpisode? _episode;
-  PlaybackSession? _session;
   DownloadOptions? _downloads;
   String? _error;
   bool _loading = true;
@@ -602,7 +602,6 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
     setState(() {
       _watchLoading = true;
       _error = null;
-      _session = null;
     });
     try {
       final session = await widget.api.createPlaybackSession(
@@ -612,21 +611,30 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
         ),
       );
       if (!mounted) return;
-      setState(() => _session = session);
+
+      final playback = session.playback;
+      if (session.state == PlaybackSessionState.ready && playback != null) {
+        final uri = widget.baseUri.resolve(playback.uri);
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => Directionality(
+              textDirection: TextDirection.rtl,
+              child: InAppPlayerScreen(
+                uri: uri,
+                title: _episodeLabel(_episode!),
+                externalOpener: widget.opener,
+              ),
+            ),
+          ),
+        );
+      } else {
+        setState(() => _error = 'لا يوجد مسار مشاهدة جاهز لهذه الحلقة حاليًا.');
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _watchLoading = false);
-    }
-  }
-
-  Future<void> _openWatch() async {
-    final playback = _session?.playback;
-    if (playback == null) return;
-    final opened = await widget.opener(widget.baseUri.resolve(playback.uri));
-    if (!opened && mounted) {
-      setState(() => _error = 'تعذر فتح مسار المشاهدة.');
     }
   }
 
@@ -713,21 +721,6 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
                           ),
                         ],
                       ),
-                      if (_session != null) ...[
-                        const SizedBox(height: 18),
-                        if (_session!.state == PlaybackSessionState.ready &&
-                            _session!.playback != null)
-                          FilledButton(
-                            onPressed: _openWatch,
-                            child: Text(
-                              'فتح المشاهدة • ${_session!.playback!.quality}',
-                            ),
-                          )
-                        else
-                          Text(
-                            'حالة جلسة المشاهدة: ${_session!.state.name}',
-                          ),
-                      ],
                       if (_downloads != null) ...[
                         const SizedBox(height: 18),
                         Text(
@@ -763,6 +756,109 @@ class _EpisodeScreenState extends State<EpisodeScreen> {
                       ],
                     ],
                   ),
+      ),
+    );
+  }
+}
+
+
+class InAppPlayerScreen extends StatefulWidget {
+  const InAppPlayerScreen({
+    super.key,
+    required this.uri,
+    required this.title,
+    required this.externalOpener,
+  });
+
+  final Uri uri;
+  final String title;
+  final UriOpener externalOpener;
+
+  @override
+  State<InAppPlayerScreen> createState() => _InAppPlayerScreenState();
+}
+
+class _InAppPlayerScreenState extends State<InAppPlayerScreen> {
+  late final WebViewController _controller;
+  int _progress = 0;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (value) {
+            if (mounted) setState(() => _progress = value);
+          },
+          onPageFinished: (_) {
+            if (mounted) setState(() => _progress = 100);
+          },
+          onWebResourceError: (error) {
+            if (error.isForMainFrame != true) return;
+            if (mounted) {
+              setState(() => _error =
+                  'تعذر تحميل المشاهدة داخل التطبيق. يمكنك إعادة المحاولة أو فتح المصدر خارجيًا.');
+            }
+          },
+        ),
+      )
+      ..loadRequest(widget.uri);
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _error = null;
+      _progress = 0;
+    });
+    await _controller.reload();
+  }
+
+  Future<void> _openExternal() async {
+    final opened = await widget.externalOpener(widget.uri);
+    if (!opened && mounted) {
+      setState(() => _error = 'تعذر فتح المصدر خارجيًا.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(
+            tooltip: 'إعادة تحميل المشغل',
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: 'فتح خارجي',
+            onPressed: _openExternal,
+            icon: const Icon(Icons.open_in_new),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (_progress < 100)
+              LinearProgressIndicator(value: _progress <= 0 ? null : _progress / 100),
+            if (_error != null)
+              MaterialBanner(
+                content: Text(_error!),
+                actions: [
+                  TextButton(onPressed: _reload, child: const Text('إعادة المحاولة')),
+                  TextButton(onPressed: _openExternal, child: const Text('فتح خارجي')),
+                ],
+              ),
+            Expanded(child: WebViewWidget(controller: _controller)),
+          ],
+        ),
       ),
     );
   }
