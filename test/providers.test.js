@@ -153,3 +153,17 @@ test("fallback plan exposes stable retry order", () => {
   assert.equal(plan[0].server, "mp4");
   assert.equal(plan[0].fallback_on.includes("GEO_BLOCKED"), true);
 });
+
+
+test("Q-Ask helpers derive season generically and expose embed watch options", () => {
+  const qask = providers.get("qask");
+  assert.equal(qask.extractSeasonNumber("https://far.q-ask.video/video-show-s03-e07/"), 3);
+  assert.equal(qask.extractSeasonNumber("مسلسل تجريبي الموسم 12 الحلقة 4"), 12);
+  const cheerio = require("cheerio");
+  const $ = cheerio.load('<iframe src="https://far.q-ask.video/embed/49059/"></iframe>');
+  const options = qask.extractWatchOptions($, "https://far.q-ask.video/video-show-s03-e01/");
+  assert.equal(options.length, 1);
+  assert.equal(options[0].type, "embed");
+  assert.equal(options[0].can_watch, true);
+  assert.equal(options[0].can_download, false);
+});

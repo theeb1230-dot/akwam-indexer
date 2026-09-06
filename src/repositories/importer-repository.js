@@ -281,7 +281,7 @@ class PostgresImporterRepository {
         INSERT INTO canonical_episodes (
           canonical_series_id, season_number, episode_number,
           title, description, image, updated_at
-        ) VALUES ($1, 1, $2, $3, $4, $5, NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
         ON CONFLICT(canonical_series_id, season_number, episode_number)
         DO UPDATE SET
           title = COALESCE(excluded.title, canonical_episodes.title),
@@ -291,6 +291,7 @@ class PostgresImporterRepository {
         RETURNING id
       `, [
         seriesId,
+        Number(episode.season_number || episode.season || 1),
         episode.number,
         details.episode.title || episode.title || null,
         details.episode.description || null,
@@ -339,6 +340,35 @@ class PostgresImporterRepository {
       watch_id: String(option.watch_id),
       page_url: option.page_url || null
     };
+
+    await this.pool.query(`
+      INSERT INTO playback_options (
+        provider_episode_id, provider, watch_id, quality, page_url,
+        media_type, can_watch, can_download, priority, status, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active', NOW())
+      ON CONFLICT(provider, watch_id)
+      DO UPDATE SET
+        provider_episode_id = excluded.provider_episode_id,
+        quality = excluded.quality,
+        page_url = excluded.page_url,
+        media_type = excluded.media_type,
+        can_watch = excluded.can_watch,
+        can_download = excluded.can_download,
+        priority = excluded.priority,
+        status = 'active',
+        updated_at = NOW()
+    `, [
+      episodeDbId,
+      provider,
+      String(option.watch_id),
+      option.quality || null,
+      option.page_url || null,
+      playbackType,
+      option.can_watch !== false,
+      option.can_download === true,
+      Number(option.priority || 100)
+    ]);
+
     await this.pool.query(`
       INSERT INTO playback_candidates (
         canonical_episode_id, provider_episode_id, provider, watch_id,

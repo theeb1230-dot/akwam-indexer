@@ -98,7 +98,9 @@ function publicEpisode(row) {
     title: row.title || null,
     description: row.description || null,
     image: row.image || null,
-    watch_available: Number(row.watch_count || 0) > 0,
+    watch_available:
+      Number(row.watch_count || 0) > 0 ||
+      Number(row.resolvable_count || 0) > 0,
     download_available: Number(row.download_count || 0) > 0
   };
 }
