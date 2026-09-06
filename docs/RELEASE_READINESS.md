@@ -47,3 +47,13 @@ The metadata validator rejects commit drift, version drift, unexpected product i
 - GitHub Release tag: `v0.1.1-experimental.1`
 - Android Mobile APK + Android TV APK + iOS unsigned IPA من نفس commit.
 - iOS remains unsigned في هذا التصنيف ولا يُدّعى أنه App Store-signed.
+
+
+## v0.2.0-experimental.1
+- البحث يبدأ من مكتبة PostgreSQL المشتركة.
+- إذا لم توجد نتيجة، يبحث العميل في Providers الحالية عبر `/v1/discover`.
+- المستخدم يختار النتيجة بنفسه ثم يضغط «إضافة»؛ لا يوجد استيراد تلقائي بلا اختيار.
+- يتابع العميل import job حتى الاكتمال ثم يعيد البحث داخل المكتبة تلقائيًا.
+- المشاهدة والتحميل يظلان إجراءين منفصلين وصريحين.
+- Android Mobile وAndroid TV يبنيان بوضع Release بدل Debug.
+- بوابة الإصدار ترفض النشر إذا كان كل من بحث المكتبة وprovider discovery فارغًا لاستعلام smoke الحقيقي «الذئب الوحيد».
