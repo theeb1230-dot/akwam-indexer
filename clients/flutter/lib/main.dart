@@ -91,8 +91,12 @@ class _SearchScreenState extends State<SearchScreen> {
   late final TheebApiClient _api;
   late final Uri _baseUri;
   List<TheebSeries> _items = const [];
+  List<DiscoveryItem> _discoveries = const [];
+  final Set<String> _importing = <String>{};
   String? _error;
+  String? _status;
   bool _loading = false;
+  bool _discoverLoading = false;
 
   @override
   void initState() {
@@ -122,16 +126,87 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _status = null;
+      _discoveries = const [];
     });
     try {
       final items = await _api.search(query);
       if (!mounted) return;
       setState(() => _items = items);
+      if (items.isEmpty) {
+        await _discover(query);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _discover(String query) async {
+    setState(() {
+      _discoverLoading = true;
+      _error = null;
+      _status = 'لم نجد النتيجة في مكتبة ذيب العرب. جاري البحث في المصادر…';
+    });
+    try {
+      final items = await _api.discover(query);
+      if (!mounted) return;
+      setState(() {
+        _discoveries = items;
+        _status = items.isEmpty
+            ? 'لم نجد نتائج مطابقة في المصادر الحالية.'
+            : 'وجدنا نتائج في المصادر. اختر ما تريد إضافته إلى ذيب العرب.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = userFacingError(error);
+        _status = null;
+      });
+    } finally {
+      if (mounted) setState(() => _discoverLoading = false);
+    }
+  }
+
+  Future<void> _importDiscovery(DiscoveryItem item) async {
+    final key = '${item.provider}:${item.providerSeriesId}';
+    if (_importing.contains(key)) return;
+    setState(() {
+      _importing.add(key);
+      _error = null;
+      _status = 'جاري إضافة «${item.title}» إلى مكتبة ذيب العرب…';
+    });
+
+    try {
+      var job = await _api.importDiscovery(item);
+      for (var attempt = 0; attempt < 120 && !job.finished; attempt++) {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        job = await _api.getImportJob(job.id);
+        if (!mounted) return;
+        setState(() {
+          _status = 'جاري الإضافة… ${job.progress}%';
+        });
+      }
+
+      if (!job.finished || job.status == 'failed' || job.status == 'cancelled') {
+        throw StateError('IMPORT_FAILED');
+      }
+
+      if (!mounted) return;
+      setState(() => _status = 'تمت الإضافة. جاري تحديث نتائج البحث…');
+      await _search();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = userFacingError(error);
+        _status = 'تعذر إكمال الإضافة. يمكنك إعادة المحاولة.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _importing.remove(key));
+      }
     }
   }
 
@@ -186,7 +261,15 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ],
               ),
-              if (_loading) const LinearProgressIndicator(),
+              if (_loading || _discoverLoading) const LinearProgressIndicator(),
+              if (_status != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    _status!,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -207,19 +290,50 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               const SizedBox(height: 12),
               Expanded(
-                child: ListView.builder(
-                  itemCount: _items.length,
-                  itemBuilder: (context, index) {
-                    final item = _items[index];
-                    return Card(
-                      child: ListTile(
-                        onTap: () => _openSeries(item),
-                        title: Text(item.title),
-                        subtitle: Text(item.description ?? item.contentType),
-                        trailing: Text(item.episodeCount.toString()),
+                child: ListView(
+                  children: [
+                    for (final item in _items)
+                      Card(
+                        child: ListTile(
+                          onTap: () => _openSeries(item),
+                          title: Text(item.title),
+                          subtitle: Text(item.description ?? item.contentType),
+                          trailing: Text(item.episodeCount.toString()),
+                        ),
                       ),
-                    );
-                  },
+                    if (_items.isEmpty && _discoveries.isNotEmpty) ...[
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4, bottom: 8),
+                        child: Text(
+                          'نتائج من المصادر',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      for (final item in _discoveries)
+                        Card(
+                          child: ListTile(
+                            title: Text(item.title),
+                            subtitle: Text(
+                              '${item.provider} • تطابق ${item.matchScore}%',
+                            ),
+                            trailing: FilledButton(
+                              onPressed: _importing.contains(
+                                '${item.provider}:${item.providerSeriesId}',
+                              )
+                                  ? null
+                                  : () => _importDiscovery(item),
+                              child: Text(
+                                _importing.contains(
+                                  '${item.provider}:${item.providerSeriesId}',
+                                )
+                                    ? 'جارٍ الإضافة…'
+                                    : 'إضافة',
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
                 ),
               ),
             ],
