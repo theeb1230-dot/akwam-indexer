@@ -171,8 +171,8 @@ class PostgresImporterRepository {
       if (!canonicalId) {
         const inserted = await client.query(`
           INSERT INTO canonical_series (
-            title, description, image, language, country, year, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, 'ready')
+            title, description, image, language, country, year, content_type, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'ready')
           RETURNING id
         `, [
           data.series.title || externalId,
@@ -180,7 +180,8 @@ class PostgresImporterRepository {
           data.series.image || null,
           data.series.language || null,
           data.series.country || null,
-          data.series.year || null
+          data.series.year || null,
+          data.series.content_type === "movie" ? "movie" : "series"
         ]);
         canonicalId = inserted.rows[0].id;
         await client.query(`
@@ -188,6 +189,22 @@ class PostgresImporterRepository {
           VALUES ($1, $2)
         `, [key, canonicalId]);
       }
+
+      await client.query(`
+        UPDATE canonical_series
+        SET content_type = $2,
+            title = COALESCE(NULLIF($3, ''), title),
+            description = COALESCE($4, description),
+            image = COALESCE($5, image),
+            updated_at = NOW()
+        WHERE id = $1
+      `, [
+        canonicalId,
+        data.series.content_type === "movie" ? "movie" : "series",
+        data.series.title || "",
+        data.series.description || null,
+        data.series.image || null
+      ]);
 
       await client.query(`
         INSERT INTO provider_series (
