@@ -89,7 +89,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-apk && mkdir -p /tmp/theeb-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-release.apk -d /tmp/theeb-apk
-          if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1' -e 'https://127.0.0.1' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_ARTIFACT"
             exit 1
           fi
@@ -166,7 +166,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-tv-apk && mkdir -p /tmp/theeb-tv-apk
           unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-release.apk -d /tmp/theeb-tv-apk
-          if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-tv-apk; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1' -e 'https://127.0.0.1' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-tv-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_TV_ARTIFACT"
             exit 1
           fi
@@ -253,7 +253,7 @@ jobs:
         run: |
           rm -rf /tmp/theeb-ipa && mkdir -p /tmp/theeb-ipa
           unzip -qq clients/flutter/build/ios/theeb-arab-ios-unsigned.ipa -d /tmp/theeb-ipa
-          if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-ipa; then
+          if grep -R -a -F -e 'https://example.invalid/' -e 'https://example.com/' -e 'http://127.0.0.1' -e 'https://127.0.0.1' -e 'http://localhost' -e 'https://localhost' -e 'http://0.0.0.0' -e 'https://0.0.0.0' /tmp/theeb-ipa; then
             echo "PLACEHOLDER_FOUND_IN_IOS_ARTIFACT"
             exit 1
           fi
@@ -373,6 +373,12 @@ jobs:
           cd release
           sha256sum theeb-arab-android.apk theeb-arab-android-tv.apk theeb-arab-ios-unsigned.ipa > SHA256SUMS.txt
           node -e 'const fs=require("fs"); const manifest={schema_version:1,release_level:process.env.RELEASE_LEVEL,commit_sha:process.env.GITHUB_SHA,artifacts:["theeb-arab-android.apk","theeb-arab-android-tv.apk","theeb-arab-ios-unsigned.ipa"],metadata:["android-mobile-metadata.json","android-tv-metadata.json","ios-metadata.json"],ios_signing:"UNSIGNED_OR_ADHOC",generated_at:new Date().toISOString()}; fs.writeFileSync("release-manifest.json",JSON.stringify(manifest,null,2)+"\\n");'
+      - name: Require verified application runtime smoke evidence
+        run: |
+          test -s release/client-runtime-smoke.json || {
+            echo "CLIENT_RUNTIME_SEARCH_SMOKE_NOT_VERIFIED"
+            exit 1
+          }
       - name: Materialize runtime Experimental release evidence
         run: node scripts/create-experimental-release-evidence.js release metadata
       - name: Validate runtime Experimental readiness
@@ -385,6 +391,7 @@ jobs:
             release/SHA256SUMS.txt
             release/release-manifest.json
             release/runtime-release-readiness.json
+            release/client-runtime-smoke.json
             metadata/*.json
           if-no-files-found: error
           retention-days: 30
@@ -428,6 +435,7 @@ jobs:
           test -s "$EVIDENCE_DIR/SHA256SUMS.txt"
           test -s "$EVIDENCE_DIR/release-manifest.json"
           test -s "$EVIDENCE_DIR/runtime-release-readiness.json"
+          test -s "$EVIDENCE_DIR/client-runtime-smoke.json"
           gh release create "$TAG" \
             release/theeb-arab-android.apk \
             release/theeb-arab-android-tv.apk \
@@ -435,7 +443,8 @@ jobs:
             "$EVIDENCE_DIR/SHA256SUMS.txt" \
             "$EVIDENCE_DIR/release-manifest.json" \
             "$EVIDENCE_DIR/runtime-release-readiness.json" \
+            "$EVIDENCE_DIR/client-runtime-smoke.json" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "ذيب العرب - Experimental - $TAG" \
-            --notes "Classification: Experimental. Commit: $GITHUB_SHA. API: $THEEB_INSTALLABLE_API_BASE_URL. API readiness and real Dart Search smoke passed before build. Android Mobile APK + Android TV APK + iOS IPA were produced from this workflow. The iOS IPA is UNSIGNED/ADHOC and is not directly installable without external signing. SHA-256 checksums and release manifest are attached."
+            --notes "Classification: Experimental. Commit: $GITHUB_SHA. API: $THEEB_INSTALLABLE_API_BASE_URL. API readiness and Dart API-contract Search smoke passed before build. A separate application runtime Search smoke evidence file is required before publication. Android Mobile APK + Android TV APK + iOS IPA were produced from this workflow. The iOS IPA is UNSIGNED/ADHOC and is not directly installable without external signing. SHA-256 checksums and release manifest are attached."
