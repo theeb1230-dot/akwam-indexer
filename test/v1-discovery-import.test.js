@@ -54,6 +54,7 @@ test("v1 discovery exposes bounded provider results and user import lifecycle", 
     providers: registry,
     jobs,
     inlineJobs: false,
+    executeClientImports: false,
     searchAll: async query => ({
       searched_providers: 2,
       successful_providers: 1,
@@ -102,6 +103,7 @@ test("v1 discovery import rejects unknown provider", async () => {
     providers: { has() { return false; }, get() { return null; } },
     jobs: {},
     inlineJobs: false,
+    executeClientImports: false,
     searchAll: async () => ({ results: [] })
   });
 
@@ -114,5 +116,71 @@ test("v1 discovery import rejects unknown provider", async () => {
     assert.equal(response.status, 400);
     const body = await response.json();
     assert.equal(body.error.code, "DISCOVERY_PROVIDER_INVALID");
+  });
+});
+
+
+test("v1 discovery import executes queued client job and reuses an existing queued job", async () => {
+  const provider = {
+    baseUrl: "https://akwam.example",
+    allowedHosts: ["akwam.example"]
+  };
+  let current = {
+    id: "job-reused",
+    type: "import",
+    status: "queued",
+    progress: 0,
+    completed: 0,
+    failed: 0
+  };
+  let runCount = 0;
+  const router = createV1Router({
+    repository: {},
+    sessions: {},
+    providers: {
+      has(name) { return name === "akwam"; },
+      get(name) { return name === "akwam" ? provider : null; }
+    },
+    jobs: {
+      async enqueueUnique() {
+        return { created: false, job: current };
+      },
+      async get() { return current; },
+      async requestCancel() {
+        current = { ...current, status: "cancelled" };
+        return current;
+      }
+    },
+    inlineJobs: false,
+    executeClientImports: true,
+    maxClientImports: 1,
+    runImportJob: async id => {
+      runCount++;
+      assert.equal(id, "job-reused");
+      current = { ...current, status: "completed", progress: 100, completed: 1 };
+    },
+    searchAll: async () => ({ results: [] })
+  });
+
+  await withServer(router, async base => {
+    const response = await fetch(base + "/v1/imports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ provider: "akwam", provider_series_id: "2758" })
+    });
+    assert.equal(response.status, 202);
+    const body = await response.json();
+    assert.equal(body.data.reused, true);
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(runCount, 1);
+
+    const cancel = await fetch(base + "/v1/imports/job-reused/cancel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}"
+    });
+    assert.equal(cancel.status, 200);
+    const cancelBody = await cancel.json();
+    assert.equal(cancelBody.data.status, "cancelled");
   });
 });
