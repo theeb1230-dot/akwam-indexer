@@ -93,6 +93,9 @@ class _SearchScreenState extends State<SearchScreen> {
   List<TheebSeries> _items = const [];
   List<DiscoveryItem> _discoveries = const [];
   final Set<String> _importing = <String>{};
+  final Map<String, String> _importJobs = <String, String>{};
+  final Map<String, int> _importProgress = <String, int>{};
+  String _activeQuery = '';
   String? _error;
   String? _status;
   bool _loading = false;
@@ -123,6 +126,8 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _search() async {
     final query = _controller.text.trim();
     if (query.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    _activeQuery = query;
     setState(() {
       _loading = true;
       _error = null;
@@ -136,8 +141,11 @@ class _SearchScreenState extends State<SearchScreen> {
       if (items.isEmpty) {
         await _discover(query);
       }
+    } on TimeoutException {
+      if (!mounted || query != _activeQuery) return;
+      await _discover(query);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || query != _activeQuery) return;
       setState(() => _error = userFacingError(error));
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -152,7 +160,7 @@ class _SearchScreenState extends State<SearchScreen> {
     });
     try {
       final items = await _api.discover(query);
-      if (!mounted) return;
+      if (!mounted || query != _activeQuery) return;
       setState(() {
         _discoveries = items;
         _status = items.isEmpty
@@ -172,6 +180,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _importDiscovery(DiscoveryItem item) async {
     final key = '${item.provider}:${item.providerSeriesId}';
+    final queryAtStart = _activeQuery;
     if (_importing.contains(key)) return;
     setState(() {
       _importing.add(key);
@@ -181,12 +190,17 @@ class _SearchScreenState extends State<SearchScreen> {
 
     try {
       var job = await _api.importDiscovery(item);
-      for (var attempt = 0; attempt < 120 && !job.finished; attempt++) {
+      if (!mounted) return;
+      setState(() => _importJobs[key] = job.id);
+      for (var attempt = 0; attempt < 90 && !job.finished; attempt++) {
         await Future<void>.delayed(const Duration(seconds: 1));
         job = await _api.getImportJob(job.id);
         if (!mounted) return;
         setState(() {
-          _status = 'جاري الإضافة… ${job.progress}%';
+          _importProgress[key] = job.progress;
+          if (queryAtStart == _activeQuery) {
+            _status = 'جاري إضافة «${item.displayTitle ?? item.title}»… ${job.progress}%';
+          }
         });
       }
 
@@ -195,8 +209,10 @@ class _SearchScreenState extends State<SearchScreen> {
       }
 
       if (!mounted) return;
-      setState(() => _status = 'تمت الإضافة. جاري تحديث نتائج البحث…');
-      await _search();
+      if (queryAtStart == _activeQuery) {
+        setState(() => _status = 'تمت الإضافة. جاري تحديث نتائج البحث…');
+        await _search();
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -205,7 +221,28 @@ class _SearchScreenState extends State<SearchScreen> {
       });
     } finally {
       if (mounted) {
-        setState(() => _importing.remove(key));
+        setState(() {
+          _importing.remove(key);
+          _importJobs.remove(key);
+          _importProgress.remove(key);
+        });
+      }
+    }
+  }
+
+  Future<void> _cancelImport(String key) async {
+    final jobId = _importJobs[key];
+    if (jobId == null) return;
+    try {
+      await _api.cancelImportJob(jobId);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _importing.remove(key);
+          _importJobs.remove(key);
+          _importProgress.remove(key);
+          _status = 'تم إلغاء الإضافة.';
+        });
       }
     }
   }
@@ -312,23 +349,36 @@ class _SearchScreenState extends State<SearchScreen> {
                       for (final item in _discoveries)
                         Card(
                           child: ListTile(
-                            title: Text(item.title),
-                            subtitle: Text(
-                              '${item.provider} • تطابق ${item.matchScore}%',
+                            title: Directionality(
+                              textDirection: RegExp(r'[A-Za-z]').hasMatch(item.displayTitle ?? item.title)
+                                  ? TextDirection.ltr
+                                  : TextDirection.rtl,
+                              child: Text(item.displayTitle ?? item.title),
                             ),
-                            trailing: FilledButton(
-                              onPressed: _importing.contains(
-                                '${item.provider}:${item.providerSeriesId}',
-                              )
-                                  ? null
-                                  : () => _importDiscovery(item),
-                              child: Text(
-                                _importing.contains(
-                                  '${item.provider}:${item.providerSeriesId}',
-                                )
-                                    ? 'جارٍ الإضافة…'
-                                    : 'إضافة',
-                              ),
+                            subtitle: Text(
+                              '${item.contentType == 'movie' ? 'فيلم' : 'مسلسل'} • ${item.provider} • تطابق ${item.matchScore}%',
+                            ),
+                            trailing: Builder(
+                              builder: (context) {
+                                final key = '${item.provider}:${item.providerSeriesId}';
+                                final active = _importing.contains(key);
+                                if (!active) {
+                                  return FilledButton(
+                                    onPressed: () => _importDiscovery(item),
+                                    child: const Text('إضافة'),
+                                  );
+                                }
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('${_importProgress[key] ?? 0}%'),
+                                    TextButton(
+                                      onPressed: () => _cancelImport(key),
+                                      child: const Text('إلغاء'),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ),
