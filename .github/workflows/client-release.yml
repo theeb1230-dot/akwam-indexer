@@ -160,6 +160,9 @@ jobs:
           sudo chmod 666 /dev/kvm || true
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          command -v adb
+          adb version
           echo no | "$AVDMANAGER" create avd --force --name theeb-runtime-smoke --package "system-images;android-35;google_apis;x86_64"
           nohup "$ANDROID_HOME/emulator/emulator" -avd theeb-runtime-smoke -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect >/tmp/theeb-emulator.log 2>&1 &
           adb wait-for-device
