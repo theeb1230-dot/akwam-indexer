@@ -6,6 +6,9 @@ import 'package:theeb_arab/main.dart';
 import 'package:theeb_client/theeb_api_contract.dart';
 
 class FakeTransport implements TheebApiTransport {
+  FakeTransport({this.emptyLocal = false});
+  final bool emptyLocal;
+  bool imported = false;
   final List<String> gets = <String>[];
   final List<String> posts = <String>[];
   final List<Map<String, Object?>> postBodies = <Map<String, Object?>>[];
@@ -14,6 +17,9 @@ class FakeTransport implements TheebApiTransport {
   Future<Map<String, Object?>> get(String path) async {
     gets.add(path);
     if (path.startsWith('/v1/search')) {
+      if (emptyLocal && !imported) {
+        return {'data': {'items': <Object?>[]}};
+      }
       return {
         'data': {
           'items': [
@@ -25,6 +31,34 @@ class FakeTransport implements TheebApiTransport {
               'episode_count': 1,
             }
           ],
+        }
+      };
+    }
+    if (path.startsWith('/v1/discover')) {
+      return {
+        'data': {
+          'items': [
+            {
+              'provider': 'akwam',
+              'provider_series_id': '2758',
+              'title': 'الذئب الوحيد',
+              'content_type': 'series',
+              'match_score': 100,
+              'match_level': 'strong',
+            }
+          ],
+        }
+      };
+    }
+    if (path == '/v1/imports/job-1') {
+      imported = true;
+      return {
+        'data': {
+          'job_id': 'job-1',
+          'status': 'completed',
+          'progress': 100,
+          'completed': 1,
+          'failed': 0,
         }
       };
     }
@@ -96,6 +130,16 @@ class FakeTransport implements TheebApiTransport {
   ) async {
     posts.add(path);
     postBodies.add(body);
+    if (path == '/v1/imports') {
+      return {
+        'data': {
+          'job_id': 'job-1',
+          'status': 'queued',
+          'provider': body['provider'],
+          'provider_series_id': body['provider_series_id'],
+        }
+      };
+    }
     if (path == '/v1/playback/sessions') {
       return {
         'data': {
@@ -145,6 +189,39 @@ void main() {
     expect(find.text('ذيب العرب'), findsOneWidget);
     expect(find.text('بحث'), findsOneWidget);
     expect(find.text('ابحث عن مسلسل أو فيلم…'), findsOneWidget);
+  });
+
+  testWidgets('empty library discovers provider result and lets user add it', (tester) async {
+    final fake = FakeTransport(emptyLocal: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: SearchScreen(
+            api: TheebApiClient(fake),
+            baseUri: Uri.parse('http://127.0.0.1:8080/'),
+            opener: (_) async => true,
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'الذئب الوحيد');
+    await tester.tap(find.text('بحث'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('نتائج من المصادر'), findsOneWidget);
+    expect(find.text('الذئب الوحيد'), findsOneWidget);
+    expect(find.text('إضافة'), findsOneWidget);
+
+    await tester.tap(find.text('إضافة'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(fake.posts, contains('/v1/imports'));
+    expect(fake.gets, contains('/v1/imports/job-1'));
+    expect(find.text('Fixture Series'), findsOneWidget);
   });
 
   testWidgets('Android TV playback requests identify the TV platform', (tester) async {
