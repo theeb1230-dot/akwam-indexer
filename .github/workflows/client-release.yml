@@ -31,7 +31,7 @@ permissions:
 env:
   THEEB_INSTALLABLE_API_BASE_URL: ${{ inputs.api_base_url || 'https://theeb-arab-api.onrender.com' }}
   THEEB_RELEASE_LEVEL: ${{ inputs.release_level || 'experimental' }}
-  THEEB_RELEASE_TAG: ${{ inputs.release_tag || 'v0.2.4-experimental.1' }}
+  THEEB_RELEASE_TAG: ${{ inputs.release_tag || 'v0.2.5-experimental.1' }}
 
 jobs:
   validate-api:
