@@ -352,6 +352,7 @@ class TheebApiClient {
       'provider': item.provider,
       'provider_series_id': item.providerSeriesId,
       if (item.sourceUrl != null) 'source_url': item.sourceUrl,
+      'content_type': item.contentType,
     }));
     return ImportJob(
       id: _string(data, 'job_id'),
