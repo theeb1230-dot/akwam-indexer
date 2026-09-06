@@ -23,7 +23,17 @@ String userFacingError(Object error) {
   if (error is ArgumentError) {
     return 'إعداد الاتصال بالتطبيق غير صالح. يلزم تحديث النسخة قبل الاستخدام.';
   }
-  return 'حدث خطأ غير متوقع. أعد المحاولة.';
+  final message = error.toString();
+  if (message.contains('TOO_MANY_REDIRECTS')) {
+    return 'المصدر أعاد توجيهات متكررة وتعذر استيراده. جرّب نتيجة من مصدر آخر.';
+  }
+  if (message.contains('Q-Ask') || message.contains('series slug')) {
+    return 'تعذر فتح رابط Q-Ask الذي أعاده البحث. جرّب المصدر الآخر.';
+  }
+  if (message.contains('IMPORT_FAILED')) {
+    return 'فشل استيراد المحتوى من المصدر المحدد. جرّب مصدرًا آخر أو أعد المحاولة.';
+  }
+  return 'تعذر إكمال العملية حاليًا. أعد المحاولة أو جرّب مصدرًا آخر.';
 }
 
 const String kTheebTarget =
