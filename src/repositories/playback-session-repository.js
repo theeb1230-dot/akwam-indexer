@@ -66,12 +66,125 @@ class SqlitePlaybackSessionRepository {
   async selectedCandidate(sessionId) {
     return this.db.prepare(`
       SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
-        pe.provider_episode_id
+        pc.locator_json, pe.provider_episode_id
       FROM playback_sessions ps
       JOIN playback_candidates pc ON pc.id = ps.selected_candidate_id
       JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
       WHERE ps.id = ?
     `).get(sessionId) || null;
+  }
+
+  async providerEpisodeSources(episodeId) {
+    return this.db.prepare(`
+      SELECT pe.id, pe.provider, pe.provider_episode_id, pe.source_url
+      FROM provider_episodes pe
+      WHERE pe.canonical_episode_id = ? AND pe.active = 1
+      ORDER BY pe.id
+    `).all(episodeId);
+  }
+
+  async upsertResolvedWatchOption(source, option) {
+    if (!option?.watch_id) return;
+    const type = option.type || "resolver";
+    const locator = JSON.stringify({
+      provider: source.provider,
+      watch_id: String(option.watch_id),
+      page_url: option.page_url || null
+    });
+
+    this.db.prepare(`
+      INSERT INTO playback_options (
+        provider_episode_id, provider, watch_id, quality, page_url,
+        media_type, can_watch, can_download, priority, status, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+      ON CONFLICT(provider, watch_id) DO UPDATE SET
+        provider_episode_id = excluded.provider_episode_id,
+        quality = excluded.quality,
+        page_url = excluded.page_url,
+        media_type = excluded.media_type,
+        can_watch = excluded.can_watch,
+        can_download = excluded.can_download,
+        priority = excluded.priority,
+        status = 'active',
+        updated_at = CURRENT_TIMESTAMP
+    `).run(
+      source.id, source.provider, String(option.watch_id),
+      option.quality || null, option.page_url || null, type,
+      option.can_watch === false ? 0 : 1,
+      option.can_download === true ? 1 : 0,
+      Number(option.priority || 100)
+    );
+
+    this.db.prepare(`
+      INSERT INTO playback_candidates (
+        canonical_episode_id, provider_episode_id, provider, watch_id,
+        server, playback_type, quality, priority, status, locator_json, updated_at
+      ) VALUES (?, ?, ?, ?, '', ?, ?, ?, 'active', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(canonical_episode_id, provider, watch_id, server)
+      DO UPDATE SET provider_episode_id=excluded.provider_episode_id,
+        playback_type=excluded.playback_type, quality=excluded.quality,
+        priority=excluded.priority, status='active',
+        locator_json=excluded.locator_json, updated_at=CURRENT_TIMESTAMP
+    `).run(
+      source.canonical_episode_id, source.id, source.provider,
+      String(option.watch_id), type, option.quality || null,
+      Number(option.priority || 100), locator
+    );
+  }
+
+  async providerEpisodeSources(episodeId) {
+    const result = await this.pool.query(`
+      SELECT pe.id, pe.canonical_episode_id, pe.provider,
+        pe.provider_episode_id, pe.source_url
+      FROM provider_episodes pe
+      WHERE pe.canonical_episode_id = $1 AND pe.active = TRUE
+      ORDER BY pe.id
+    `, [episodeId]);
+    return result.rows;
+  }
+
+  async upsertResolvedWatchOption(source, option) {
+    if (!option?.watch_id) return;
+    const type = option.type || "resolver";
+    const locator = {
+      provider: source.provider,
+      watch_id: String(option.watch_id),
+      page_url: option.page_url || null
+    };
+
+    await this.pool.query(`
+      INSERT INTO playback_options (
+        provider_episode_id, provider, watch_id, quality, page_url,
+        media_type, can_watch, can_download, priority, status, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',NOW())
+      ON CONFLICT(provider, watch_id) DO UPDATE SET
+        provider_episode_id=excluded.provider_episode_id,
+        quality=excluded.quality, page_url=excluded.page_url,
+        media_type=excluded.media_type, can_watch=excluded.can_watch,
+        can_download=excluded.can_download, priority=excluded.priority,
+        status='active', updated_at=NOW()
+    `, [
+      source.id, source.provider, String(option.watch_id),
+      option.quality || null, option.page_url || null, type,
+      option.can_watch !== false, option.can_download === true,
+      Number(option.priority || 100)
+    ]);
+
+    await this.pool.query(`
+      INSERT INTO playback_candidates (
+        canonical_episode_id, provider_episode_id, provider, watch_id,
+        server, playback_type, quality, priority, status, locator, updated_at
+      ) VALUES ($1,$2,$3,$4,'',$5,$6,$7,'active',$8::jsonb,NOW())
+      ON CONFLICT(canonical_episode_id, provider, watch_id, server)
+      DO UPDATE SET provider_episode_id=excluded.provider_episode_id,
+        playback_type=excluded.playback_type, quality=excluded.quality,
+        priority=excluded.priority, status='active',
+        locator=excluded.locator, updated_at=NOW()
+    `, [
+      source.canonical_episode_id, source.id, source.provider,
+      String(option.watch_id), type, option.quality || null,
+      Number(option.priority || 100), JSON.stringify(locator)
+    ]);
   }
 
   async feedbackExists(sessionId, eventId) {
@@ -215,7 +328,7 @@ class PostgresPlaybackSessionRepository {
   async selectedCandidate(sessionId) {
     const result = await this.pool.query(`
       SELECT pc.id, pc.provider, pc.watch_id, pc.quality, pc.playback_type,
-        pe.provider_episode_id
+        pc.locator, pe.provider_episode_id
       FROM playback_sessions ps
       JOIN playback_candidates pc ON pc.id = ps.selected_candidate_id
       JOIN provider_episodes pe ON pe.id = pc.provider_episode_id
