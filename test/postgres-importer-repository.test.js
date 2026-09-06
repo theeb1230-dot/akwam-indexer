@@ -72,7 +72,7 @@ test("PostgreSQL importer persists episode locator without direct media URLs", a
 
   const episodeId = await repository.upsertEpisode(
     11,
-    { id: "e2", number: 2, title: "Episode 2" },
+    { id: "e2", number: 2, season_number: 3, title: "Episode 2" },
     {
       provider: "akwam",
       source_url: "https://example.test/episode/e2",
@@ -85,12 +85,19 @@ test("PostgreSQL importer persists episode locator without direct media URLs", a
     }
   );
   assert.equal(episodeId, 41);
+  const canonicalInsert = pool.calls.find(call => /INSERT INTO canonical_episodes/.test(call.sql));
+  assert.equal(canonicalInsert.values[1], 3);
 
   await repository.upsertWatchOption(41, "akwam", {
     watch_id: "w2",
     quality: "720p",
     page_url: "https://example.test/watch/w2/e2"
   });
+
+  const option = pool.calls.find(call => /INSERT INTO playback_options/.test(call.sql));
+  assert.ok(option, "public playback capability must be persisted");
+  assert.equal(option.values[6], true);
+  assert.equal(option.values[7], false);
 
   const playback = pool.calls.find(call => /INSERT INTO playback_candidates/.test(call.sql));
   assert.equal(playback.values[4], "resolver");
