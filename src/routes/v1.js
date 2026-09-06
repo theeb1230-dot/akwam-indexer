@@ -3,6 +3,12 @@ const {
   createV1ReadRepository
 } = require("../repositories/v1-read-repository");
 const defaultSessions = require("../services/playback-session-store");
+const providers = require("../providers");
+const defaultJobs = require("../services/job-manager");
+const { runImportJob: defaultRunImportJob } = require("../services/importer");
+const { searchAll: defaultSearchAll } = require("../services/search-orchestrator");
+const { shouldExecuteJobsInline } = require("../config/runtime-mode");
+const { validProviderTarget } = require("../middleware/security");
 
 const PUBLIC_ERROR_MESSAGES = Object.freeze({
   SEARCH_QUERY_REQUIRED: "A search query is required.",
@@ -29,13 +35,20 @@ const PUBLIC_ERROR_MESSAGES = Object.freeze({
   EVENT_DETAILS_INVALID: "Playback event details must be a JSON object.",
   EVENT_DETAILS_UNKNOWN_FIELD: "Playback event details contain an unsupported field.",
   EVENT_DETAILS_TOO_LARGE: "Playback event details are too large.",
-  FEEDBACK_RATE_LIMITED: "Too many playback feedback events were submitted."
+  FEEDBACK_RATE_LIMITED: "Too many playback feedback events were submitted.",
+  DISCOVERY_QUERY_REQUIRED: "A discovery query is required.",
+  DISCOVERY_QUERY_TOO_LONG: "The discovery query is too long.",
+  DISCOVERY_PROVIDER_INVALID: "The selected provider is invalid.",
+  DISCOVERY_TARGET_INVALID: "The selected provider target is invalid.",
+  IMPORT_JOB_NOT_FOUND: "The import job was not found.",
+  IMPORT_ALREADY_RUNNING: "An import for this item is already running."
 });
 
 function statusFor(code) {
   if (String(code).endsWith("_NOT_FOUND")) return 404;
-  if (code === "PLAYBACK_SESSION_NOT_ACTIVE") return 409;
+  if (code === "PLAYBACK_SESSION_NOT_ACTIVE" || code === "IMPORT_ALREADY_RUNNING") return 409;
   if (code === "FEEDBACK_RATE_LIMITED") return 429;
+  if (code === "IMPORT_JOB_NOT_FOUND") return 404;
   return 400;
 }
 
@@ -94,6 +107,11 @@ function createV1Router(options = {}) {
     options.repository ||
     createV1ReadRepository(options.env || process.env);
   const sessions = options.sessions || defaultSessions;
+  const jobs = options.jobs || defaultJobs;
+  const searchAll = options.searchAll || defaultSearchAll;
+  const runImportJob = options.runImportJob || defaultRunImportJob;
+  const providerRegistry = options.providers || providers;
+  const inlineJobs = options.inlineJobs ?? shouldExecuteJobsInline();
   const router = express.Router();
 
   router.get("/search", async (req, res) => {
@@ -107,6 +125,109 @@ function createV1Router(options = {}) {
     } catch (error) {
       return respondError(res, error);
     }
+  });
+
+  router.get("/discover", async (req, res) => {
+    const query = String(req.query.q || "").trim();
+    if (!query) return respondError(res, new Error("DISCOVERY_QUERY_REQUIRED"));
+    if (query.length > 200) return respondError(res, new Error("DISCOVERY_QUERY_TOO_LONG"));
+
+    try {
+      const result = await searchAll(query);
+      const items = (result.results || []).map(item => ({
+        provider: String(item.provider || item.search_provider || ""),
+        provider_series_id: String(item.provider_series_id || ""),
+        title: String(item.title || ""),
+        source_url: item.source_url || null,
+        content_type: item.type === "movie" ? "movie" : "series",
+        match_score: Number(item.match_score || 0),
+        match_level: String(item.match_level || "weak")
+      })).filter(item => item.provider && item.provider_series_id && item.title);
+
+      return res.json({
+        data: {
+          query,
+          count: items.length,
+          searched_providers: Number(result.searched_providers || 0),
+          successful_providers: Number(result.successful_providers || 0),
+          failed_providers: Number(result.failed_providers || 0),
+          items
+        }
+      });
+    } catch {
+      return res.status(503).json({
+        error: {
+          code: "DISCOVERY_UNAVAILABLE",
+          message: "External discovery is temporarily unavailable."
+        }
+      });
+    }
+  });
+
+  router.post("/imports", async (req, res) => {
+    const providerName = String(req.body?.provider || "").trim().toLowerCase();
+    const providerSeriesId = String(req.body?.provider_series_id || "").trim();
+
+    if (!providerRegistry.has(providerName)) {
+      return respondError(res, new Error("DISCOVERY_PROVIDER_INVALID"));
+    }
+    const provider = providerRegistry.get(providerName);
+    if (!validProviderTarget(provider, providerSeriesId)) {
+      return respondError(res, new Error("DISCOVERY_TARGET_INVALID"));
+    }
+
+    const dedupeKey = "import:" + providerName + ":" + providerSeriesId;
+    const queued = await jobs.enqueueUnique({
+      type: "import",
+      provider: providerName,
+      provider_series_id: providerSeriesId,
+      dedupe_key: dedupeKey
+    });
+
+    if (!queued.created) {
+      return res.status(409).json({
+        error: {
+          code: "IMPORT_ALREADY_RUNNING",
+          message: PUBLIC_ERROR_MESSAGES.IMPORT_ALREADY_RUNNING
+        },
+        data: {
+          job_id: queued.job.id,
+          status: queued.job.status
+        }
+      });
+    }
+
+    if (inlineJobs) {
+      setImmediate(() => {
+        runImportJob(queued.job.id, providerName, providerSeriesId).catch(() => {});
+      });
+    }
+
+    return res.status(202).json({
+      data: {
+        job_id: queued.job.id,
+        status: queued.job.status,
+        provider: providerName,
+        provider_series_id: providerSeriesId
+      }
+    });
+  });
+
+  router.get("/imports/:id", async (req, res) => {
+    const job = await jobs.get(req.params.id);
+    if (!job || job.type !== "import") {
+      return respondError(res, new Error("IMPORT_JOB_NOT_FOUND"));
+    }
+    return res.json({
+      data: {
+        job_id: job.id,
+        status: job.status,
+        progress: Number(job.progress || 0),
+        completed: Number(job.completed || 0),
+        failed: Number(job.failed || 0),
+        result: job.result || null
+      }
+    });
   });
 
   router.get("/series/:id", async (req, res) => {

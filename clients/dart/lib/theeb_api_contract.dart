@@ -98,6 +98,66 @@ class TheebSeries {
   final int episodeCount;
 }
 
+class DiscoveryItem {
+  const DiscoveryItem({
+    required this.provider,
+    required this.providerSeriesId,
+    required this.title,
+    required this.contentType,
+    required this.matchScore,
+    required this.matchLevel,
+    this.sourceUrl,
+  });
+
+  factory DiscoveryItem.fromJson(Map<String, Object?> json) => DiscoveryItem(
+    provider: _string(json, 'provider'),
+    providerSeriesId: _string(json, 'provider_series_id'),
+    title: _string(json, 'title'),
+    sourceUrl: json['source_url'] as String?,
+    contentType: _string(json, 'content_type'),
+    matchScore: _int(json, 'match_score'),
+    matchLevel: _string(json, 'match_level'),
+  );
+
+  final String provider;
+  final String providerSeriesId;
+  final String title;
+  final String? sourceUrl;
+  final String contentType;
+  final int matchScore;
+  final String matchLevel;
+}
+
+class ImportJob {
+  const ImportJob({
+    required this.id,
+    required this.status,
+    required this.progress,
+    required this.completed,
+    required this.failed,
+  });
+
+  factory ImportJob.fromJson(Map<String, Object?> json) => ImportJob(
+    id: _string(json, 'job_id'),
+    status: _string(json, 'status'),
+    progress: _int(json, 'progress'),
+    completed: _int(json, 'completed'),
+    failed: _int(json, 'failed'),
+  );
+
+  final String id;
+  final String status;
+  final int progress;
+  final int completed;
+  final int failed;
+
+  bool get finished =>
+      status == 'completed' ||
+      status == 'completed_with_errors' ||
+      status == 'failed' ||
+      status == 'cancelled';
+}
+
 class TheebEpisode {
   const TheebEpisode({
     required this.id,
@@ -267,6 +327,30 @@ class TheebApiClient {
     return _list(data, 'items').map((item) =>
       TheebSeries.fromJson(_objectMap(item, 'series'))).toList(growable: false);
   }
+
+  Future<List<DiscoveryItem>> discover(String query) async {
+    final encodedQuery = Uri.encodeComponent(query);
+    final data = _data(await transport.get('/v1/discover?q=$encodedQuery'));
+    return _list(data, 'items').map((item) =>
+      DiscoveryItem.fromJson(_objectMap(item, 'discovery item'))).toList(growable: false);
+  }
+
+  Future<ImportJob> importDiscovery(DiscoveryItem item) async {
+    final data = _data(await transport.post('/v1/imports', {
+      'provider': item.provider,
+      'provider_series_id': item.providerSeriesId,
+    }));
+    return ImportJob(
+      id: _string(data, 'job_id'),
+      status: _string(data, 'status'),
+      progress: 0,
+      completed: 0,
+      failed: 0,
+    );
+  }
+
+  Future<ImportJob> getImportJob(String id) async =>
+    ImportJob.fromJson(_data(await transport.get('/v1/imports/${Uri.encodeComponent(id)}')));
 
   Future<TheebSeries> getSeries(int id) async =>
     TheebSeries.fromJson(_data(await transport.get('/v1/series/$id')));

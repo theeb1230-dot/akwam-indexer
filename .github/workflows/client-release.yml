@@ -84,11 +84,11 @@ jobs:
         run: flutter analyze && flutter test
       - name: Build installable Android APK
         working-directory: clients/flutter
-        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true
+        run: flutter build apk --release --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true
       - name: Validate Android artifact contents
         run: |
           rm -rf /tmp/theeb-apk && mkdir -p /tmp/theeb-apk
-          unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-apk
+          unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-release.apk -d /tmp/theeb-apk
           if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_ARTIFACT"
             exit 1
@@ -100,7 +100,7 @@ jobs:
       - name: Verify Android package identity, version and signature
         working-directory: clients/flutter
         run: |
-          APK="build/app/outputs/flutter-apk/app-debug.apk"
+          APK="build/app/outputs/flutter-apk/app-release.apk"
           EXPECTED_ID="$(grep -E 'applicationId = "' android/app/build.gradle.kts | head -1 | sed -E 's/.*applicationId = "([^"]+)".*/\1/')"
           EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
           EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
@@ -119,7 +119,7 @@ jobs:
           "$APKSIGNER" verify "$APK"
           node -e 'const fs=require("fs"); const d={platform:"android-mobile",application_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signature_verified:true,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/android-mobile-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage Android artifact
-        run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android.apk
+        run: cp clients/flutter/build/app/outputs/flutter-apk/app-release.apk theeb-arab-android.apk
       - name: Upload Android metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -161,11 +161,11 @@ jobs:
         run: flutter analyze && flutter test
       - name: Build installable Android TV APK
         working-directory: clients/flutter
-        run: flutter build apk --debug --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true --dart-define=THEEB_TARGET=tv
+        run: flutter build apk --release --dart-define=THEEB_API_BASE_URL="$THEEB_INSTALLABLE_API_BASE_URL" --dart-define=THEEB_INSTALLABLE_BUILD=true --dart-define=THEEB_TARGET=tv
       - name: Validate Android TV artifact contents
         run: |
           rm -rf /tmp/theeb-tv-apk && mkdir -p /tmp/theeb-tv-apk
-          unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-debug.apk -d /tmp/theeb-tv-apk
+          unzip -qq clients/flutter/build/app/outputs/flutter-apk/app-release.apk -d /tmp/theeb-tv-apk
           if grep -R -a -F -e 'https://example.invalid/' /tmp/theeb-tv-apk; then
             echo "PLACEHOLDER_FOUND_IN_ANDROID_TV_ARTIFACT"
             exit 1
@@ -177,7 +177,7 @@ jobs:
       - name: Verify Android TV package identity, version, signature and TV manifest
         working-directory: clients/flutter
         run: |
-          APK="build/app/outputs/flutter-apk/app-debug.apk"
+          APK="build/app/outputs/flutter-apk/app-release.apk"
           EXPECTED_ID="$(grep -E 'applicationId = "' android/app/build.gradle.kts | head -1 | sed -E 's/.*applicationId = "([^"]+)".*/\1/')"
           EXPECTED_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml)"
           EXPECTED_NAME="${EXPECTED_VERSION%%+*}"
@@ -202,7 +202,7 @@ jobs:
           "$APKSIGNER" verify "$APK"
           node -e 'const fs=require("fs"); const d={platform:"android-tv",application_id:process.argv[1],version_name:process.argv[2],version_code:process.argv[3],signature_verified:true,leanback_verified:true,commit_sha:process.env.GITHUB_SHA}; fs.writeFileSync("build/android-tv-metadata.json",JSON.stringify(d,null,2)+"\n");' "$ACTUAL_ID" "$ACTUAL_NAME" "$ACTUAL_CODE"
       - name: Stage Android TV artifact
-        run: cp clients/flutter/build/app/outputs/flutter-apk/app-debug.apk theeb-arab-android-tv.apk
+        run: cp clients/flutter/build/app/outputs/flutter-apk/app-release.apk theeb-arab-android-tv.apk
       - name: Upload Android TV metadata
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -142,6 +142,8 @@ function publicClientRequest(req) {
   if (method === "GET") {
     return (
       path === "/v1/search" ||
+      path === "/v1/discover" ||
+      /^\/v1\/imports\/[^/]+$/.test(path) ||
       /^\/v1\/series\/[1-9]\d*$/.test(path) ||
       /^\/v1\/series\/[1-9]\d*\/episodes$/.test(path) ||
       /^\/v1\/episodes\/[1-9]\d*$/.test(path) ||
@@ -155,6 +157,7 @@ function publicClientRequest(req) {
   if (method === "POST") {
     return (
       path === "/v1/playback/sessions" ||
+      path === "/v1/imports" ||
       /^\/v1\/playback\/sessions\/[^/]+\/feedback$/.test(path)
     );
   }
