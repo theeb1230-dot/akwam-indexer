@@ -125,9 +125,14 @@ function createV1Router(options = {}) {
     const query = String(req.query.q || "").trim();
     if (!query) return respondError(res, new Error("SEARCH_QUERY_REQUIRED"));
     if (query.length > 200) return respondError(res, new Error("SEARCH_QUERY_TOO_LONG"));
+    if (baseTitle(query).replace(/\s+/g, "").length < 2) {
+      return res.json({ data: { query, count: 0, items: [] } });
+    }
 
     try {
-      const items = (await repository.searchSeries(query)).map(publicSeries);
+      const items = (await repository.searchSeries(query))
+        .map(publicSeries)
+        .filter(item => item.content_type === "movie" || item.episode_count > 0);
       return res.json({ data: { query, count: items.length, items } });
     } catch (error) {
       return respondError(res, error);
@@ -138,6 +143,18 @@ function createV1Router(options = {}) {
     const query = String(req.query.q || "").trim();
     if (!query) return respondError(res, new Error("DISCOVERY_QUERY_REQUIRED"));
     if (query.length > 200) return respondError(res, new Error("DISCOVERY_QUERY_TOO_LONG"));
+    if (baseTitle(query).replace(/\s+/g, "").length < 2) {
+      return res.json({
+        data: {
+          query,
+          count: 0,
+          searched_providers: 0,
+          successful_providers: 0,
+          failed_providers: 0,
+          items: []
+        }
+      });
+    }
 
     try {
       const result = await searchAll(query);
@@ -152,7 +169,12 @@ function createV1Router(options = {}) {
         content_type: item.type === "movie" ? "movie" : "series",
         match_score: Number(item.match_score || 0),
         match_level: String(item.match_level || "weak")
-      })).filter(item => item.provider && item.provider_series_id && item.title);
+      })).filter(item =>
+        item.provider &&
+        item.provider_series_id &&
+        item.title &&
+        item.match_score >= 50
+      );
 
       return res.json({
         data: {
