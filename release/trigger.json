@@ -1,14 +1,14 @@
 {
-  "release_tag": "v0.2.2-experimental.1",
+  "release_tag": "v0.2.3-experimental.1",
   "release_level": "experimental",
   "api_base_url": "https://theeb-arab-api.onrender.com",
-  "flutter_version": "0.2.2+5",
+  "flutter_version": "0.2.3+6",
   "artifacts": [
     "theeb-arab-android.apk",
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "Search/import UX polish: duplicate import scheduling guard, poster/year discovery cards, all prior 0%/timeout/state fixes retained.",
+  "note": "Device screenshot fixes: exact discovery target imports, movie single-item playback import, canonical movie type, actionable import errors.",
   "retry": 0,
-  "reason": "Release after final device-observed search/import UX polish."
+  "reason": "Fix production Akwam redirect-loop imports, Q-Ask slug imports and empty movie detail screens observed on iPhone."
 }
