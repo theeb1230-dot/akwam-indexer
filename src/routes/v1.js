@@ -6,6 +6,7 @@ const defaultSessions = require("../services/playback-session-store");
 const providers = require("../providers");
 const defaultJobs = require("../services/job-manager");
 const { runImportJob: defaultRunImportJob } = require("../services/importer");
+const { baseTitle } = require("../services/search-orchestrator");
 const { searchAll: defaultSearchAll } = require("../services/search-orchestrator");
 const { shouldExecuteJobsInline } = require("../config/runtime-mode");
 const { validProviderTarget } = require("../middleware/security");
@@ -112,6 +113,9 @@ function createV1Router(options = {}) {
   const runImportJob = options.runImportJob || defaultRunImportJob;
   const providerRegistry = options.providers || providers;
   const inlineJobs = options.inlineJobs ?? shouldExecuteJobsInline();
+  const executeClientImports = options.executeClientImports ?? true;
+  let activeClientImports = 0;
+  const maxClientImports = Math.max(1, Math.min(2, Number(options.maxClientImports || process.env.CLIENT_IMPORT_CONCURRENCY || 1)));
   const router = express.Router();
 
   router.get("/search", async (req, res) => {
@@ -138,6 +142,7 @@ function createV1Router(options = {}) {
         provider: String(item.provider || item.search_provider || ""),
         provider_series_id: String(item.provider_series_id || ""),
         title: String(item.title || ""),
+        display_title: baseTitle(item.title) || String(item.title || ""),
         source_url: item.source_url || null,
         content_type: item.type === "movie" ? "movie" : "series",
         match_score: Number(item.match_score || 0),
@@ -184,31 +189,51 @@ function createV1Router(options = {}) {
       dedupe_key: dedupeKey
     });
 
-    if (!queued.created) {
-      return res.status(409).json({
-        error: {
-          code: "IMPORT_ALREADY_RUNNING",
-          message: PUBLIC_ERROR_MESSAGES.IMPORT_ALREADY_RUNNING
-        },
-        data: {
-          job_id: queued.job.id,
-          status: queued.job.status
-        }
-      });
-    }
+    const job = queued.job;
 
-    if (inlineJobs) {
-      setImmediate(() => {
-        runImportJob(queued.job.id, providerName, providerSeriesId).catch(() => {});
+    if (inlineJobs || executeClientImports) {
+      setImmediate(async () => {
+        while (activeClientImports >= maxClientImports) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        const current = await jobs.get(job.id);
+        if (!current || current.status === "cancelled" || current.status === "completed" ||
+            current.status === "completed_with_errors" || current.status === "failed") {
+          return;
+        }
+        activeClientImports++;
+        try {
+          await runImportJob(job.id, providerName, providerSeriesId);
+        } catch {
+          // runImportJob persists terminal failure state.
+        } finally {
+          activeClientImports--;
+        }
       });
     }
 
     return res.status(202).json({
       data: {
-        job_id: queued.job.id,
-        status: queued.job.status,
+        job_id: job.id,
+        status: job.status,
         provider: providerName,
-        provider_series_id: providerSeriesId
+        provider_series_id: providerSeriesId,
+        reused: !queued.created
+      }
+    });
+  });
+
+  router.post("/imports/:id/cancel", async (req, res) => {
+    const job = await jobs.get(req.params.id);
+    if (!job || job.type !== "import") {
+      return respondError(res, new Error("IMPORT_JOB_NOT_FOUND"));
+    }
+    const cancelled = await jobs.requestCancel(req.params.id);
+    return res.json({
+      data: {
+        job_id: cancelled.id,
+        status: cancelled.status,
+        progress: Number(cancelled.progress || 0)
       }
     });
   });

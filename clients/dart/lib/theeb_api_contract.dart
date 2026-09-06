@@ -107,6 +107,7 @@ class DiscoveryItem {
     required this.matchScore,
     required this.matchLevel,
     this.sourceUrl,
+    this.displayTitle,
   });
 
   factory DiscoveryItem.fromJson(Map<String, Object?> json) => DiscoveryItem(
@@ -114,6 +115,7 @@ class DiscoveryItem {
     providerSeriesId: _string(json, 'provider_series_id'),
     title: _string(json, 'title'),
     sourceUrl: json['source_url'] as String?,
+    displayTitle: json['display_title'] as String?,
     contentType: _string(json, 'content_type'),
     matchScore: _int(json, 'match_score'),
     matchLevel: _string(json, 'match_level'),
@@ -123,6 +125,7 @@ class DiscoveryItem {
   final String providerSeriesId;
   final String title;
   final String? sourceUrl;
+  final String? displayTitle;
   final String contentType;
   final int matchScore;
   final String matchLevel;
@@ -351,6 +354,9 @@ class TheebApiClient {
 
   Future<ImportJob> getImportJob(String id) async =>
     ImportJob.fromJson(_data(await transport.get('/v1/imports/${Uri.encodeComponent(id)}')));
+
+  Future<ImportJob> cancelImportJob(String id) async =>
+    ImportJob.fromJson(_data(await transport.post('/v1/imports/${Uri.encodeComponent(id)}/cancel', const {})));
 
   Future<TheebSeries> getSeries(int id) async =>
     TheebSeries.fromJson(_data(await transport.get('/v1/series/$id')));

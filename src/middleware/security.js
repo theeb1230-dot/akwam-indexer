@@ -158,6 +158,7 @@ function publicClientRequest(req) {
     return (
       path === "/v1/playback/sessions" ||
       path === "/v1/imports" ||
+      /^\/v1\/imports\/[^/]+\/cancel$/.test(path) ||
       /^\/v1\/playback\/sessions\/[^/]+\/feedback$/.test(path)
     );
   }
