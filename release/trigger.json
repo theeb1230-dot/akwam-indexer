@@ -1,14 +1,14 @@
 {
-  "release_tag": "v0.2.0-experimental.1",
+  "release_tag": "v0.2.1-experimental.1",
   "release_level": "experimental",
   "api_base_url": "https://theeb-arab-api.onrender.com",
-  "flutter_version": "0.2.0+3",
+  "flutter_version": "0.2.1+4",
   "artifacts": [
     "theeb-arab-android.apk",
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "Feature release: real provider discovery + user-selected import, explicit watch/download, real Render API, optimized Android/TV release APKs.",
+  "note": "Search/import reliability release: bounded provider latency, live user imports, per-item progress/cancel, stale-query isolation, cleaned titles and optimized release builds.",
   "retry": 0,
-  "reason": "New v0.2.0 feature release after live backend deployment and discovery/import integration."
+  "reason": "New release after fixing production import jobs stuck at 0% and search/discovery UX issues observed on device."
 }

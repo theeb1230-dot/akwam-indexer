@@ -57,3 +57,15 @@ The metadata validator rejects commit drift, version drift, unexpected product i
 - المشاهدة والتحميل يظلان إجراءين منفصلين وصريحين.
 - Android Mobile وAndroid TV يبنيان بوضع Release بدل Debug.
 - بوابة الإصدار ترفض النشر إذا كان كل من بحث المكتبة وprovider discovery فارغًا لاستعلام smoke الحقيقي «الذئب الوحيد».
+
+
+## v0.2.1-experimental.1
+- إصلاح Import Jobs التي كانت تبقى queued عند 0% على Render API role.
+- تنفيذ إضافات المستخدم بتزامن محدود مع إعادة استخدام job صالح أو إنشاء job جديد.
+- إلغاء import من الواجهة.
+- فصل حالة كل import عن الاستعلامات اللاحقة ومنع stale UI.
+- fallback إلى discovery عند timeout للبحث المحلي.
+- تقليل timeout لكل Provider ورفع حد جودة النتائج العامة.
+- تنظيف عنوان discovery وعرض اتجاه LTR للعناوين الإنجليزية داخل RTL.
+- إغلاق لوحة المفاتيح عند البحث.
+- إلغاء jobs القديمة العالقة في PostgreSQL قبل الإصدار.
