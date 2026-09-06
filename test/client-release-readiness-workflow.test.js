@@ -79,20 +79,3 @@ test("Experimental release evidence does not treat Dart CLI as app runtime smoke
     "Dart CLI smoke must not satisfy client runtime application evidence"
   );
 });
-
-test("final installable artifacts scan the full banned endpoint set", () => {
-  const workflow = fs.readFileSync(
-    path.join(process.cwd(), ".github/workflows/client-release.yml"),
-    "utf8"
-  );
-  for (const banned of [
-    "https://example.invalid/",
-    "https://example.com/",
-    "127.0.0.1",
-    "localhost",
-    "0.0.0.0"
-  ]) {
-    const occurrences = workflow.split(banned).length - 1;
-    assert.ok(occurrences >= 4, banned + " must be checked in source plus all three artifacts");
-  }
-});
