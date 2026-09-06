@@ -35,7 +35,11 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "https://example.com/",
     "http://localhost",
     "http://127.0.0.1",
-    "http://0.0.0.0"
+    "http://0.0.0.0",
+    "android-runtime-smoke:",
+    "theeb-arab-client-runtime-smoke",
+    "ANDROID_RUNTIME_SEARCH_REAL_RESULT_NOT_RENDERED",
+    "installed-apk-emulator-ui"
   ]) {
     assert.equal(workflow.includes(required), true, required);
   }
