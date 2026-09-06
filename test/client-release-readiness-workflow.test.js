@@ -29,7 +29,13 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "node scripts/validate-client-artifact-metadata.js metadata",
     "android-mobile-metadata.json",
     "android-tv-metadata.json",
-    "ios-metadata.json"
+    "ios-metadata.json",
+    "CLIENT_RUNTIME_SEARCH_SMOKE_NOT_VERIFIED",
+    "client-runtime-smoke.json",
+    "https://example.com/",
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://0.0.0.0"
   ]) {
     assert.equal(workflow.includes(required), true, required);
   }
@@ -65,4 +71,22 @@ test("release readiness source-of-truth contains all four cumulative levels", ()
   for (const level of Object.values(matrix.levels)) {
     assert.ok(Object.keys(level.requirements).length > 0);
   }
+});
+
+
+test("experimental evidence requires real application runtime smoke evidence", () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), "scripts/create-experimental-release-evidence.js"),
+    "utf8"
+  );
+
+  assert.match(source, /client-runtime-smoke\.json/);
+  assert.match(source, /CLIENT_RUNTIME_SEARCH_SMOKE_NOT_PASSED/);
+  assert.match(source, /CLIENT_RUNTIME_SMOKE_COMMIT_MISMATCH/);
+  assert.match(source, /CLIENT_RUNTIME_SMOKE_API_MISMATCH/);
+  assert.match(source, /CLIENT_RUNTIME_SMOKE_REAL_RESULT_REQUIRED/);
+  assert.doesNotMatch(
+    source,
+    /client_runtime_search_smoke:\s*\[`run:\$\{runId\}:dart-client-search-smoke`\]/
+  );
 });
