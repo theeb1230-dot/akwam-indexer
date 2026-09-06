@@ -1,14 +1,14 @@
 {
-  "release_tag": "v0.2.4-experimental.1",
+  "release_tag": "v0.2.5-experimental.1",
   "release_level": "experimental",
   "api_base_url": "https://theeb-arab-api.onrender.com",
-  "flutter_version": "0.2.4+7",
+  "flutter_version": "0.2.5+8",
   "artifacts": [
     "theeb-arab-android.apk",
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "Root-cause repair: unified playback capability/candidate persistence, generic season identity, lazy playback resolution, legacy movie reconciliation.",
+  "note": "In-app embedded player, direct watch flow, discovery noise suppression, and zero-episode stale-result filtering.",
   "retry": 0,
-  "reason": "Fix architectural data-contract mismatch observed across imported series/movies rather than special-casing individual titles."
+  "reason": "User-device regression repair from real Android screenshots; fixes the client and search contracts rather than individual titles."
 }
