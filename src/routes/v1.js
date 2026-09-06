@@ -189,25 +189,21 @@ function createV1Router(options = {}) {
       dedupe_key: dedupeKey
     });
 
-    if (!queued.created) {
-      return res.status(409).json({
-        error: {
-          code: "IMPORT_ALREADY_RUNNING",
-          message: PUBLIC_ERROR_MESSAGES.IMPORT_ALREADY_RUNNING
-        },
-        data: {
-          job_id: queued.job.id,
-          status: queued.job.status
-        }
-      });
-    }
+    const job = queued.job;
 
     if (inlineJobs || executeClientImports) {
       setImmediate(async () => {
-        if (activeClientImports >= maxClientImports) return;
+        while (activeClientImports >= maxClientImports) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        const current = await jobs.get(job.id);
+        if (!current || current.status === "cancelled" || current.status === "completed" ||
+            current.status === "completed_with_errors" || current.status === "failed") {
+          return;
+        }
         activeClientImports++;
         try {
-          await runImportJob(queued.job.id, providerName, providerSeriesId);
+          await runImportJob(job.id, providerName, providerSeriesId);
         } catch {
           // runImportJob persists terminal failure state.
         } finally {
@@ -218,10 +214,11 @@ function createV1Router(options = {}) {
 
     return res.status(202).json({
       data: {
-        job_id: queued.job.id,
-        status: queued.job.status,
+        job_id: job.id,
+        status: job.status,
         provider: providerName,
-        provider_series_id: providerSeriesId
+        provider_series_id: providerSeriesId,
+        reused: !queued.created
       }
     });
   });
