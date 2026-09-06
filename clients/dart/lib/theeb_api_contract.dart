@@ -108,6 +108,8 @@ class DiscoveryItem {
     required this.matchLevel,
     this.sourceUrl,
     this.displayTitle,
+    this.image,
+    this.year,
   });
 
   factory DiscoveryItem.fromJson(Map<String, Object?> json) => DiscoveryItem(
@@ -116,6 +118,8 @@ class DiscoveryItem {
     title: _string(json, 'title'),
     sourceUrl: json['source_url'] as String?,
     displayTitle: json['display_title'] as String?,
+    image: json['image'] as String?,
+    year: json['year'] as String?,
     contentType: _string(json, 'content_type'),
     matchScore: _int(json, 'match_score'),
     matchLevel: _string(json, 'match_level'),
@@ -126,6 +130,8 @@ class DiscoveryItem {
   final String title;
   final String? sourceUrl;
   final String? displayTitle;
+  final String? image;
+  final String? year;
   final String contentType;
   final int matchScore;
   final String matchLevel;
