@@ -801,7 +801,7 @@ class _InAppPlayerScreenState extends State<InAppPlayerScreen> {
             if (mounted) setState(() => _progress = 100);
           },
           onWebResourceError: (error) {
-            if (!error.isForMainFrame) return;
+            if (error.isForMainFrame != true) return;
             if (mounted) {
               setState(() => _error =
                   'تعذر تحميل المشاهدة داخل التطبيق. يمكنك إعادة المحاولة أو فتح المصدر خارجيًا.');
