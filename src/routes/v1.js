@@ -175,12 +175,15 @@ function createV1Router(options = {}) {
   router.post("/imports", async (req, res) => {
     const providerName = String(req.body?.provider || "").trim().toLowerCase();
     const providerSeriesId = String(req.body?.provider_series_id || "").trim();
+    const sourceUrl = String(req.body?.source_url || "").trim();
+    const contentType = req.body?.content_type === "movie" ? "movie" : "series";
 
     if (!providerRegistry.has(providerName)) {
       return respondError(res, new Error("DISCOVERY_PROVIDER_INVALID"));
     }
     const provider = providerRegistry.get(providerName);
-    if (!validProviderTarget(provider, providerSeriesId)) {
+    if (!validProviderTarget(provider, providerSeriesId) ||
+        (sourceUrl && !validProviderTarget(provider, sourceUrl))) {
       return respondError(res, new Error("DISCOVERY_TARGET_INVALID"));
     }
 
@@ -205,7 +208,10 @@ function createV1Router(options = {}) {
           if (!current || current.status !== "queued") return;
           activeClientImports++;
           try {
-            await runImportJob(job.id, providerName, providerSeriesId);
+            await runImportJob(job.id, providerName, providerSeriesId, {
+              providerTarget: sourceUrl || providerSeriesId,
+              contentType
+            });
           } catch {
             // runImportJob persists terminal failure state.
           } finally {
@@ -255,7 +261,10 @@ function createV1Router(options = {}) {
         progress: Number(job.progress || 0),
         completed: Number(job.completed || 0),
         failed: Number(job.failed || 0),
-        result: job.result || null
+        result: job.result || null,
+        error_message: Array.isArray(job.errors) && job.errors.length
+          ? String(job.errors[job.errors.length - 1]?.message || "")
+          : null
       }
     });
   });

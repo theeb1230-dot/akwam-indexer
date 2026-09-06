@@ -144,6 +144,7 @@ class ImportJob {
     required this.progress,
     required this.completed,
     required this.failed,
+    this.errorMessage,
   });
 
   factory ImportJob.fromJson(Map<String, Object?> json) => ImportJob(
@@ -152,6 +153,7 @@ class ImportJob {
     progress: _int(json, 'progress'),
     completed: _int(json, 'completed'),
     failed: _int(json, 'failed'),
+    errorMessage: json['error_message'] as String?,
   );
 
   final String id;
@@ -159,6 +161,7 @@ class ImportJob {
   final int progress;
   final int completed;
   final int failed;
+  final String? errorMessage;
 
   bool get finished =>
       status == 'completed' ||
@@ -348,6 +351,8 @@ class TheebApiClient {
     final data = _data(await transport.post('/v1/imports', {
       'provider': item.provider,
       'provider_series_id': item.providerSeriesId,
+      if (item.sourceUrl != null) 'source_url': item.sourceUrl,
+      'content_type': item.contentType,
     }));
     return ImportJob(
       id: _string(data, 'job_id'),
@@ -355,6 +360,7 @@ class TheebApiClient {
       progress: 0,
       completed: 0,
       failed: 0,
+      errorMessage: null,
     );
   }
 

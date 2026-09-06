@@ -30,10 +30,31 @@ async function importSeries(
   const jobId =
     options.jobId || null;
 
+  const providerTarget =
+    options.providerTarget ||
+    providerSeriesId;
+
   const seriesData =
     await provider.getSeries(
-      providerSeriesId
+      providerTarget
     );
+
+  seriesData.series.content_type =
+    options.contentType === "movie"
+      ? "movie"
+      : (seriesData.series.content_type || "series");
+
+  if (
+    seriesData.series.content_type === "movie" &&
+    (!Array.isArray(seriesData.episodes) || seriesData.episodes.length === 0)
+  ) {
+    seriesData.episodes = [{
+      id: providerTarget,
+      number: 1,
+      title: seriesData.series.title,
+      source_url: providerTarget
+    }];
+  }
 
   const seriesDbId =
     await repository.upsertSeries(

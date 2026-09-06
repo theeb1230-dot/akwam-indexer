@@ -23,7 +23,17 @@ String userFacingError(Object error) {
   if (error is ArgumentError) {
     return 'إعداد الاتصال بالتطبيق غير صالح. يلزم تحديث النسخة قبل الاستخدام.';
   }
-  return 'حدث خطأ غير متوقع. أعد المحاولة.';
+  final message = error.toString();
+  if (message.contains('TOO_MANY_REDIRECTS')) {
+    return 'المصدر أعاد توجيهات متكررة وتعذر استيراده. جرّب نتيجة من مصدر آخر.';
+  }
+  if (message.contains('Q-Ask') || message.contains('series slug')) {
+    return 'تعذر فتح رابط Q-Ask الذي أعاده البحث. جرّب المصدر الآخر.';
+  }
+  if (message.contains('IMPORT_FAILED')) {
+    return 'فشل استيراد المحتوى من المصدر المحدد. جرّب مصدرًا آخر أو أعد المحاولة.';
+  }
+  return 'تعذر إكمال العملية حاليًا. أعد المحاولة أو جرّب مصدرًا آخر.';
 }
 
 const String kTheebTarget =
@@ -205,7 +215,9 @@ class _SearchScreenState extends State<SearchScreen> {
       }
 
       if (!job.finished || job.status == 'failed' || job.status == 'cancelled') {
-        throw StateError('IMPORT_FAILED');
+        throw StateError(job.errorMessage?.isNotEmpty == true
+            ? job.errorMessage!
+            : 'IMPORT_FAILED');
       }
 
       if (!mounted) return;
@@ -335,7 +347,11 @@ class _SearchScreenState extends State<SearchScreen> {
                           onTap: () => _openSeries(item),
                           title: Text(item.title),
                           subtitle: Text(item.description ?? item.contentType),
-                          trailing: Text(item.episodeCount.toString()),
+                          trailing: Text(
+                            item.contentType == 'movie'
+                                ? 'فيلم'
+                                : '${item.episodeCount} حلقة',
+                          ),
                         ),
                       ),
                     if (_items.isEmpty && _discoveries.isNotEmpty) ...[
@@ -505,10 +521,16 @@ class _SeriesScreenState extends State<SeriesScreen> {
                       ],
                       const SizedBox(height: 18),
                       Text(
-                        'الحلقات',
+                        _series!.contentType == 'movie' ? 'المشاهدة والتحميل' : 'الحلقات',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 8),
+                      if (_episodes.isEmpty)
+                        Text(
+                          _series!.contentType == 'movie'
+                              ? 'لا توجد خيارات مشاهدة أو تحميل جاهزة لهذا الفيلم حاليًا.'
+                              : 'لم تُجلب حلقات لهذا المسلسل بعد.',
+                        ),
                       for (final episode in _episodes)
                         Card(
                           child: ListTile(
