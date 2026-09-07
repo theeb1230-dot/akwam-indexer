@@ -8,7 +8,7 @@
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "Retry v0.2.5 after persisting Android SDK paths across GitHub Actions steps; includes installed-APK runtime Search UI gate.",
-  "retry": 3,
-  "reason": "PR #101 fixed PATH only inside emulator-start shell; this retry persists adb/emulator paths via GITHUB_PATH for subsequent runtime smoke steps."
+  "note": "Retry v0.2.5 after bounding Android emulator startup and adding fail-fast diagnostics.",
+  "retry": 4,
+  "reason": "Client Release Artifacts run #32 built all three artifacts but android-runtime-smoke hung in adb wait-for-device until the job timeout cancelled publication; retry=4 reruns with bounded startup and diagnostics."
 }
