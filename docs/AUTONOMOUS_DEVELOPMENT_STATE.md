@@ -91,3 +91,26 @@ Not currently claimable. Among the remaining evidence requirements are full real
 
 - This cycle created the required persistent handoff document.
 - This cycle schedules a release retry by bumping `release/trigger.json.retry` to 2.
+
+## Cycle update — bounded Android runtime emulator startup
+
+- Actual main inspected at cycle start: `02d6e993f0c793849628376a4269055cb7029c36`.
+- Open PRs at cycle start: none.
+- Main CI run #319 / `34100335103`: PASS.
+- Render External Smoke run #73 / `34100335098`: PASS.
+- Client Release Artifacts run #32 / `34100335102`: CANCELLED.
+- Run #32 successfully completed API validation, Android APK build/metadata, Android TV APK build/metadata, and iOS unsigned IPA build/metadata.
+- Publication did not run because `android-runtime-smoke` hung in an unbounded `adb wait-for-device` until the 25-minute job timeout cancelled it.
+- Latest published GitHub Release remains `v0.2.4-experimental.1`; `v0.2.5-experimental.1` is not published.
+- This cycle prepares a fail-fast emulator startup repair: PID liveness check, 180-second ADB-device deadline, 180-second boot deadline, and emulator/ADB diagnostics on failure.
+- `release/trigger.json.retry` advances to 4 so merge triggers a fresh v0.2.5 triplet attempt from the merge commit.
+- Publication remains fail-closed; no release is claimed until installed-APK runtime Search UI smoke passes and release-readiness/publish jobs succeed.
+
+## أهداف التشغيل التالي
+
+1. Merge the bounded emulator-start PR only after CI/Phase 3/Render smoke are green.
+2. Inspect the automatically triggered Client Release Artifacts retry=4 from the merge commit.
+3. If emulator startup fails, use the new `/tmp/theeb-emulator.log` and `adb devices -l` evidence to fix the root cause on a single PR without weakening runtime smoke.
+4. If runtime Search UI passes, require release-readiness and publication to complete, then verify `v0.2.5-experimental.1` exposes Android Mobile APK + Android TV APK + unsigned iOS IPA + SHA256SUMS + release manifest/evidence.
+5. Verify same-commit/version parity and record exact SHA-256/assets in this handoff.
+6. After v0.2.5 is resolved, continue real embedded-player playback E2E, Android TV D-pad/focus runtime evidence, and explicit Watch/Download E2E against PostgreSQL.
