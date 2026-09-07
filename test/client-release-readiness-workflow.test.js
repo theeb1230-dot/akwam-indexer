@@ -56,6 +56,8 @@ test("client release workflow is fail-closed on classification and evidence", ()
   assert.doesNotMatch(workflow, /Enforce cumulative release readiness matrix/);
   assert.match(workflow, /RELEASE_TAG_INPUT:.*env\.THEEB_RELEASE_TAG/);
   assert.match(workflow, /IOS_IPA_HAS_DISTRIBUTION_IDENTITY/);
+  assert.match(workflow, /platform-tools" >> "\$GITHUB_PATH"/);
+  assert.match(workflow, /emulator" >> "\$GITHUB_PATH"/);
 });
 
 test("release readiness source-of-truth contains all four cumulative levels", () => {
