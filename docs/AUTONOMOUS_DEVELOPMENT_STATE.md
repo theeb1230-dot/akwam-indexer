@@ -91,3 +91,23 @@ Not currently claimable. Among the remaining evidence requirements are full real
 
 - This cycle created the required persistent handoff document.
 - This cycle schedules a release retry by bumping `release/trigger.json.retry` to 2.
+
+## Current cycle update — 2026-09-07T22:50+03:00
+
+- GitHub reality at cycle start: no open PRs; main head `02d6e993f0c793849628376a4269055cb7029c36` (PR #104 merged).
+- Main CI #319 / `34100335103` = PASS.
+- Render External Smoke #73 / `34100335098` = PASS.
+- Client Release Artifacts #32 / `34100335102` built and validated Android Mobile, Android TV, and iOS successfully, and API + real Dart Search smoke passed.
+- Release run #32 was cancelled only in `android-runtime-smoke`: `Start Android emulator` stalled after AVD creation and `adb wait-for-device` remained unbounded until the job timeout at ~24 minutes. This confirms the previous persistent PATH fix worked; the current root cause is emulator startup control.
+- Opened PR #105 `Release: bound Android emulator runtime smoke` on branch `release/harden-android-emulator-smoke`.
+- PR #105 replaces unbounded device wait with explicit 90-second adb-device and 180-second boot-complete budgets, one controlled retry, KVM/process/adb/emulator-log diagnostics, and an 8-minute step timeout. The installed-app Search UI gate itself is unchanged.
+- PR #105 CI started: CI #320 / `34156983131`, Phase 3 Provider Recovery #225 / `34156983127`, Render External Smoke #74 / `34156983150`.
+- Latest published release remains `v0.2.4-experimental.1`; `v0.2.5-experimental.1` is not published and must not be claimed until installed-APK runtime smoke passes.
+
+## أهداف التشغيل التالي
+
+1. Finish PR #105 only: inspect CI #320, Provider Recovery #225, and Render External Smoke #74; fix any real failures on the same branch and merge only when all required checks are green.
+2. After #105 merges, bump `release/trigger.json` on a single new PR to trigger a fresh `v0.2.5-experimental.1` triplet from the new main commit.
+3. Inspect the new `android-runtime-smoke` evidence. If emulator boot still fails, use the newly captured emulator/KVM/adb diagnostics to fix the root cause without weakening the installed-app Search UI gate.
+4. Publish Android Mobile APK + Android TV APK + iOS UNSIGNED IPA together only if API validation, artifact identity/parity, placeholder scan, installed-app runtime smoke, readiness matrix, and SHA-256 gates all pass.
+5. Once v0.2.5 Experimental is resolved, validate real embedded playback, then add Android TV D-pad/focus runtime smoke and persistent E2E evidence for Search → details → episodes/movie → explicit Watch and explicit Download with PostgreSQL verification.
