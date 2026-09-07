@@ -38,6 +38,12 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "http://0.0.0.0",
     "android-runtime-smoke:",
     "theeb-arab-client-runtime-smoke",
+    "timeout-minutes: 8",
+    "timeout 90 adb wait-for-device",
+    "timeout 180 bash -c",
+    "ANDROID_EMULATOR_BOOT_RETRY",
+    "ANDROID_EMULATOR_BOOT_FAILED",
+    "diagnose_emulator",
     "ANDROID_RUNTIME_SEARCH_REAL_RESULT_NOT_RENDERED",
     "installed-apk-emulator-ui"
   ]) {

@@ -151,6 +151,7 @@ jobs:
           name: theeb-arab-android-metadata
           path: runtime
       - name: Start Android emulator
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
@@ -166,9 +167,51 @@ jobs:
           command -v adb
           adb version
           echo no | "$AVDMANAGER" create avd --force --name theeb-runtime-smoke --package "system-images;android-35;google_apis;x86_64"
-          nohup "$ANDROID_HOME/emulator/emulator" -avd theeb-runtime-smoke -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect >/tmp/theeb-emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+
+          diagnose_emulator() {
+            echo "=== emulator process ==="
+            ps -ef | grep '[e]mulator' || true
+            echo "=== adb devices ==="
+            adb devices -l || true
+            echo "=== emulator log ==="
+            tail -n 250 /tmp/theeb-emulator.log || true
+            echo "=== kvm ==="
+            ls -l /dev/kvm || true
+          }
+
+          boot_attempt() {
+            : > /tmp/theeb-emulator.log
+            adb kill-server || true
+            adb start-server
+            nohup "$ANDROID_HOME/emulator/emulator"               -avd theeb-runtime-smoke               -no-window               -no-audio               -no-boot-anim               -no-snapshot               -no-snapshot-save               -wipe-data               -accel on               -cores 2               -memory 2048               -gpu swiftshader_indirect               >/tmp/theeb-emulator.log 2>&1 &
+            EMULATOR_PID=$!
+
+            if ! timeout 90 adb wait-for-device; then
+              diagnose_emulator
+              kill "$EMULATOR_PID" 2>/dev/null || true
+              wait "$EMULATOR_PID" 2>/dev/null || true
+              return 1
+            fi
+
+            if ! timeout 180 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'; then
+              diagnose_emulator
+              adb emu kill || true
+              kill "$EMULATOR_PID" 2>/dev/null || true
+              wait "$EMULATOR_PID" 2>/dev/null || true
+              return 1
+            fi
+          }
+
+          if ! boot_attempt; then
+            echo "ANDROID_EMULATOR_BOOT_RETRY"
+            sleep 3
+            boot_attempt || {
+              echo "ANDROID_EMULATOR_BOOT_FAILED"
+              diagnose_emulator
+              exit 1
+            }
+          fi
+
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
