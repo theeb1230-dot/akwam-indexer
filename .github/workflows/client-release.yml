@@ -166,9 +166,32 @@ jobs:
           command -v adb
           adb version
           echo no | "$AVDMANAGER" create avd --force --name theeb-runtime-smoke --package "system-images;android-35;google_apis;x86_64"
+          : > /tmp/theeb-emulator.log
           nohup "$ANDROID_HOME/emulator/emulator" -avd theeb-runtime-smoke -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect >/tmp/theeb-emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          EMULATOR_PID=$!
+          echo "$EMULATOR_PID" > /tmp/theeb-emulator.pid
+          DEVICE_DEADLINE=$((SECONDS + 180))
+          until adb devices | awk 'NR > 1 && $2 == "device" { found=1 } END { exit !found }'; do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "ANDROID_EMULATOR_EXITED_BEFORE_ADB_DEVICE"
+              cat /tmp/theeb-emulator.log
+              adb devices -l || true
+              exit 1
+            fi
+            if [ "$SECONDS" -ge "$DEVICE_DEADLINE" ]; then
+              echo "ANDROID_EMULATOR_DEVICE_TIMEOUT"
+              cat /tmp/theeb-emulator.log
+              adb devices -l || true
+              exit 1
+            fi
+            sleep 2
+          done
+          if ! timeout 180 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'; then
+            echo "ANDROID_EMULATOR_BOOT_TIMEOUT"
+            cat /tmp/theeb-emulator.log
+            adb devices -l || true
+            exit 1
+          fi
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
