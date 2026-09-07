@@ -16,6 +16,13 @@
 - Intended release tag: `v0.2.5-experimental.1`.
 - Latest published release remains `v0.2.4-experimental.1`.
 
+## Current cycle update
+
+- PR #103 merged handoff + retry=2 and triggered Client Release Artifacts run #31 on main.
+- A concurrent pre-existing PR #102 was discovered immediately afterward. It contains a unique required fix: persist Android platform-tools/emulator via `GITHUB_PATH` so the *next* runtime-smoke step can invoke `adb`.
+- The branch has been reset onto latest main to eliminate duplicated handoff/trigger changes, preserving only the unique cross-step PATH fix, its regression test, this state update, and retry=3.
+- Run #31 may still fail after emulator boot because it was triggered before this cross-step PATH fix is merged; do not weaken the runtime gate.
+
 ## Current release blocker
 
 Client Release Artifacts run #30 / `34007633859` built and validated all three artifacts successfully:
@@ -60,6 +67,17 @@ Therefore the candidate is **not yet publishable as Experimental v0.2.5** until 
 Not currently claimable. Among the remaining evidence requirements are full real-device E2E for watch + download, TV D-pad/focus runtime evidence, iOS signed/runtime evidence where required, broader security/performance/stress/soak/backup/restore/failover evidence, and no High/Critical blockers.
 
 ## Handoff objectives, ordered
+
+1. Finish PR #102: require CI/Phase 3/Render smoke green, then merge the persistent GITHUB_PATH fix.
+2. Re-run the full v0.2.5 triplet from the PR #102 merge commit using retry=3.
+3. Inspect installed Android Search UI runtime smoke; fix root cause without weakening the gate if it fails.
+4. Publish the three artifacts together only if all identity, placeholder, runtime, parity and readiness gates pass.
+5. After release is resolved, validate real playback inside the embedded player, including WebView load failure/fallback behavior.
+6. Add Android TV runtime D-pad/focus smoke and eliminate mobile-only interaction assumptions.
+7. Add persistent E2E evidence for Search → details → episodes/movie item → explicit Watch and explicit Download, with PostgreSQL state verification.
+8. Continue dependency/security/performance/observability review with zero-cost constraints.
+
+## Previous objectives superseded by the current cycle
 
 1. Re-run the full v0.2.5 triplet from latest main after the Android runtime smoke PATH fix.
 2. If runtime smoke fails, inspect exact emulator/app/UI logs and fix the root cause on the single open PR branch; do not weaken the runtime gate.
