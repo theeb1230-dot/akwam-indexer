@@ -44,6 +44,9 @@ test("client release workflow is fail-closed on classification and evidence", ()
     "ANDROID_EMULATOR_BOOT_RETRY",
     "ANDROID_EMULATOR_BOOT_FAILED",
     "diagnose_emulator",
+    "ANDROID_AVD_HOME=\"$RUNNER_TEMP/android-avd\"",
+    "test -f \"$ANDROID_AVD_HOME/theeb-runtime-smoke.ini\"",
+    "test -d \"$ANDROID_AVD_HOME/theeb-runtime-smoke.avd\"",
     "ANDROID_RUNTIME_SEARCH_REAL_RESULT_NOT_RENDERED",
     "installed-apk-emulator-ui"
   ]) {

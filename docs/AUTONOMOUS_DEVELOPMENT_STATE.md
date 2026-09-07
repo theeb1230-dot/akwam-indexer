@@ -134,3 +134,32 @@ Not currently claimable. Among the remaining evidence requirements are full real
 4. If Android runtime Search UI passes, require release-readiness and publish-release to succeed.
 5. Verify `v0.2.5-experimental.1` contains Android Mobile APK + Android TV APK + unsigned iOS IPA + SHA256SUMS.txt + release manifest/evidence from one commit/version, and record SHA-256 values here.
 6. After v0.2.5 is resolved, continue embedded-player playback E2E, Android TV D-pad/focus runtime smoke, and explicit Watch/Download E2E with PostgreSQL verification.
+
+## Cycle update — v0.2.5 retry 5 AVD path root cause
+
+- PR #105 merged as commit `1b98c5b44ea9e67ed81dd49fc1de1560f301f339`.
+- Client Release Artifacts run #33 / `34157291488` built and validated all three artifacts from that commit:
+  - Android Mobile APK: PASS.
+  - Android TV APK: PASS.
+  - iOS unsigned IPA: PASS.
+  - API readiness + real Dart Search smoke: PASS.
+- Publication remained fail-closed because `android-runtime-smoke` failed during emulator startup.
+- New diagnostic evidence from run #33:
+  - KVM available.
+  - ADB available.
+  - Emulator process failed with `Unknown AVD name [theeb-runtime-smoke]`.
+  - Emulator searched `ANDROID_AVD_HOME`, `ANDROID_SDK_HOME/avd`, and `HOME/.android/avd`, but no matching `.ini` existed there.
+- Root cause: AVD creation path was implicit and did not match the emulator lookup path on the GitHub runner.
+- This cycle pins `ANDROID_AVD_HOME=$RUNNER_TEMP/android-avd`, persists it through `GITHUB_ENV`, and requires both `theeb-runtime-smoke.ini` and `theeb-runtime-smoke.avd` to exist before emulator startup.
+- `release/trigger.json.retry` advances to 5.
+- Latest published release is still `v0.2.4-experimental.1`; `v0.2.5-experimental.1` remains unpublished.
+
+## أهداف التشغيل التالي
+
+1. Keep the AVD-path repair PR as the only open PR and merge only after CI/Phase 3/Render smoke pass.
+2. Inspect Client Release Artifacts retry=5 from the merge commit.
+3. Require Android runtime Search UI smoke to pass without weakening its real-result check.
+4. If it fails, use the bounded emulator diagnostics or UI dump to repair the exact root cause.
+5. If release-readiness and publish-release pass, verify the visible `v0.2.5-experimental.1` Release and all assets/checksums/manifest parity.
+6. Record exact release URL, asset sizes and SHA-256 digests in this handoff.
+7. Continue real embedded-player playback E2E and Android TV D-pad/focus runtime verification after v0.2.5 is resolved.

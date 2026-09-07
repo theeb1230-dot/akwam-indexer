@@ -8,7 +8,7 @@
     "theeb-arab-android-tv.apk",
     "theeb-arab-ios-unsigned.ipa"
   ],
-  "note": "Retry v0.2.5 after bounding Android emulator startup and adding fail-fast diagnostics.",
-  "retry": 4,
-  "reason": "Client Release Artifacts run #32 built all three artifacts but android-runtime-smoke hung in adb wait-for-device until the job timeout cancelled publication; retry=4 reruns with bounded startup and diagnostics."
+  "note": "Retry v0.2.5 after pinning ANDROID_AVD_HOME for the installed-APK runtime smoke.",
+  "retry": 5,
+  "reason": "Release run #33 built all three artifacts, but emulator startup failed because the AVD was created outside the emulator search path. retry=5 pins ANDROID_AVD_HOME, verifies the .ini/.avd files, then reruns the same fail-closed Search UI smoke."
 }
