@@ -7,6 +7,16 @@ const qask = require("./qask");
 const cimaleek = require("./cimaleek");
 const laaroza = require("./laaroza");
 
+// Q-Ask search resolves through more than one provider-owned host. Discovery
+// may therefore return an episode URL on e.q-ask.video even though the
+// provider's canonical base URL is far.q-ask.video. Keep both explicit in the
+// SSRF allowlist so the public /v1/imports contract can safely reuse the
+// source_url returned by discovery.
+qask.allowedHosts = [
+  "far.q-ask.video",
+  "e.q-ask.video"
+];
+
 class ProviderRegistry {
   constructor() {
     this.providers = new Map();
