@@ -37,23 +37,15 @@ const SAFE_DETAIL_KEYS = new Set([
 
 function requestContext(req, res, next) {
   const incoming = String(req.headers["x-request-id"] || "");
-  req.requestId = /^[A-Za-z0-9._:-]{1,100}$/.test(incoming)
-    ? incoming
-    : crypto.randomUUID();
+  req.requestId = /^[A-Za-z0-9._:-]{1,100}$/.test(incoming) ? incoming : crypto.randomUUID();
   res.setHeader("X-Request-Id", req.requestId);
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=()"
-  );
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   if (process.env.NODE_ENV === "production" && req.secure) {
-    res.setHeader(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains"
-    );
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   next();
 }
@@ -63,10 +55,7 @@ function errorEnvelope(req, res, next) {
   res.json = body => {
     if (!body || typeof body.error !== "string") return originalJson(body);
     const { error: code, ...candidateDetails } = body;
-    const details = Object.fromEntries(
-      Object.entries(candidateDetails)
-        .filter(([key]) => SAFE_DETAIL_KEYS.has(key))
-    );
+    const details = Object.fromEntries(Object.entries(candidateDetails).filter(([key]) => SAFE_DETAIL_KEYS.has(key)));
     return originalJson({
       error: {
         schema_version: ERROR_SCHEMA_VERSION,
@@ -92,35 +81,18 @@ function corsPolicy(config) {
   return (req, res, next) => {
     const rawOrigin = String(req.headers?.origin || "");
     if (!rawOrigin) return next();
-
     let origin;
-    try {
-      origin = new URL(rawOrigin).origin;
-    } catch {
-      return res.status(403).json({ error: "CORS_ORIGIN_DENIED" });
-    }
-
+    try { origin = new URL(rawOrigin).origin; } catch { return res.status(403).json({ error: "CORS_ORIGIN_DENIED" }); }
     const host = String(req.get?.("host") || req.headers?.host || "");
     const protocol = String(req.protocol || "http");
     const sameOrigin = host && origin === protocol + "://" + host;
-
-    if (!sameOrigin && !allowed.has(origin)) {
-      return res.status(403).json({ error: "CORS_ORIGIN_DENIED" });
-    }
-
+    if (!sameOrigin && !allowed.has(origin)) return res.status(403).json({ error: "CORS_ORIGIN_DENIED" });
     appendVary(res, "Origin");
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Authorization, Content-Type, X-Request-Id"
-    );
+    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id");
     res.setHeader("Access-Control-Max-Age", "600");
-
-    if (req.method === "OPTIONS") {
-      res.statusCode = 204;
-      return res.end();
-    }
+    if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
     next();
   };
 }
@@ -133,12 +105,8 @@ function bearerToken(header) {
 function publicClientRequest(req) {
   const method = String(req.method || "").toUpperCase();
   const path = String(req.path || "");
-
-  if (method === "GET" && ["/", "/api", "/livez", "/readyz"].includes(path)) {
-    return true;
-  }
+  if (method === "GET" && ["/", "/api", "/livez", "/readyz"].includes(path)) return true;
   if (!path.startsWith("/v1/")) return false;
-
   if (method === "GET") {
     return (
       path === "/v1/search" ||
@@ -153,7 +121,6 @@ function publicClientRequest(req) {
       /^\/v1\/playback\/sessions\/[^/]+\/media$/.test(path)
     );
   }
-
   if (method === "POST") {
     return (
       path === "/v1/playback/sessions" ||
@@ -162,7 +129,6 @@ function publicClientRequest(req) {
       /^\/v1\/playback\/sessions\/[^/]+\/feedback$/.test(path)
     );
   }
-
   return false;
 }
 
@@ -171,13 +137,11 @@ function authentication(config) {
     if (invalidText(req.originalUrl, 2_048)) {
       return res.status(414).json({ error: "URI_TOO_LONG", message: "Request URI is too long or contains control characters." });
     }
-    if (
-      !config.authRequired ||
-      req.method === "OPTIONS" ||
-      publicClientRequest(req)
-    ) return next();
+    if (!config.authRequired || req.method === "OPTIONS" || publicClientRequest(req)) return next();
     const token = bearerToken(req.headers.authorization);
-    if (!tokensEqual(token, config.apiToken)) {
+    const primaryValid = tokensEqual(token, config.apiToken);
+    const serviceValid = Boolean(config.serviceToken) && tokensEqual(token, config.serviceToken);
+    if (!primaryValid && !serviceValid) {
       res.setHeader("WWW-Authenticate", "Bearer");
       return res.status(401).json({ error: "UNAUTHORIZED", message: "A valid Bearer token is required." });
     }
@@ -193,8 +157,6 @@ function rateLimiter(config, now = () => Date.now(), options = {}) {
   return (req, res, next) => {
     const timestamp = now();
     const address = req.ip || req.socket?.remoteAddress || "unknown";
-    // Never use X-Forwarded-For directly. Express only populates req.ip from
-    // it when the deployment explicitly configured a trusted proxy hop count.
     const key = `${scope}:${address}`;
     let entry = clients.get(key);
     if (!entry || entry.resetAt <= timestamp) {
@@ -234,13 +196,9 @@ function providerHosts(provider) {
   for (const value of values) {
     if (!value) continue;
     try {
-      const parsed = String(value).includes("://")
-        ? new URL(value)
-        : new URL(`https://${value}`);
+      const parsed = String(value).includes("://") ? new URL(value) : new URL(`https://${value}`);
       hosts.add(parsed.hostname.toLowerCase());
-    } catch {
-      // Invalid provider-owned configuration is never made caller-accessible.
-    }
+    } catch {}
   }
   return hosts;
 }
@@ -249,14 +207,11 @@ function validProviderTarget(provider, value) {
   const text = String(value ?? "").trim();
   if (!text || invalidText(text, 500)) return false;
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) return true;
-
   try {
     const parsed = new URL(text);
     if (parsed.protocol !== "https:" || parsed.username || parsed.password) return false;
     return providerHosts(provider).has(parsed.hostname.toLowerCase());
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 function inputGuard(config) {
@@ -265,22 +220,12 @@ function inputGuard(config) {
     if (depth > 8) return false;
     if (typeof value === "string") return !invalidText(value, config.maxIdentifierLength);
     if (!value || typeof value !== "object") return true;
-    return Object.keys(value).every(key => (
-      !forbidden.has(key) &&
-      !invalidText(key, config.maxIdentifierLength) &&
-      inspect(value[key], depth + 1)
-    ));
+    return Object.keys(value).every(key => !forbidden.has(key) && !invalidText(key, config.maxIdentifierLength) && inspect(value[key], depth + 1));
   }
   return (req, res, next) => {
     let pathSegments;
-    try {
-      pathSegments = String(req.path || "")
-        .split("/")
-        .filter(Boolean)
-        .map(segment => decodeURIComponent(segment));
-    } catch {
-      return res.status(400).json({ error: "INVALID_PATH", message: "Request path encoding is invalid." });
-    }
+    try { pathSegments = String(req.path || "").split("/").filter(Boolean).map(segment => decodeURIComponent(segment)); }
+    catch { return res.status(400).json({ error: "INVALID_PATH", message: "Request path encoding is invalid." }); }
     if (pathSegments.some(segment => invalidText(segment, config.maxIdentifierLength))) {
       return res.status(400).json({ error: "INVALID_PATH", message: "A path identifier is malformed or too large." });
     }
@@ -304,17 +249,8 @@ function errorHandler(error, req, res, _next) {
   if (res.headersSent) return res.end();
   const bodyError = error?.type === "entity.too.large";
   const status = bodyError ? 413 : 500;
-  if (!bodyError) {
-    logger.error("http_request_failed", {
-      request_id: safeLogValue(req.requestId, "unknown"),
-      error_code: safeLogValue(error?.code, "UNEXPECTED_ERROR"),
-      error_name: safeLogValue(error?.name, "Error")
-    });
-  }
-  return res.status(status).json({
-    error: bodyError ? "REQUEST_BODY_TOO_LARGE" : "INTERNAL_ERROR",
-    message: bodyError ? "Request body exceeds the configured limit." : "An internal error occurred."
-  });
+  if (!bodyError) logger.error("http_request_failed", { request_id: safeLogValue(req.requestId, "unknown"), error_code: safeLogValue(error?.code, "UNEXPECTED_ERROR"), error_name: safeLogValue(error?.name, "Error") });
+  return res.status(status).json({ error: bodyError ? "REQUEST_BODY_TOO_LARGE" : "INTERNAL_ERROR", message: bodyError ? "Request body exceeds the configured limit." : "An internal error occurred." });
 }
 
 module.exports = {
