@@ -49,21 +49,33 @@ function healthPoints(candidate = {}) {
   return clamp(score, 0, 210);
 }
 
+function supportsIntent(candidate = {}, intent = 'watch') {
+  const capabilities = candidate.capabilities || {};
+  return capabilities[intent] !== false;
+}
+
 function capabilityPoints(candidate = {}, intent = 'watch') {
   const capabilities = candidate.capabilities || {};
-  if (intent === 'download') return capabilities.download === false ? -100 : capabilities.download === true ? 20 : 0;
-  return capabilities.watch === false ? -100 : capabilities.watch === true ? 20 : 0;
+  return capabilities[intent] === true ? 20 : 0;
 }
 
 function scoreResource(candidate = {}, options = {}) {
   const intent = options.intent === 'download' ? 'download' : 'watch';
+  const eligible = supportsIntent(candidate, intent);
   const components = {
     quality: qualityPoints(candidate),
     health: healthPoints(candidate),
     capability: capabilityPoints(candidate, intent),
   };
-  const total = components.quality + components.health + components.capability;
-  return { total: Math.round(total * 100) / 100, components, intent };
+  const total = eligible
+    ? components.quality + components.health + components.capability
+    : null;
+  return {
+    eligible,
+    total: total === null ? null : Math.round(total * 100) / 100,
+    components,
+    intent,
+  };
 }
 
 function rankResources(candidates = [], options = {}) {
@@ -71,8 +83,15 @@ function rankResources(candidates = [], options = {}) {
     ...candidate,
     resourceScore: scoreResource(candidate, options),
     _stableOrder: index,
-  })).sort((a, b) => b.resourceScore.total - a.resourceScore.total || a._stableOrder - b._stableOrder)
+  })).filter(candidate => candidate.resourceScore.eligible)
+    .sort((a, b) => b.resourceScore.total - a.resourceScore.total || a._stableOrder - b._stableOrder)
     .map(({ _stableOrder, ...candidate }) => candidate);
 }
 
-module.exports = { scoreResource, rankResources, qualityPoints, healthPoints };
+module.exports = {
+  scoreResource,
+  rankResources,
+  qualityPoints,
+  healthPoints,
+  supportsIntent,
+};
