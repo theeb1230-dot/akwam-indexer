@@ -13,6 +13,10 @@ const {
 const health =
   require("./playback-health");
 
+const {
+  rankResources
+} = require("./resource-quality");
+
 function providerDiversePlan(candidates) {
   const primary = [];
   const secondary = [];
@@ -35,6 +39,28 @@ function maxAttemptLimit(options = {}) {
   const raw = Number(options.maxAttempts || process.env.PLAYBACK_MAX_ATTEMPTS || 12);
   if (!Number.isFinite(raw)) return 12;
   return Math.max(1, Math.min(50, Math.floor(raw)));
+}
+
+function playbackIntent(params = {}) {
+  return params.intent === "download" ? "download" : "watch";
+}
+
+function resourceCandidate(candidate = {}) {
+  const healthState = candidate.playback_health || candidate.health || {};
+  const successes = Number(healthState.success_count || 0);
+  const failures = Number(healthState.failure_count || 0);
+  const total = successes + failures;
+  const verification = candidate.playback_verification || {};
+
+  return {
+    ...candidate,
+    health: {
+      successRate: total > 0 ? successes / total : candidate.successRate,
+      latencyMs: healthState.avg_latency_ms ?? candidate.latencyMs,
+      verified: verification.health_state === "PLAYBACK_VERIFIED" || candidate.verified,
+    },
+    verifiedAt: verification.verified_at || verification.updated_at || candidate.verifiedAt,
+  };
 }
 
 function resolutionSummary(resolved) {
@@ -98,13 +124,18 @@ async function executePlayback(
   const resolved =
     await resolve(params);
 
+  const intent = playbackIntent(params);
   const healthPolicy = options.health || health;
-  const rankedPlan =
+  const healthRanked =
     await healthPolicy.ranked(
       resolved.playback_plan || [],
       { region: params.region || null }
     );
-  const plan = providerDiversePlan(rankedPlan);
+  const resourceRanked = rankResources(
+    healthRanked.map(resourceCandidate),
+    { intent }
+  );
+  const plan = providerDiversePlan(resourceRanked);
   const maxAttempts = maxAttemptLimit(options);
 
   const resolution =
@@ -163,6 +194,9 @@ async function executePlayback(
           candidate.type,
         quality:
           candidate.quality || null,
+        intent,
+        resource_score:
+          candidate.resourceScore || null,
         attempt:
           attemptNumber,
         ...result,
@@ -187,6 +221,7 @@ async function executePlayback(
       ) {
         return {
           status: "ready",
+          intent,
           canonical_key:
             resolved.canonical_key,
           title:
@@ -218,6 +253,7 @@ async function executePlayback(
 
   return {
     status: "unavailable",
+    intent,
     attempt_limit_reached: attempts.length >= maxAttempts,
     canonical_key:
       resolved.canonical_key,
@@ -239,5 +275,7 @@ module.exports = {
   resolutionSummary,
   providerDiversePlan,
   maxAttemptLimit,
+  playbackIntent,
+  resourceCandidate,
   executePlayback
 };
