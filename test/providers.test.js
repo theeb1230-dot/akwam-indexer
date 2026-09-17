@@ -36,9 +36,17 @@ test("provider descriptions reflect canonical callable capabilities", () => {
     assert.equal(typeof description.capabilities.watch, "boolean");
     assert.equal(typeof description.capabilities.download, "boolean");
     assert.equal(
+      description.capabilities.watch,
+      typeof provider.getWatch === "function" ||
+        typeof provider.resolveWatch === "function" ||
+        typeof provider.getWatchInfo === "function" ||
+        provider.capabilities?.watch === true
+    );
+    assert.equal(
       description.capabilities.download,
       typeof provider.getDownload === "function" ||
         typeof provider.resolveDownload === "function" ||
+        typeof provider.getDownloadOptions === "function" ||
         provider.capabilities?.download === true
     );
   }
