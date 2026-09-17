@@ -15,8 +15,16 @@ function describeProvider(provider) {
     movies: provider.capabilities?.movies,
     series: typeof provider.getSeries === 'function' || provider.capabilities?.series,
     episodes: typeof provider.getEpisode === 'function' || typeof provider.getEpisodes === 'function' || provider.capabilities?.episodes,
-    watch: typeof provider.getWatch === 'function' || typeof provider.resolveWatch === 'function' || provider.capabilities?.watch,
-    download: typeof provider.getDownload === 'function' || typeof provider.resolveDownload === 'function' || provider.capabilities?.download,
+    watch:
+      typeof provider.getWatch === 'function' ||
+      typeof provider.resolveWatch === 'function' ||
+      typeof provider.getWatchInfo === 'function' ||
+      provider.capabilities?.watch,
+    download:
+      typeof provider.getDownload === 'function' ||
+      typeof provider.resolveDownload === 'function' ||
+      typeof provider.getDownloadOptions === 'function' ||
+      provider.capabilities?.download,
   };
   return { id, capabilities: normalizeCapabilities(inferred) };
 }
