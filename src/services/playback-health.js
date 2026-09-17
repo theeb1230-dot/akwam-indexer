@@ -56,24 +56,14 @@ function withRepository(customRepository) {
     const healthy = result.status === "healthy";
     const successes = Number(current?.success_count || 0) + (healthy ? 1 : 0);
     const failures = Number(current?.failure_count || 0) + (healthy ? 0 : 1);
-    const consecutiveFailures = healthy
-      ? 0
-      : Number(current?.consecutive_failures || 0) + 1;
+    const consecutiveFailures = healthy ? 0 : Number(current?.consecutive_failures || 0) + 1;
     const previousAverage = Number(current?.avg_latency_ms || 0);
     const total = successes + failures;
-    const average = Math.round(
-      (
-        previousAverage * Math.max(total - 1, 0) +
-        Number(result.latency_ms || 0)
-      ) / Math.max(total, 1)
-    );
-
+    const average = Math.round((previousAverage * Math.max(total - 1, 0) + Number(result.latency_ms || 0)) / Math.max(total, 1));
     const nowIso = new Date().toISOString();
     const circuitUntil = consecutiveFailures >= threshold
       ? new Date(Date.now() + cooldownMs).toISOString()
-      : healthy
-        ? null
-        : current?.circuit_open_until || null;
+      : healthy ? null : current?.circuit_open_until || null;
 
     return store.upsertHealth({
       candidate_key: key,
@@ -99,11 +89,7 @@ function withRepository(customRepository) {
   }
 
   function candidateRegions(candidate) {
-    const values = Array.isArray(candidate.regions)
-      ? candidate.regions
-      : candidate.region
-        ? [candidate.region]
-        : [];
+    const values = Array.isArray(candidate.regions) ? candidate.regions : candidate.region ? [candidate.region] : [];
     return [...new Set(values.map(normalizeRegion).filter(Boolean))];
   }
 
@@ -115,59 +101,39 @@ function withRepository(customRepository) {
     return regions.includes(preferred) ? 12 : -8;
   }
 
-  async function scoreCandidate(candidate, options = {}) {
-    const [health, verification] = await Promise.all([
-      getHealth(candidate),
-      getPlaybackVerification(candidate)
-    ]);
-
-    const verificationScore = verification?.health_state === "PLAYBACK_VERIFIED"
-      ? 45
-      : verification?.health_state === "REACHABLE"
-        ? 5
-        : verification?.health_state === "DEGRADED"
-          ? -20
-          : 0;
-
-    const typeScore = {
-      direct_mp4: 35,
-      hls: 30,
-      direct: 25,
-      embed: 15,
-      external_player: 5
-    }[candidate.type] || 0;
-
-    const qualityScore = {
-      "2160p": 20,
-      "1080p": 16,
-      "720p": 12,
-      "480p": 7,
-      "360p": 3
-    }[String(candidate.quality || "").toLowerCase()] || 0;
-
+  function scoreCandidateState(candidate, health, verification, options = {}) {
+    const verificationScore = verification?.health_state === "PLAYBACK_VERIFIED" ? 45
+      : verification?.health_state === "REACHABLE" ? 5
+        : verification?.health_state === "DEGRADED" ? -20 : 0;
+    const typeScore = { direct_mp4: 35, hls: 30, direct: 25, embed: 15, external_player: 5 }[candidate.type] || 0;
+    const qualityScore = { "2160p": 20, "1080p": 16, "720p": 12, "480p": 7, "360p": 3 }[String(candidate.quality || "").toLowerCase()] || 0;
     const localityScore = regionScore(candidate, options.region);
 
     if (!health) {
-      return 50 + typeScore + qualityScore + verificationScore + localityScore -
-        Number(candidate.fallback_order || 100) / 10;
+      return 50 + typeScore + qualityScore + verificationScore + localityScore - Number(candidate.fallback_order || 100) / 10;
     }
 
     const total = Number(health.success_count) + Number(health.failure_count);
     const successRate = total > 0 ? Number(health.success_count) / total : 0.5;
     const latencyPenalty = Math.min(Number(health.avg_latency_ms || 0) / 250, 20);
+    return typeScore + qualityScore + verificationScore + localityScore + successRate * 50 - latencyPenalty - Number(health.consecutive_failures || 0) * 8;
+  }
 
-    return typeScore + qualityScore + verificationScore + localityScore + successRate * 50 -
-      latencyPenalty - Number(health.consecutive_failures || 0) * 8;
+  async function scoreCandidate(candidate, options = {}) {
+    const [health, verification] = await Promise.all([getHealth(candidate), getPlaybackVerification(candidate)]);
+    return scoreCandidateState(candidate, health, verification, options);
   }
 
   async function ranked(candidates, options = {}) {
-    const items = await Promise.all(
-      [...candidates].map(async candidate => ({
+    const items = await Promise.all([...candidates].map(async candidate => {
+      const [playbackHealth, verification] = await Promise.all([getHealth(candidate), getPlaybackVerification(candidate)]);
+      return {
         ...candidate,
-        playback_verification: await getPlaybackVerification(candidate),
-        health_score: Math.round((await scoreCandidate(candidate, options)) * 100) / 100
-      }))
-    );
+        playback_health: playbackHealth || null,
+        playback_verification: verification || null,
+        health_score: Math.round(scoreCandidateState(candidate, playbackHealth, verification, options) * 100) / 100
+      };
+    }));
     return items.sort((a, b) => (
       b.health_score - a.health_score ||
       Number(a.fallback_order || 100) - Number(b.fallback_order || 100) ||
@@ -176,21 +142,7 @@ function withRepository(customRepository) {
     ));
   }
 
-  return {
-    getHealth,
-    getPlaybackVerification,
-    circuitOpen,
-    recordResult,
-    scoreCandidate,
-    ranked,
-    normalizeRegion,
-    candidateRegions,
-    regionScore
-  };
+  return { getHealth, getPlaybackVerification, circuitOpen, recordResult, scoreCandidate, ranked, normalizeRegion, candidateRegions, regionScore };
 }
 
-module.exports = {
-  candidateKey,
-  withRepository,
-  ...withRepository()
-};
+module.exports = { candidateKey, withRepository, ...withRepository() };
