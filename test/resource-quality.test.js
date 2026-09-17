@@ -32,6 +32,20 @@ test('provider descriptor infers capabilities without coupling core to provider 
   assert.deepEqual(assertProviderContract(provider, ['search', 'watch']), descriptor);
 });
 
+test('provider descriptor preserves legacy watch/download method compatibility', () => {
+  const provider = {
+    id: 'legacy-fixture',
+    getSeries() {},
+    getEpisode() {},
+    getWatchInfo() {},
+    getDownloadOptions() {},
+  };
+  const descriptor = describeProvider(provider);
+  assert.equal(descriptor.capabilities.watch, true);
+  assert.equal(descriptor.capabilities.download, true);
+  assert.deepEqual(assertProviderContract(provider, ['watch', 'download']), descriptor);
+});
+
 test('provider contract fails closed when a required capability is absent', () => {
   assert.throws(() => assertProviderContract({ id: 'fixture', search() {} }, ['download']), (error) => {
     assert.equal(error.code, 'PROVIDER_CAPABILITY_MISSING');

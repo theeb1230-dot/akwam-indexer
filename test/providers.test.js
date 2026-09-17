@@ -26,17 +26,28 @@ test("every provider satisfies the required contract", () => {
   }
 });
 
-test("provider descriptions reflect callable capabilities", () => {
+test("provider descriptions reflect canonical callable capabilities", () => {
   for (const description of providers.describeAll()) {
+    const provider = providers.get(description.name);
     assert.equal(typeof description.name, "string");
     assert.equal(description.capabilities.series, true);
-    assert.equal(description.capabilities.episode, true);
+    assert.equal(description.capabilities.episodes, true);
     assert.equal(typeof description.capabilities.search, "boolean");
     assert.equal(typeof description.capabilities.watch, "boolean");
     assert.equal(typeof description.capabilities.download, "boolean");
     assert.equal(
+      description.capabilities.watch,
+      typeof provider.getWatch === "function" ||
+        typeof provider.resolveWatch === "function" ||
+        typeof provider.getWatchInfo === "function" ||
+        provider.capabilities?.watch === true
+    );
+    assert.equal(
       description.capabilities.download,
-      typeof providers.get(description.name).getDownloadOptions === "function"
+      typeof provider.getDownload === "function" ||
+        typeof provider.resolveDownload === "function" ||
+        typeof provider.getDownloadOptions === "function" ||
+        provider.capabilities?.download === true
     );
   }
 });
@@ -45,7 +56,6 @@ test("provider names are normalized", () => {
   assert.equal(providers.has(" AKWAM "), true);
   assert.equal(providers.get("WeCiMa"), providers.get("wecima"));
 });
-
 
 const {
   normalizePlaybackSource,
@@ -61,17 +71,13 @@ test("playback sources distinguish direct media from embeds", () => {
     "direct_mp4"
   );
 
-  const embed =
-    normalizePlaybackSource({
-      type: "embed",
-      embed_url: "https://player.example/embed/1"
-    });
+  const embed = normalizePlaybackSource({
+    type: "embed",
+    embed_url: "https://player.example/embed/1"
+  });
 
   assert.equal(embed.type, "embed");
-  assert.equal(
-    embed.client_url,
-    "https://player.example/embed/1"
-  );
+  assert.equal(embed.client_url, "https://player.example/embed/1");
 });
 
 test("playback plan ranks direct media before ordered embeds", () => {
@@ -115,9 +121,7 @@ test("playback plan ranks direct media before ordered embeds", () => {
   ]);
 
   assert.deepEqual(
-    plan.map(item =>
-      `${item.provider}:${item.type}:${item.server || ""}`
-    ),
+    plan.map(item => `${item.provider}:${item.type}:${item.server || ""}`),
     [
       "akwam:direct_mp4:",
       "wecima:embed:mp4",
@@ -125,7 +129,6 @@ test("playback plan ranks direct media before ordered embeds", () => {
     ]
   );
 });
-
 
 test("fallback plan exposes stable retry order", () => {
   const plan = buildPlaybackPlan([{
@@ -146,14 +149,10 @@ test("fallback plan exposes stable retry order", () => {
     }]
   }]);
 
-  assert.deepEqual(
-    plan.map(item => item.fallback_order),
-    [1, 2]
-  );
+  assert.deepEqual(plan.map(item => item.fallback_order), [1, 2]);
   assert.equal(plan[0].server, "mp4");
   assert.equal(plan[0].fallback_on.includes("GEO_BLOCKED"), true);
 });
-
 
 test("Q-Ask helpers derive season generically and expose embed watch options", () => {
   const qask = providers.get("qask");

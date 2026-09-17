@@ -6,6 +6,7 @@ const lodynet = require("./lodynet");
 const qask = require("./qask");
 const cimaleek = require("./cimaleek");
 const laaroza = require("./laaroza");
+const { describeProvider, assertProviderContract } = require("./contract");
 
 // Q-Ask search resolves through more than one provider-owned host. Discovery
 // may therefore return an episode URL on e.q-ask.video even though the
@@ -117,13 +118,19 @@ class ProviderRegistry {
     }));
   }
 
+  capable(capability) {
+    return this.entries().filter(({ provider }) => {
+      try {
+        return assertProviderContract(provider, [capability]).capabilities[capability];
+      } catch (error) {
+        if (error.code === "PROVIDER_CAPABILITY_MISSING") return false;
+        throw error;
+      }
+    });
+  }
+
   searchable() {
-    return this.entries()
-      .filter(
-        item =>
-          typeof item.provider.search ===
-          "function"
-      );
+    return this.capable("search");
   }
 
   describe(name) {
@@ -133,33 +140,12 @@ class ProviderRegistry {
     const provider =
       this.get(key);
 
+    const descriptor = describeProvider(provider);
+
     return {
       name: key,
-
-      display_name:
-        provider.name || key,
-
-      capabilities: {
-        search:
-          typeof provider.search ===
-          "function",
-
-        series:
-          typeof provider.getSeries ===
-          "function",
-
-        episode:
-          typeof provider.getEpisode ===
-          "function",
-
-        watch:
-          typeof provider.getWatchInfo ===
-          "function",
-
-        download:
-          typeof provider.getDownloadOptions ===
-          "function"
-      }
+      display_name: provider.name || key,
+      capabilities: descriptor.capabilities
     };
   }
 
