@@ -17,7 +17,8 @@ function runProbe({ readyOn = Infinity, maxAttempts = 3 } = {}) {
     env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, THEEB_UI_MAX_ATTEMPTS: String(maxAttempts), THEEB_UI_SLEEP_SECONDS: '0' },
     encoding: 'utf8',
   });
-  return { ...result, attempts: Number(fs.readFileSync(count, 'utf8')) };
+  const attempts = fs.existsSync(count) ? Number(fs.readFileSync(count, 'utf8')) : 0;
+  return { ...result, attempts };
 }
 
 test('waits until the expected editable control exists', () => {
@@ -34,8 +35,9 @@ test('fails closed after the bounded attempt budget', () => {
   assert.match(result.stderr, /ANDROID_UI_READINESS_TIMEOUT/);
 });
 
-test('rejects an unbounded attempt budget', () => {
+test('rejects an unbounded attempt budget before invoking adb', () => {
   const result = runProbe({ readyOn: 1, maxAttempts: 31 });
   assert.equal(result.status, 2);
+  assert.equal(result.attempts, 0);
   assert.match(result.stderr, /UI_MAX_ATTEMPTS_OUT_OF_RANGE/);
 });
