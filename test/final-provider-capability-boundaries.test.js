@@ -21,10 +21,9 @@ test('universal provider contract exposes the required independent capabilities'
 });
 
 test('registry capability lookup fails closed instead of silently falling back', () => {
-  const fixture = { id: 'fixture', search: async () => [] };
-  const registry = new providers.ProviderRegistry({ fixture });
-  assert.equal(registry.getCapable('fixture', 'search'), fixture);
-  assert.throws(() => registry.getCapable('fixture', 'download'), error => error.code === 'PROVIDER_CAPABILITY_MISSING');
+  const akwam = providers.get('akwam');
+  assert.equal(providers.getCapable('akwam', 'series'), akwam);
+  assert.throws(() => providers.getCapable('akwam', 'not-a-capability'), error => error.code === 'PROVIDER_CAPABILITY_MISSING');
 });
 
 test('public playback boundary explicitly enforces watch capability', () => {
