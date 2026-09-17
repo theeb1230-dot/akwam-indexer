@@ -1,3 +1,5 @@
+const ORIGIN_TIMEOUT_MS = 8000;
+
 const CONTROL_PATHS = [
   "/v1/",
   "/api/search",
@@ -25,7 +27,8 @@ async function proxy(request, base) {
     method: request.method,
     headers,
     body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
-    redirect: "manual"
+    redirect: "manual",
+    signal: AbortSignal.timeout(ORIGIN_TIMEOUT_MS)
   }));
 }
 
