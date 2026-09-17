@@ -97,6 +97,12 @@ class ProviderRegistry {
     return provider;
   }
 
+  getCapable(name, capability) {
+    const provider = this.get(name);
+    assertProviderContract(provider, [capability]);
+    return provider;
+  }
+
   has(name) {
     return this.providers.has(
       this.normalizeName(name)

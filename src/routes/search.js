@@ -2,11 +2,22 @@ const express = require("express");
 const logger = require("../observability/logger");
 
 const {
-  searchAll
+  searchAll,
+  groupResults
 } = require("../services/search-orchestrator");
+const { rankWithProviderHealth } = require("../services/search-health-ranking");
+const { createObservabilityRepository } = require("../repositories/observability-repository");
 
 const router =
   express.Router();
+
+function observabilityRepository() {
+  try {
+    return createObservabilityRepository();
+  } catch (_) {
+    return null;
+  }
+}
 
 /*
  * =========================================================
@@ -42,6 +53,22 @@ router.get(
           query
         );
 
+      // Semantic relevance remains authoritative. Playback-derived provider
+      // health is advisory and only breaks equal match-score ties. Missing or
+      // unavailable observability data is deliberately neutral so search
+      // remains available.
+      const rankedResults =
+        await rankWithProviderHealth(
+          result.results,
+          observabilityRepository()
+        );
+
+      const rankedGroups =
+        groupResults(
+          rankedResults,
+          result.query
+        );
+
       return res.json({
         query:
           result.query,
@@ -59,13 +86,13 @@ router.get(
           result.failed_providers,
 
         result_count:
-          result.count,
+          rankedResults.length,
 
         group_count:
-          result.group_count,
+          rankedGroups.length,
 
         groups:
-          result.groups,
+          rankedGroups,
 
         ...(String(
           req.query.debug ||
@@ -73,7 +100,9 @@ router.get(
         ) === "1"
           ? {
               provider_results:
-                result.provider_results
+                result.provider_results,
+              ranked_results:
+                rankedResults
             }
           : {})
       });
