@@ -6,6 +6,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const probe = path.resolve(__dirname, '../scripts/wait-for-android-ui.sh');
+const releaseWorkflow = path.resolve(__dirname, '../.github/workflows/client-release.yml');
 
 function runProbe({ readyOn = Infinity, maxAttempts = 3 } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'theeb-ui-probe-'));
@@ -40,4 +41,11 @@ test('rejects an unbounded attempt budget before invoking adb', () => {
   assert.equal(result.status, 2);
   assert.equal(result.attempts, 0);
   assert.match(result.stderr, /UI_MAX_ATTEMPTS_OUT_OF_RANGE/);
+});
+
+test('release runtime smoke uses the bounded readiness probe instead of a fixed launch delay', () => {
+  const workflow = fs.readFileSync(releaseWorkflow, 'utf8');
+  const runtimeJob = workflow.match(/  android-runtime-smoke:[\s\S]*?\n  android-tv:/)?.[0] || '';
+  assert.match(runtimeJob, /scripts\/wait-for-android-ui\.sh/);
+  assert.doesNotMatch(runtimeJob, /\n\s+sleep 4\s*\n/);
 });
