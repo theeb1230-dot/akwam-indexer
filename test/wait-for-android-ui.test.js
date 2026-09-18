@@ -43,9 +43,12 @@ test('rejects an unbounded attempt budget before invoking adb', () => {
   assert.match(result.stderr, /UI_MAX_ATTEMPTS_OUT_OF_RANGE/);
 });
 
-test('release runtime smoke uses the bounded readiness probe instead of a fixed launch delay', () => {
+test('release runtime smoke checks out the repository before invoking the bounded readiness probe', () => {
   const workflow = fs.readFileSync(releaseWorkflow, 'utf8');
   const runtimeJob = workflow.match(/  android-runtime-smoke:[\s\S]*?\n  android-tv:/)?.[0] || '';
-  assert.match(runtimeJob, /scripts\/wait-for-android-ui\.sh/);
+  const checkoutIndex = runtimeJob.indexOf('actions/checkout@');
+  const probeIndex = runtimeJob.indexOf('scripts/wait-for-android-ui.sh');
+  assert.ok(checkoutIndex >= 0, 'android-runtime-smoke must checkout the repository so the probe exists');
+  assert.ok(probeIndex > checkoutIndex, 'bounded readiness probe must run after checkout');
   assert.doesNotMatch(runtimeJob, /\n\s+sleep 4\s*\n/);
 });
